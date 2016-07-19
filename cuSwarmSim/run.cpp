@@ -36,7 +36,51 @@ void drawInterface(float window_width, float window_height)
 		glVertex3f(obstacles[i].x, obstacles[i].y + obstacles[i].w, 0.0f);
 		glEnd();
 	}
-	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+	// Update explored grid values and draw grid square on screen
+	uint world_size = static_cast<uint>(p.world_size);
+	uint explore_cell_size = static_cast<uint>(p.explore_cell_size);
+	for (uint i = 0; i < world_size; i += explore_cell_size) {
+		for (uint j = 0; j < world_size; j += explore_cell_size) {
+			// Get the world coordinates for this iteration
+			float world_x = static_cast<float>(-world_size_2 + i);
+			float world_y = static_cast<float>(-world_size_2 + j);
+
+			// Only do the following if the cell is within range of the swarm bounds
+			// Only do the following every 5 steps, and if not paused
+			if ((world_x > data[6] - p.max_d) && (world_x < data[7] + p.max_d) &&
+				(world_y > data[8] - p.max_d) && (world_y < data[9] + p.max_d) && 
+				step_num % 5 == 0 && !paused) {
+				// Increment explored value by 1 for each robot within range of this 
+				// cell (meaning this cell is seen by the robot)
+				for (uint n = 0; n < num_robots; n++) {
+					if (eucl2(world_x + 0.5f, world_y + 0.5f, 
+						positions[n].x, positions[n].y) <= p.max_d) {
+						explored_grid[i][j]++;
+					}
+				}
+
+				// Restrict the explored value from [0, p.max_explore]
+				explored_grid[i][j] = min(explored_grid[i][j],
+					static_cast<int>(p.max_explore));
+				explored_grid[i][j] = max(explored_grid[i][j], 0);
+			}
+
+			// Now draw the grid cell if explored
+			float explored_color = 0.4f * (static_cast<float>(explored_grid[i][j]) / 
+				p.max_explore);
+			if (explored_color > 0.0f) {
+				glColor4f(explored_color, explored_color, explored_color, 1.0f);
+				glBegin(GL_POLYGON);
+				glVertex3f(world_x, world_y, -0.2f);
+				glVertex3f(world_x + p.explore_cell_size, world_y, -0.2f);
+				glVertex3f(world_x + p.explore_cell_size,
+					world_y + p.explore_cell_size, -0.2f);
+				glVertex3f(world_x, world_y + p.explore_cell_size, -0.2f);
+				glEnd();
+			}
+		}
+	}
 
 	// Set color to cyan for user inputs
 	glColor4f(0.0f, 1.0f, 1.0f, 1.0f);
@@ -107,6 +151,21 @@ void keyboard(unsigned char key, int x, int y)
 	case ' ': {
 		// Pause / resume the simulation
 		paused = !paused;
+		break;
+	}
+	case '1': {
+		// Switch to rendezvous
+		p.behavior = 0.0f;
+		break;
+	}
+	case '2': {
+		// Switch to flocking
+		p.behavior = 1.0f;
+		break;
+	}
+	case '3': {
+		// Switch to dispersion
+		p.behavior = 2.0f;
 		break;
 	}
 	case 27: { // Escape key
@@ -528,8 +587,12 @@ void loadParameters(std::string filename)
 				p.cohere_weight = std::stof(tokens[1]);
 			else if (tokens[0] == "current")
 				p.current = std::stof(tokens[1]);
+			else if (tokens[0] == "explore_cell_size")
+				p.explore_cell_size = std::stof(tokens[1]);
 			else if (tokens[0] == "hops")
 				p.hops = std::stof(tokens[1]);
+			else if (tokens[0] == "information_mode")
+				p.information_mode = std::stof(tokens[1]);
 			else if (tokens[0] == "max_a")
 				p.max_a = std::stof(tokens[1]);
 			else if (tokens[0] == "max_b")
@@ -538,6 +601,8 @@ void loadParameters(std::string filename)
 				p.max_c = std::stof(tokens[1]);
 			else if (tokens[0] == "max_d")
 				p.max_d = std::stof(tokens[1]);
+			else if (tokens[0] == "max_explore")
+				p.max_explore = std::stof(tokens[1]);
 			else if (tokens[0] == "max_obstacle_size")
 				p.max_obstacle_size = std::stof(tokens[1]);
 			else if (tokens[0] == "noise")
@@ -758,6 +823,12 @@ int main(int argc, char** argv)
 	// Get the world size for this simulation
 	ws_uint = static_cast<uint>(p.world_size);
 	ws_2 = p.world_size / 2.0f;
+
+	// Create the explored grid
+	explored_grid = new int*[ws_uint];
+	for (uint i = 0; i < ws_uint; i++) {
+		explored_grid[i] = new int[ws_uint];
+	}
 
 	// Begin paused if showing the GUI, otherwise start immediately
 #ifdef GUI

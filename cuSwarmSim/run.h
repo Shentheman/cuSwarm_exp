@@ -15,14 +15,6 @@
 #include "kernels.cuh"
 #include "data_ops.h"
 
-/***********************************
-***** STRUCTURES AND TYPEDEFS ******
-***********************************/
-
-enum SimulationMode {
-	MAIN, TRANSITION, POSITION_EST, HEADING_EST
-};
-
 /*********************
 ***** VARIABLES ******
 *********************/
@@ -36,6 +28,8 @@ bool paused;							// Simulation paused state
 Parameters p;							// Parameters structure
 float3 goal_vector;						// Goal heading / speed (flocking only)
 float goal_heading;						// goal heading only
+int** explored_grid;					// Grid covering the whole environment, 
+										// showing how explored each cell is
 
 // Data variables
 float4* positions;						// Robot positions

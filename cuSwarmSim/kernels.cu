@@ -160,7 +160,7 @@ void launchMainKernel(float3 gp, uint sn, Parameters p)
 		sn);
 
 	// Synchronize kernels on device
-	cudaDeviceSynchronize();
+	//cudaDeviceSynchronize();
 
 #ifdef GUI
 	// Unmap OpenGL buffer object
@@ -229,7 +229,7 @@ __global__ void init_kernel(float4* pos, float3* vel, int* mode,
 
 	// Set the initial color
 	Color color;
-	setColor(&(color.components), 1);
+	setColor(&(color.components), 1, p);
 
 	// Set speed manually from params.txt
 	float speed = p.vel_bound / 60.0f;
@@ -479,7 +479,7 @@ __global__ void main_kernel(float4* pos, float3* vel, int* mode,
 
 	// Set the color based on current mode (leaders in red)
 	Color color;
-	setColor(&(color.components), myMode);
+	setColor(&(color.components), myMode, p);
 	// Update velocity and mode once every update_period steps (see params.txt file)
 	if ((sn + i) % static_cast<int>(p.update_period) == 0 || sn == 0) {
 		vel[i] = make_float3(goal.x, goal.y, mySpeed);
@@ -607,18 +607,29 @@ __device__ bool checkOccupancy(float x, float y, bool* occupancy, Parameters p)
 	}
 }
 
-__device__ void setColor(uchar4* color, int mode)
+__device__ void setColor(uchar4* color, int mode, Parameters p)
 {
-	switch (mode) {
-	case -1:
-		*color = make_uchar4(100, 100, 100, 255);
-		break;
-	case 0:
-		*color = make_uchar4(255, 0, 0, 255);
-		break;
-	default:
+	if (p.information_mode == 0.0f) {
+		// Centroid-ellipse mode
+		*color = make_uchar4(0, 0, 0, 0);
+	}
+	else if (p.information_mode == 1.0f) {
+		// Leader only mode
 		*color = make_uchar4(255, 255, 255, 255);
-		break;
+	}
+	else {
+		// Full information mode
+		switch (mode) {
+		case -1:
+			*color = make_uchar4(100, 100, 100, 255);
+			break;
+		case 0:
+			*color = make_uchar4(255, 0, 0, 255);
+			break;
+		default:
+			*color = make_uchar4(255, 255, 255, 255);
+			break;
+		}
 	}
 }
 

@@ -63,11 +63,14 @@ struct Parameters
 	float behavior;
 	float cohere_weight;
 	float current;
+	float explore_cell_size;
 	float hops;
+	float information_mode;
 	float max_a;
 	float max_b;
 	float max_c;
 	float max_d;
+	float max_explore;
 	float max_obstacle_size;
 	float noise;
 	float num_obstacles;
@@ -131,7 +134,7 @@ __device__ void obstacleAvoidance(float4 myPos, float2* avoid,
 
 __device__ bool checkOccupancy(float x, float y, bool* occupancy, Parameters p);
 
-__device__ void setColor(uchar4* color, int mode);
+__device__ void setColor(uchar4* color, int mode, Parameters p);
 
 __device__ float euclidean(float2 vector);
 
