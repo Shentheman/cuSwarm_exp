@@ -437,11 +437,16 @@ static void display(void)
 	glColor4f(1.0f, 1.0f, 1.0f, 0.5f);
 	glLineWidth(2.0);
 	for (uint i = 0; i < num_robots; i++) {
-		glBegin(GL_LINES);
-		glVertex3f(positions[i].x, positions[i].y, 0.0f);
-		glVertex3f(positions[i].x + ((100.0f * velocities[i].x) / p.vel_bound),
-			positions[i].y + ((100.0f * velocities[i].y) / p.vel_bound), 0.0f);
-		glEnd();
+		// Only draw the orientation line if in full information mode, or 
+		// leader-only mode with the robot being a leader
+		if (p.information_mode == 2.0f ||
+			(p.information_mode == 1.0f && modes[i] == 0)) {
+			glBegin(GL_LINES);
+			glVertex3f(positions[i].x, positions[i].y, 0.0f);
+			glVertex3f(positions[i].x + ((100.0f * velocities[i].x) / p.vel_bound),
+				positions[i].y + ((100.0f * velocities[i].y) / p.vel_bound), 0.0f);
+			glEnd();
+		}
 	}
 
 	// Refresh display

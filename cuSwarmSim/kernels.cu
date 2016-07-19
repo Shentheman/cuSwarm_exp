@@ -615,7 +615,17 @@ __device__ void setColor(uchar4* color, int mode, Parameters p)
 	}
 	else if (p.information_mode == 1.0f) {
 		// Leader only mode
-		*color = make_uchar4(255, 255, 255, 255);
+		switch (mode) {
+		case -1:
+			*color = make_uchar4(100, 100, 100, 255);
+			break;
+		case 0:
+			*color = make_uchar4(255, 255, 255, 255);
+			break;
+		default:
+			*color = make_uchar4(0, 0, 0, 0);
+			break;
+		}
 	}
 	else {
 		// Full information mode
