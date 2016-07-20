@@ -5,15 +5,15 @@ cohere_weight 1.0
 current 0.0
 explore_cell_size 1.0
 hops 1.0
-information_mode 0.0
+information_mode 2.0
 max_a 0.5
-max_b 1.0
-max_c 2.0
+max_b 2.0
+max_c 3.0
 max_d 4.0
 max_explore 200.0
-max_obstacle_size 30.0
+max_obstacle_size 20.0
 noise 0.0
-num_obstacles 30.0
+num_obstacles 20.0
 num_robots 128.0
 point_size 15.0
 repel_weight 1.25
@@ -21,4 +21,4 @@ update_period 1.0
 vel_bound 2.0
 window_height 0.0
 window_width 0.0
-world_size 200.0
+world_size 100.0

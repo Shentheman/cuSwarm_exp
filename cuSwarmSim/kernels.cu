@@ -500,12 +500,10 @@ __device__ void rendezvous(float4 myPos, float4 nPos, float3 nVel, float3 dist3,
 		repel->x -= weight * dist3.x;
 		repel->y -= weight * dist3.y;
 	}
-	if (dist3.z <= p.max_d && repel->x == 0.0f && repel->y == 0.0f) 
+	if (dist3.z <= p.max_d && dist3.z > p.max_a) 
 	{
 		// COHERE
-		// Do not cohere if the repel vector is non-zero
-		// Check the curren min-max bounds to see if this neighbor is furthest 
-		// so far in any dimension
+		// Robots cohere to the center of the rectangle that bounds their neighbors
 		min_bounds->x = fminf(min_bounds->x, dist3.x);
 		min_bounds->y = fminf(min_bounds->y, dist3.y);
 		max_bounds->x = fmaxf(max_bounds->x, dist3.x);
@@ -518,9 +516,9 @@ __device__ void flock(float4 myPos, float3 myVel, int myMode, float4 nPos,
 	float2* cohere, Parameters p)
 {
 	// Main flocking section
-	if (dist3.z <= p.max_c) {
+	if (dist3.z <= p.max_b) {
 		// REPEL
-		float weight = powf(p.max_c - dist3.z, 2.0f);
+		float weight = powf(p.max_b - dist3.z, 2.0f);
 		repel->x -= weight * dist3.x;
 		repel->y -= weight * dist3.y;
 	}
@@ -552,7 +550,7 @@ __device__ void disperse(float4 myPos, float4 nPos, float3 nVel, float3 dist3,
 	}
 	if (dist3.z <= p.max_d && dist3.z > p.max_b) {
 		// COHERE
-		float weight = powf(p.max_d - dist3.z, 2.0f);
+		float weight = powf(dist3.z - p.max_b, 2.0f);
 		cohere->x += weight * dist3.x;
 		cohere->y += weight * dist3.y;
 	}
