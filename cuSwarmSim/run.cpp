@@ -37,37 +37,17 @@ void drawInterface(float window_width, float window_height)
 		glEnd();
 	}
 
-	// Update explored grid values and draw grid square on screen
+	// Draw explored grid cells on the GUI
 	uint world_size = static_cast<uint>(p.world_size);
 	uint explore_cell_size = static_cast<uint>(p.explore_cell_size);
 	for (uint i = 0; i < world_size; i += explore_cell_size) {
 		for (uint j = 0; j < world_size; j += explore_cell_size) {
 			// Get the world coordinates for this iteration
-			float world_x = static_cast<float>(-world_size_2 + i);
-			float world_y = static_cast<float>(-world_size_2 + j);
-
-			// Only do the following if the cell is within range of the swarm bounds
-			// Only do the following every 5 steps, and if not paused
-			if ((world_x > data[6] - p.max_d) && (world_x < data[7] + p.max_d) &&
-				(world_y > data[8] - p.max_d) && (world_y < data[9] + p.max_d) && 
-				step_num % 5 == 0 && !paused) {
-				// Increment explored value by 1 for each robot within range of this 
-				// cell (meaning this cell is seen by the robot)
-				for (uint n = 0; n < num_robots; n++) {
-					if (eucl2(world_x + 0.5f, world_y + 0.5f, 
-						positions[n].x, positions[n].y) <= p.max_d) {
-						explored_grid[i][j]++;
-					}
-				}
-
-				// Restrict the explored value from [0, p.max_explore]
-				explored_grid[i][j] = min(explored_grid[i][j],
-					static_cast<int>(p.max_explore));
-				explored_grid[i][j] = max(explored_grid[i][j], 0);
-			}
+			float world_x = -world_size_2 + static_cast<float>(i);
+			float world_y = -world_size_2 + static_cast<float>(j);
 
 			// Now draw the grid cell if explored
-			float explored_color = 0.4f * (static_cast<float>(explored_grid[i][j]) / 
+			float explored_color = 0.4f * (static_cast<float>(explored_grid[i][j]) /
 				p.max_explore);
 			if (explored_color > 0.0f) {
 				glColor4f(explored_color, explored_color, explored_color, 1.0f);
@@ -705,6 +685,43 @@ bool checkCollision(float x, float y)
 	return false;
 }
 
+void updateExplored()
+{
+	// Variables to used in explored grid cell updates
+	uint world_size = static_cast<uint>(p.world_size);
+	uint explore_cell_size = static_cast<uint>(p.explore_cell_size);
+	float world_size_2 = p.world_size / 2.0f;
+
+	// Update explored grid values
+	for (uint i = 0; i < world_size; i += explore_cell_size) {
+		for (uint j = 0; j < world_size; j += explore_cell_size) {
+			// Get the world coordinates for this iteration
+			float world_x = -world_size_2 + static_cast<float>(i);
+			float world_y = -world_size_2 + static_cast<float>(j);
+
+			// Only do the following if the cell is within range of the swarm bounds
+			// Only do the following every 5 steps, and if not paused
+			if ((world_x > data[6] - p.max_d) && (world_x < data[7] + p.max_d) &&
+				(world_y > data[8] - p.max_d) && (world_y < data[9] + p.max_d) &&
+				step_num % 5 == 0 && !paused) {
+				// Increment explored value by 1 for each robot within range of this 
+				// cell (meaning this cell is seen by the robot)
+				for (uint n = 0; n < num_robots; n++) {
+					if (eucl2(world_x + 0.5f, world_y + 0.5f,
+						positions[n].x, positions[n].y) <= p.max_d) {
+						explored_grid[i][j]++;
+					}
+				}
+
+				// Restrict the explored value from [0, p.max_explore]
+				explored_grid[i][j] = min(explored_grid[i][j],
+					static_cast<int>(p.max_explore));
+				explored_grid[i][j] = max(explored_grid[i][j], 0);
+			}
+		}
+	}
+}
+
 void exitSimulation()
 {
 #ifdef GUI
@@ -786,6 +803,9 @@ static void step(int value)
 		getData(num_robots, positions, velocities, modes);
 		// Get data variables (data_ops.h)
 		processData(num_robots, positions, velocities, data);
+
+		// Update explored grid
+		updateExplored();
 		
 		// Create point array for convex hull calculations
 		vector<Point> points;

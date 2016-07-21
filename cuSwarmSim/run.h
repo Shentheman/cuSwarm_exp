@@ -101,6 +101,7 @@ void loadParameters(std::string filename);
 void generateObstacles();
 void calculateOccupancyGrid();
 bool checkCollision(float x, float y);
+void updateExplored();
 void exitSimulation();
 #ifdef LOGGING
 void printDataHeader();
