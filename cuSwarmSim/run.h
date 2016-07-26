@@ -48,7 +48,6 @@ FILE* output;							// Main log file
 std::stringstream filename;				// Name of the log file
 bool log_created = false;				// Indicates if log file has been created
 
-#ifdef GUI
 float mouse_start_x, mouse_start_y, mouse_last_x, mouse_last_y;
 int mb = -1;							// Mouse variables
 
@@ -62,13 +61,11 @@ uint last_frames = 0;
 
 GLuint vbo_swarm;						// Vertex buffer object and resource
 struct cudaGraphicsResource* cuda_vbo_resource;
-#endif
 
 /**************************************
 ***** FORWARD DECLARED FUNCTIONS ******
 **************************************/
 
-#ifdef GUI
 // User interface functions
 void drawInterface(float world_size, float window_width, float window_height);
 void drawEllipse(float cx, float cy, float w, float h);
@@ -95,7 +92,6 @@ void drawText(float x, float y, float x_scale, float y_scale, const char *string
 	GLfloat r, GLfloat g, GLfloat b);
 void resetCamera();
 void clearUserPositionEstimate();
-#endif
 float eucl2(float x1, float y1, float x2, float y2);
 void loadParameters(std::string filename);
 void generateObstacles();
@@ -103,12 +99,8 @@ void calculateOccupancyGrid();
 bool checkCollision(float x, float y);
 void updateExplored();
 void exitSimulation();
-#ifdef LOGGING
 void printDataHeader();
-#endif
-#if defined(GUI) && defined(LOGGING)
 void logUserHeadingCommand();
-#endif
 
 // Function to execute each step
 static void step(int value);

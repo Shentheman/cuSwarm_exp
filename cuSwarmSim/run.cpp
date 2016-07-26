@@ -4,7 +4,6 @@
 ***** OpenGL Callback Functions ******
 *************************************/
 
-#ifdef GUI
 void drawInterface(float window_width, float window_height)
 {
 	// Only draw edges (wire frame)
@@ -136,16 +135,19 @@ void keyboard(unsigned char key, int x, int y)
 	case '1': {
 		// Switch to rendezvous
 		p.behavior = 0.0f;
+		fprintf(output, "rendezvous\n");
 		break;
 	}
 	case '2': {
 		// Switch to flocking
 		p.behavior = 1.0f;
+		fprintf(output, "flocking\n");
 		break;
 	}
 	case '3': {
 		// Switch to dispersion
 		p.behavior = 2.0f;
+		fprintf(output, "dispersion\n");
 		break;
 	}
 	case 27: { // Escape key
@@ -217,9 +219,10 @@ void mouse(int button, int state, int x, int y)
 				// Transform this into a 2D unit vector (float3, but z is not used)
 				goal_vector = make_float3(cosf(goal_heading), 
 					-sinf(goal_heading), 0.0f);
-#ifdef LOGGING
+
+				// Log the heading command
 				logUserHeadingCommand();
-#endif
+
 				// Clear the user-drawn line data points
 				mouse_start_x = 0;
 				mouse_start_y = 0;
@@ -530,7 +533,6 @@ void resetCamera()
 	rotate_x0 = 0.0f;
 	rotate_y0 = 0.0f;
 }
-#endif
 
 float eucl2(float x1, float y1, float x2, float y2)
 {
@@ -564,6 +566,8 @@ void loadParameters(std::string filename)
 			// Assign parameters according to the parameter name
 			if (tokens[0] == "align_weight")
 				p.align_weight = std::stof(tokens[1]);
+			else if (tokens[0] == "automated")
+				p.automated = std::stof(tokens[1]);
 			else if (tokens[0] == "ang_bound")
 				p.ang_bound = std::stof(tokens[1]);
 			else if (tokens[0] == "behavior")
@@ -600,6 +604,8 @@ void loadParameters(std::string filename)
 				p.point_size = std::stof(tokens[1]);
 			else if (tokens[0] == "repel_weight")
 				p.repel_weight = std::stof(tokens[1]);
+			else if (tokens[0] == "show_gui")
+				p.show_gui = std::stof(tokens[1]);
 			else if (tokens[0] == "update_period")
 				p.update_period = std::stof(tokens[1]);
 			else if (tokens[0] == "vel_bound")
@@ -724,10 +730,11 @@ void updateExplored()
 
 void exitSimulation()
 {
-#ifdef GUI
-	// Free OpenGL buffer object
-	deleteVBO(&vbo_swarm, cuda_vbo_resource);
-#endif
+	if (p.show_gui == 1.0f) {
+		// Free OpenGL buffer object
+		deleteVBO(&vbo_swarm, cuda_vbo_resource);
+	}
+
 	// Free CUDA and data variables
 	cuFree();
 	cudaFree(positions);
@@ -740,39 +747,38 @@ void exitSimulation()
 	cudaFree(occupancy);
 	cudaFree(data);
 
-#ifdef LOGGING
 	// Close the data output file
 	fclose(output);
-#endif
 
 	// Reset CUDA device
 	cudaDeviceReset();
 
 	// Close window and exit
-#ifdef GUI
-	glutDestroyWindow(0);
-#endif
+	if (p.show_gui == 1.0f) {
+		glutDestroyWindow(0);
+	}
+
 	std::exit(0);
 }
 
-#ifdef LOGGING
 void printDataHeader()
 {
 	// Step data header
-	fprintf(output, "step step_num dist_to_goal avg_heading heading_var ");
-	fprintf(output, "centroid_x centroid_y convex_hull_area\n");
+	fprintf(output, "step step_num avg_heading heading_var centroid_x centroid_y ");
+	fprintf(output, "convex_hull_area explored_area\n");
 	// Heading command data header
-	fprintf(output, "heading_command step_num goal_heading\n");
+	if (p.show_gui == 1.0f) {
+		fprintf(output, "heading_command step_num goal_heading\n");
+	}
 }
-#endif
 
-#if defined(GUI) && defined(LOGGING)
 void logUserHeadingCommand()
 {
-	// Note: goal heading is negative due to flipped OpenGL coordinate space
-	fprintf(output, "heading_command %d %6.4f\n", step_num, -goal_heading);
+	if (p.show_gui == 1.0f) {
+		// Note: goal heading is negative due to flipped OpenGL coordinate space
+		fprintf(output, "heading_command %d %6.4f\n", step_num, -goal_heading);
+	}
 }
-#endif
 
 /************************
 ***** PROGRAM LOOP ******
@@ -783,7 +789,6 @@ static void step(int value)
 	// Only perform a step if not paused
 	if (!paused) {
 		// Create the output file for logging
-#ifdef LOGGING
 		if (!log_created) {
 			fopen_s(&output, filename.str().c_str(), "w");
 
@@ -791,13 +796,14 @@ static void step(int value)
 			printDataHeader();
 			log_created = true;
 		}
-#endif
+
 		// Launch the main kernel to perform one simulation step
-#ifdef GUI
-		launchMainKernel(goal_vector, step_num, p, &cuda_vbo_resource);
-#else
-		launchMainKernel(goal_vector, step_num, p);
-#endif
+		if (p.show_gui == 1.0f) {
+			launchMainKernel(goal_vector, step_num, p, &cuda_vbo_resource);
+		}
+		else {
+			launchMainKernel(goal_vector, step_num, p);
+		}
 
 		// Retrieve data from GPU (kernels.cu)
 		getData(num_robots, positions, velocities, modes);
@@ -820,11 +826,17 @@ static void step(int value)
 		// Get the area of the convex hull
 		float ch_area = convexHullArea(robot_ch);
 
-#ifdef LOGGING
+		// Get the current explored area
+		int explored = 0;
+		for (uint i = 0; i < ws_uint; i++) {
+			for (uint j = 0; j < ws_uint; j++) {
+				explored += explored_grid[i][j];
+			}
+		}
+
 		// Write data to the output log at the end of every step
-		fprintf(output, "step %d %6.4f %6.4f %6.4f %6.4f %6.4f\n", 
-			step_num, data[0], data[1], data[2], data[3], ch_area);
-#endif
+		fprintf(output, "step %d %6.4f %6.4f %6.4f %6.4f %6.4f, %d\n", 
+			step_num, data[0], data[1], data[2], data[3], ch_area, explored);
 
 		// Increment the simulation step counter
 		step_num++;
@@ -854,18 +866,22 @@ int main(int argc, char** argv)
 	for (uint i = 0; i < ws_uint; i++) {
 		explored_grid[i] = new int[ws_uint];
 	}
+	for (uint i = 0; i < ws_uint; i++) {
+		for (uint j = 0; j < ws_uint; j++) {
+			explored_grid[i][j] = 0;
+		}
+	}
 
 	// Begin paused if showing the GUI, otherwise start immediately
-#ifdef GUI
-	paused = true;
-#else
-	paused = false;
-#endif
+	if (p.show_gui == 1.0f) {
+		paused = true;
+	}
+	else {
+		paused = false;
+	}
 
 	// Open new data file for this trial
-#ifdef LOGGING
 	filename << argv[2];
-#endif
 
 	// Allocate and initialize data vector
 	data = (float*) malloc(16 * sizeof(float));
@@ -892,35 +908,35 @@ int main(int argc, char** argv)
 	// Send parameters to GPU
 	cudaAllocate(p, occupancy);
 
-#ifdef GUI
-	// Initialize OpenGL
-	initGL(argc, argv);
-	// Create vertex buffer object (VBO)
-	createVBO(&vbo_swarm, &cuda_vbo_resource, cudaGraphicsMapFlagsWriteDiscard);
-	// Set camera to default settings
-	resetCamera();
-#endif
+	if (p.show_gui) {
+		// Initialize OpenGL
+		initGL(argc, argv);
+		// Create vertex buffer object (VBO)
+		createVBO(&vbo_swarm, &cuda_vbo_resource, cudaGraphicsMapFlagsWriteDiscard);
+		// Set camera to default settings
+		resetCamera();
+	}
 
 	// Launch initialization kernel
-#ifdef GUI
-	launchInitKernel(p, &cuda_vbo_resource);
-#else
-	launchInitKernel(p);
-#endif
+	if (p.show_gui) {
+		launchInitKernel(p, &cuda_vbo_resource);
+	}
+	else {
+		launchInitKernel(p);
+	}
+
 	// Retrieve data from GPU (kernels.cu)
 	getData(num_robots, positions, velocities, modes);
 	
 	// Start the main loop
-#ifdef GUI
-	glutMainLoop();
-#else
-	////////////////////////////////////////////////
-	///// REPLACE THIS WITH PLANNING ALGORITHM /////
-	////////////////////////////////////////////////
-	while (true) {
-		step(0);
+	if (p.show_gui == 1.0f) {
+		glutMainLoop();
 	}
-#endif
+	else {
+		while (true) {
+			step(0);
+		}
+	}
 
 	return 0;
 }

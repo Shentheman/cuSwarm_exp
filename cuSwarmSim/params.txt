@@ -1,4 +1,5 @@
 align_weight 1.0
+automated 0.0
 ang_bound 6.283185307180
 behavior 1.0
 cohere_weight 1.0
@@ -13,10 +14,11 @@ max_d 4.0
 max_explore 200.0
 max_obstacle_size 20.0
 noise 0.0
-num_obstacles 20.0
+num_obstacles 0.0
 num_robots 128.0
 point_size 15.0
 repel_weight 1.25
+show_gui 0.0
 update_period 1.0
 vel_bound 2.0
 window_height 0.0

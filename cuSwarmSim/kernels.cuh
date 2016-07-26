@@ -5,13 +5,6 @@
 ***** DEFINES ******
 *******************/
 
-#ifndef GUI
-#define GUI
-#endif
-#ifndef LOGGING
-#define LOGGING
-#endif
-
 #ifndef PI
 #define PI 3.14159265358979323846f
 #endif
@@ -59,6 +52,7 @@ union Color
 struct Parameters
 {
 	float align_weight;
+	float automated;
 	float ang_bound;
 	float behavior;
 	float cohere_weight;
@@ -77,6 +71,7 @@ struct Parameters
 	float num_robots;
 	float point_size;
 	float repel_weight;
+	float show_gui;
 	float update_period;
 	float vel_bound;
 	float window_height;
@@ -91,14 +86,11 @@ struct Parameters
 void cudaAllocate(Parameters p, bool* occupancy);
 void cuFree();
 
-#ifdef GUI
 void launchInitKernel(Parameters p, struct cudaGraphicsResource **vbo_resource);
 void launchMainKernel(float3 gp, uint sn, Parameters p,
 	struct cudaGraphicsResource **vbo_resource);
-#else
 void launchInitKernel(Parameters p);
 void launchMainKernel(float3 gp, uint sn, Parameters p);
-#endif
 
 void getData(uint n, float4* positions, float3* velocities, int* modes);
 void getData(uint n, float4* positions, float3* velocities, int* modes, 

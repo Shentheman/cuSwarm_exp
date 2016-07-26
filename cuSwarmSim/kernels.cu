@@ -88,20 +88,8 @@ void cuFree()
 	cudaStreamDestroy(streams[3]);
 }
 
-#ifdef GUI
-void launchInitKernel(Parameters p, struct cudaGraphicsResource **vbo_resource)
-#else
 void launchInitKernel(Parameters p)
-#endif
 {
-#ifdef GUI
-	// Map OpenGL buffer object for writing from CUDA
-	cudaGraphicsMapResources(1, vbo_resource, 0);
-	size_t num_bytes;
-	cudaGraphicsResourceGetMappedPointer((void **)&d_positions, &num_bytes, 
-		*vbo_resource);
-#endif
-
 	// Run initialization kernel to load initial simulation state
 	init_kernel <<<grid, block>>>(
 		d_positions,
@@ -114,28 +102,35 @@ void launchInitKernel(Parameters p)
 		d_nearest_leader, 
 		d_leader_countdown, 
 		p);
-
-#ifdef GUI
-	// Unmap OpenGL buffer object
-	cudaGraphicsUnmapResources(1, vbo_resource, 0);
-#endif
 }
 
-#ifdef GUI
-void launchMainKernel(float3 gp, uint sn, Parameters p,
-	struct cudaGraphicsResource **vbo_resource)
-#else
-void launchMainKernel(float3 gp, uint sn, Parameters p)
-#endif
+void launchInitKernel(Parameters p, struct cudaGraphicsResource **vbo_resource)
 {
-#ifdef GUI
 	// Map OpenGL buffer object for writing from CUDA
 	cudaGraphicsMapResources(1, vbo_resource, 0);
 	size_t num_bytes;
-	cudaGraphicsResourceGetMappedPointer((void **)&d_positions, &num_bytes, 
+	cudaGraphicsResourceGetMappedPointer((void **)&d_positions, &num_bytes,
 		*vbo_resource);
-#endif
 
+	// Run initialization kernel to load initial simulation state
+	init_kernel << <grid, block >> >(
+		d_positions,
+		d_velocities,
+		d_modes,
+		d_rand_states,
+		static_cast<ulong>(time(NULL)),
+		d_flow_pos,
+		d_flow_dir,
+		d_nearest_leader,
+		d_leader_countdown,
+		p);
+
+	// Unmap OpenGL buffer object
+	cudaGraphicsUnmapResources(1, vbo_resource, 0);
+}
+
+void launchMainKernel(float3 gp, uint sn, Parameters p)
+{
 	// Launch the main and side kernels
 	main_kernel <<<grid, block, 0, streams[0]>>>(
 		d_positions,
@@ -161,11 +156,45 @@ void launchMainKernel(float3 gp, uint sn, Parameters p)
 
 	// Synchronize kernels on device
 	//cudaDeviceSynchronize();
+}
 
-#ifdef GUI
+void launchMainKernel(float3 gp, uint sn, Parameters p,
+struct cudaGraphicsResource **vbo_resource)
+{
+	// Map OpenGL buffer object for writing from CUDA
+	cudaGraphicsMapResources(1, vbo_resource, 0);
+	size_t num_bytes;
+	cudaGraphicsResourceGetMappedPointer((void **)&d_positions, &num_bytes,
+		*vbo_resource);
+
+	// Launch the main and side kernels
+	main_kernel << <grid, block, 0, streams[0] >> >(
+		d_positions,
+		d_velocities,
+		d_modes,
+		gp,
+		d_rand_states,
+		d_flow_pos,
+		d_flow_dir,
+		d_occupancy,
+		p,
+		sn);
+
+	// Run side kernel for extra computations outside the control loop
+	side_kernel << <grid, block, 0, streams[1] >> >(
+		d_positions,
+		d_modes,
+		d_rand_states,
+		p,
+		d_nearest_leader,
+		d_leader_countdown,
+		sn);
+
+	// Synchronize kernels on device
+	//cudaDeviceSynchronize();
+
 	// Unmap OpenGL buffer object
 	cudaGraphicsUnmapResources(1, vbo_resource, 0);
-#endif
 }
 
 void getData(uint n, float4* positions, float3* velocities, int* modes)
