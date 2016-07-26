@@ -133,21 +133,27 @@ void keyboard(unsigned char key, int x, int y)
 		break;
 	}
 	case '1': {
-		// Switch to rendezvous
-		p.behavior = 0.0f;
-		fprintf(output, "rendezvous\n");
+		// Switch to rendezvous if not in automated mode
+		if (p.automated == 0.0f) {
+			p.behavior = 0.0f;
+			fprintf(output, "rendezvous\n");
+		}
 		break;
 	}
 	case '2': {
-		// Switch to flocking
-		p.behavior = 1.0f;
-		fprintf(output, "flocking\n");
+		// Switch to flocking if not in automated mode
+		if (p.automated == 0.0f) {
+			p.behavior = 1.0f;
+			fprintf(output, "flocking\n");
+		}
 		break;
 	}
 	case '3': {
-		// Switch to dispersion
-		p.behavior = 2.0f;
-		fprintf(output, "dispersion\n");
+		// Switch to dispersion if not in automated mode
+		if (p.automated == 0.0f) {
+			p.behavior = 2.0f;
+			fprintf(output, "dispersion\n");
+		}
 		break;
 	}
 	case 27: { // Escape key
@@ -196,14 +202,14 @@ void mouse(int button, int state, int x, int y)
 
 		// Set the user-drawn line start point if the user pressed the primary 
 		// mouse button and the simulation is not paused
-		if ((!paused) && mb == 0) {
+		if ((!paused) && mb == 0 && p.automated == 0.0f) {
 			mouse_start_x = static_cast<float>(x);
 			mouse_start_y = static_cast<float>(y);
 			mouse_last_x = mouse_start_x;
 			mouse_last_y = mouse_start_y;
 		}
 	}
-	else if (state == GLUT_UP) {	// If the button is released
+	else if (state == GLUT_UP && p.automated == 0.0f) {	// If the button is released
 		// Only primary mouse button releases trigger events
 		if (mb == 0) {
 			// If the simulation is paused and not in an estimation mode, unpause it; 
@@ -240,8 +246,7 @@ void motion(int x, int y)
 {
 	// Draw the user heading line if the primary button is down and the simulation 
 	// is not paused
-	if (mb == 0 && !paused) 
-	{
+	if (mb == 0 && !paused && p.automated == 0.0f) {
 		mouse_last_x = static_cast<float>(x);
 		mouse_last_y = static_cast<float>(y);
 	}
@@ -455,7 +460,7 @@ void calculateFPS(int value)
 	last_frames = frames;
 	frames = 0;
 
-	// Reset timer every 1/2 second for this function to recalculate FPS
+	// Reset timer every second for this function to recalculate FPS
 	glutTimerFunc(1000, calculateFPS, 0);
 }
 
