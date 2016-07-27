@@ -183,11 +183,13 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="data_ops.cpp" />
+    <ClCompile Include="planning.cpp" />
     <ClCompile Include="run.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="data_ops.h" />
     <ClInclude Include="kernels.cuh" />
+    <ClInclude Include="planning.h" />
     <ClInclude Include="run.h" />
   </ItemGroup>
   <ItemGroup>

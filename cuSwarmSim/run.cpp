@@ -134,7 +134,7 @@ void keyboard(unsigned char key, int x, int y)
 	}
 	case '1': {
 		// Switch to rendezvous if not in automated mode
-		if (p.automated == 0.0f) {
+		if (p.show_gui == 0.0f) {
 			p.behavior = 0.0f;
 			fprintf(output, "rendezvous\n");
 		}
@@ -142,7 +142,7 @@ void keyboard(unsigned char key, int x, int y)
 	}
 	case '2': {
 		// Switch to flocking if not in automated mode
-		if (p.automated == 0.0f) {
+		if (p.show_gui == 0.0f) {
 			p.behavior = 1.0f;
 			fprintf(output, "flocking\n");
 		}
@@ -150,7 +150,7 @@ void keyboard(unsigned char key, int x, int y)
 	}
 	case '3': {
 		// Switch to dispersion if not in automated mode
-		if (p.automated == 0.0f) {
+		if (p.show_gui == 0.0f) {
 			p.behavior = 2.0f;
 			fprintf(output, "dispersion\n");
 		}
@@ -202,14 +202,14 @@ void mouse(int button, int state, int x, int y)
 
 		// Set the user-drawn line start point if the user pressed the primary 
 		// mouse button and the simulation is not paused
-		if ((!paused) && mb == 0 && p.automated == 0.0f) {
+		if ((!paused) && mb == 0) {
 			mouse_start_x = static_cast<float>(x);
 			mouse_start_y = static_cast<float>(y);
 			mouse_last_x = mouse_start_x;
 			mouse_last_y = mouse_start_y;
 		}
 	}
-	else if (state == GLUT_UP && p.automated == 0.0f) {	// If the button is released
+	else if (state == GLUT_UP) {	// If the button is released
 		// Only primary mouse button releases trigger events
 		if (mb == 0) {
 			// If the simulation is paused and not in an estimation mode, unpause it; 
@@ -246,7 +246,7 @@ void motion(int x, int y)
 {
 	// Draw the user heading line if the primary button is down and the simulation 
 	// is not paused
-	if (mb == 0 && !paused && p.automated == 0.0f) {
+	if (mb == 0 && !paused) {
 		mouse_last_x = static_cast<float>(x);
 		mouse_last_y = static_cast<float>(y);
 	}
@@ -785,6 +785,29 @@ void logUserHeadingCommand()
 	}
 }
 
+/****************************
+***** AUTOOMATION LOOP ******
+****************************/
+
+void automate()
+{
+	// Variable that indicates if the goal has been reached
+	bool goal_reached = false;
+	// Queue for holding candidate states
+	priority_queue<SwarmState, vector<SwarmState>, Compare> queue;
+
+	// Create initial state to go into queue
+	SwarmState initial = SwarmState(positions, velocities, modes, explored_grid,
+		10, num_robots, ws_uint);
+	queue.push(initial);
+
+	// Continue until goal reached
+	while (!goal_reached) {
+
+	}
+}
+
+
 /************************
 ***** PROGRAM LOOP ******
 ************************/
@@ -860,6 +883,12 @@ int main(int argc, char** argv)
 	// Load the parameters from file, given as first command line argument
 	loadParameters(argv[1]);
 
+	// Allow only one of p.automated and p.show_gui to be active
+	if (p.show_gui != 0.0f) {
+		p.show_gui = 1.0f;
+		p.automated = 0.0f;
+	}
+
 	// Get the number of robots for the simulation
 	num_robots = static_cast<uint>(p.num_robots);
 	// Get the world size for this simulation
@@ -878,7 +907,7 @@ int main(int argc, char** argv)
 	}
 
 	// Begin paused if showing the GUI, otherwise start immediately
-	if (p.show_gui == 1.0f) {
+	if (p.show_gui == 1.0f && p.automated == 0.0f) {
 		paused = true;
 	}
 	else {
@@ -903,7 +932,7 @@ int main(int argc, char** argv)
 		sizeof(float4), 0);
 
 	// Initialize leader list
-	std::fill(leaders, leaders + 10, -1);
+	fill(leaders, leaders + 10, -1);
 	
 	// Generate random obstacle positions
 	generateObstacles();
@@ -913,7 +942,7 @@ int main(int argc, char** argv)
 	// Send parameters to GPU
 	cudaAllocate(p, occupancy);
 
-	if (p.show_gui) {
+	if (p.show_gui == 1.0f) {
 		// Initialize OpenGL
 		initGL(argc, argv);
 		// Create vertex buffer object (VBO)
@@ -923,7 +952,7 @@ int main(int argc, char** argv)
 	}
 
 	// Launch initialization kernel
-	if (p.show_gui) {
+	if (p.show_gui == 1.0f) {
 		launchInitKernel(p, &cuda_vbo_resource);
 	}
 	else {
@@ -935,9 +964,15 @@ int main(int argc, char** argv)
 	
 	// Start the main loop
 	if (p.show_gui == 1.0f) {
+		// Start the glut loop and show the display
 		glutMainLoop();
 	}
+	else if (p.automated == 1.0f) {
+		// Begin automated swarm control to find behavior sequence with best results
+		automate();
+	}
 	else {
+		// Loop without showing the display or automating control
 		while (true) {
 			step(0);
 		}

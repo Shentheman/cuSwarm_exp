@@ -14,6 +14,7 @@
 // Project includes
 #include "kernels.cuh"
 #include "data_ops.h"
+#include "planning.h"
 
 /*********************
 ***** VARIABLES ******

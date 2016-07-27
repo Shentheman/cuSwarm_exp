@@ -1,5 +1,5 @@
 align_weight 1.0
-automated 0.0
+automated 1.0
 ang_bound 6.283185307180
 behavior 1.0
 cohere_weight 1.0
