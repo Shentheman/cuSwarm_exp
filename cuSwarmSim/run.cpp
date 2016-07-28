@@ -134,7 +134,7 @@ void keyboard(unsigned char key, int x, int y)
 	}
 	case '1': {
 		// Switch to rendezvous if not in automated mode
-		if (p.show_gui == 0.0f) {
+		if (p.show_gui == 1.0f) {
 			p.behavior = 0.0f;
 			fprintf(output, "rendezvous\n");
 		}
@@ -142,7 +142,7 @@ void keyboard(unsigned char key, int x, int y)
 	}
 	case '2': {
 		// Switch to flocking if not in automated mode
-		if (p.show_gui == 0.0f) {
+		if (p.show_gui == 1.0f) {
 			p.behavior = 1.0f;
 			fprintf(output, "flocking\n");
 		}
@@ -150,7 +150,7 @@ void keyboard(unsigned char key, int x, int y)
 	}
 	case '3': {
 		// Switch to dispersion if not in automated mode
-		if (p.show_gui == 0.0f) {
+		if (p.show_gui == 1.0f) {
 			p.behavior = 2.0f;
 			fprintf(output, "dispersion\n");
 		}
@@ -785,9 +785,9 @@ void logUserHeadingCommand()
 	}
 }
 
-/****************************
-***** AUTOOMATION LOOP ******
-****************************/
+/*****************************************
+***** AUTOOMATION LOOP (PLANNING_H) ******
+*****************************************/
 
 void automate()
 {
@@ -803,10 +803,12 @@ void automate()
 
 	// Continue until goal reached
 	while (!goal_reached) {
-
+		// Every second is a decision point
+		if ((step_num + 2) % 3600 == 0) {
+			
+		}
 	}
 }
-
 
 /************************
 ***** PROGRAM LOOP ******
