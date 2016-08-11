@@ -37,27 +37,30 @@ void drawInterface(float window_width, float window_height)
 	}
 
 	// Draw explored grid cells on the GUI
-	uint world_size = static_cast<uint>(p.world_size);
 	uint explore_cell_size = static_cast<uint>(p.explore_cell_size);
-	for (uint i = 0; i < world_size; i += explore_cell_size) {
-		for (uint j = 0; j < world_size; j += explore_cell_size) {
-			// Get the world coordinates for this iteration
-			float world_x = -world_size_2 + static_cast<float>(i);
-			float world_y = -world_size_2 + static_cast<float>(j);
+	for (uint i = 0; i < ws_uint * ws_uint; i += explore_cell_size) {
+		// Get the world coordinates for this iteration
+		float world_x = -world_size_2 + static_cast<float>(floor(i / ws_uint));
+		float world_y = -world_size_2 + static_cast<float>(i % ws_uint);
 
-			// Now draw the grid cell if explored
-			float explored_color = 0.4f * (static_cast<float>(explored_grid[i][j]) /
-				p.max_explore);
-			if (explored_color > 0.0f) {
+		// Now draw the grid cell if explored
+		float explored_color = 0.0f;
+		if (explored_grid[i] != 0) {
+			if (explored_grid[i] > 0) {
+				explored_color = 0.4f * (static_cast<float>(explored_grid[i]) /
+					p.max_explore);
 				glColor4f(explored_color, explored_color, explored_color, 1.0f);
-				glBegin(GL_POLYGON);
-				glVertex3f(world_x, world_y, -0.2f);
-				glVertex3f(world_x + p.explore_cell_size, world_y, -0.2f);
-				glVertex3f(world_x + p.explore_cell_size,
-					world_y + p.explore_cell_size, -0.2f);
-				glVertex3f(world_x, world_y + p.explore_cell_size, -0.2f);
-				glEnd();
 			}
+			else {
+				glColor4f(1.0f, 0.0f, 1.0f, 1.0f);
+			}
+			glBegin(GL_POLYGON);
+			glVertex3f(world_x, world_y, -0.2f);
+			glVertex3f(world_x + p.explore_cell_size, world_y, -0.2f);
+			glVertex3f(world_x + p.explore_cell_size,
+				world_y + p.explore_cell_size, -0.2f);
+			glVertex3f(world_x, world_y + p.explore_cell_size, -0.2f);
+			glEnd();
 		}
 	}
 
@@ -136,7 +139,9 @@ void keyboard(unsigned char key, int x, int y)
 		// Switch to rendezvous if not in automated mode
 		if (p.show_gui == 1.0f) {
 			p.behavior = 0.0f;
-			fprintf(output, "rendezvous\n");
+			if (p.log_data != 0.0f) {
+				fprintf(output, "rendezvous\n");
+			}
 		}
 		break;
 	}
@@ -144,7 +149,9 @@ void keyboard(unsigned char key, int x, int y)
 		// Switch to flocking if not in automated mode
 		if (p.show_gui == 1.0f) {
 			p.behavior = 1.0f;
-			fprintf(output, "flocking\n");
+			if (p.log_data != 0.0f) {
+				fprintf(output, "flocking\n");
+			}
 		}
 		break;
 	}
@@ -152,7 +159,9 @@ void keyboard(unsigned char key, int x, int y)
 		// Switch to dispersion if not in automated mode
 		if (p.show_gui == 1.0f) {
 			p.behavior = 2.0f;
-			fprintf(output, "dispersion\n");
+			if (p.log_data != 0.0f) {
+				fprintf(output, "dispersion\n");
+			}
 		}
 		break;
 	}
@@ -212,9 +221,8 @@ void mouse(int button, int state, int x, int y)
 	else if (state == GLUT_UP) {	// If the button is released
 		// Only primary mouse button releases trigger events
 		if (mb == 0) {
-			// If the simulation is paused and not in an estimation mode, unpause it; 
+			// If the simulation is paused, unpause it; 
 			// else log the new user goal heading and log the information; 
-			// else process the user estimate command
 			if (paused) {
 				paused = false;
 			}
@@ -354,7 +362,15 @@ void deleteVBO(GLuint *vbo, struct cudaGraphicsResource *vbo_res)
 static void display(void)
 {
 	// Take one simulation step
-	step(0);
+	if (p.automated == 0.0f) {
+		if (step_num > static_cast<float>(p.step_limit)) {
+			score = data[11];
+			exitSimulation();
+		}
+		else {
+			step(0);
+		}
+	}
 
 	// Get the world size
 	ws_uint = static_cast<uint>(p.world_size);
@@ -581,12 +597,16 @@ void loadParameters(std::string filename)
 				p.cohere_weight = std::stof(tokens[1]);
 			else if (tokens[0] == "current")
 				p.current = std::stof(tokens[1]);
+			else if (tokens[0] == "data_size")
+				p.data_size = std::stof(tokens[1]);
 			else if (tokens[0] == "explore_cell_size")
 				p.explore_cell_size = std::stof(tokens[1]);
 			else if (tokens[0] == "hops")
 				p.hops = std::stof(tokens[1]);
 			else if (tokens[0] == "information_mode")
 				p.information_mode = std::stof(tokens[1]);
+			else if (tokens[0] == "log_data")
+				p.log_data = std::stof(tokens[1]);
 			else if (tokens[0] == "max_a")
 				p.max_a = std::stof(tokens[1]);
 			else if (tokens[0] == "max_b")
@@ -611,6 +631,8 @@ void loadParameters(std::string filename)
 				p.repel_weight = std::stof(tokens[1]);
 			else if (tokens[0] == "show_gui")
 				p.show_gui = std::stof(tokens[1]);
+			else if (tokens[0] == "step_limit")
+				p.step_limit = std::stof(tokens[1]);
 			else if (tokens[0] == "update_period")
 				p.update_period = std::stof(tokens[1]);
 			else if (tokens[0] == "vel_bound")
@@ -704,31 +726,29 @@ void updateExplored()
 	float world_size_2 = p.world_size / 2.0f;
 
 	// Update explored grid values
-	for (uint i = 0; i < world_size; i += explore_cell_size) {
-		for (uint j = 0; j < world_size; j += explore_cell_size) {
-			// Get the world coordinates for this iteration
-			float world_x = -world_size_2 + static_cast<float>(i);
-			float world_y = -world_size_2 + static_cast<float>(j);
+	for (uint i = 0; i < world_size * world_size; i += explore_cell_size) {
+		// Get the world coordinates for this iteration
+		float world_x = -world_size_2 + static_cast<float>(floor(i / ws_uint));
+		float world_y = -world_size_2 + static_cast<float>(i % ws_uint);
 
-			// Only do the following if the cell is within range of the swarm bounds
-			// Only do the following every 5 steps, and if not paused
-			if ((world_x > data[6] - p.max_d) && (world_x < data[7] + p.max_d) &&
-				(world_y > data[8] - p.max_d) && (world_y < data[9] + p.max_d) &&
-				step_num % 5 == 0 && !paused) {
-				// Increment explored value by 1 for each robot within range of this 
-				// cell (meaning this cell is seen by the robot)
-				for (uint n = 0; n < num_robots; n++) {
-					if (eucl2(world_x + 0.5f, world_y + 0.5f,
-						positions[n].x, positions[n].y) <= p.max_d) {
-						explored_grid[i][j]++;
-					}
+		// Only do the following if the cell is within range of the swarm bounds
+		// Only do the following every 5 steps, and if not paused
+		if ((world_x > data[6] - p.max_d) && (world_x < data[7] + p.max_d) &&
+			(world_y > data[8] - p.max_d) && (world_y < data[9] + p.max_d) &&
+			step_num % 5 == 0 && !paused) {
+			// Increment explored value by 1 for each robot within range of this 
+			// cell (meaning this cell is seen by the robot)
+			for (uint n = 0; n < num_robots; n++) {
+				if (eucl2(world_x + 0.5f, world_y + 0.5f,
+					positions[n].x, positions[n].y) <= p.max_d) {
+					explored_grid[i]++;
 				}
-
-				// Restrict the explored value from [0, p.max_explore]
-				explored_grid[i][j] = min(explored_grid[i][j],
-					static_cast<int>(p.max_explore));
-				explored_grid[i][j] = max(explored_grid[i][j], 0);
 			}
+
+			// Restrict the explored value from [0, p.max_explore]
+			explored_grid[i] = min(explored_grid[i],
+				static_cast<int>(p.max_explore));
+			explored_grid[i] = max(explored_grid[i], 0);
 		}
 	}
 }
@@ -740,7 +760,7 @@ void exitSimulation()
 		deleteVBO(&vbo_swarm, cuda_vbo_resource);
 	}
 
-	// Free CUDA and data variables
+	// Free CUDA variables
 	cuFree();
 	cudaFree(positions);
 	cudaFree(velocities);
@@ -749,12 +769,17 @@ void exitSimulation()
 	cudaFree(nearest_leaders);
 	cudaFree(leader_countdowns);
 	cudaFree(obstacles);
-	cudaFree(occupancy);
-	cudaFree(data);
 
-	// Close the data output file
-	fclose(output);
+	// Free non-CUDA variables
+	free(occupancy);
+	//free(data);
+	free(explored_grid);
 
+	if (p.log_data != 0.0f) {
+		// Close the data output file
+		fclose(output);
+	}
+	
 	// Reset CUDA device
 	cudaDeviceReset();
 
@@ -763,23 +788,31 @@ void exitSimulation()
 		glutDestroyWindow(0);
 	}
 
+	// Wait for final input before closing if not showing GUI
+	if (p.show_gui == 0.0f) {
+		printf("High score: %4.2f\nPress any key quit.\n", score);
+		getchar();
+	}
+
 	std::exit(0);
 }
 
 void printDataHeader()
 {
-	// Step data header
-	fprintf(output, "step step_num avg_heading heading_var centroid_x centroid_y ");
-	fprintf(output, "convex_hull_area explored_area\n");
-	// Heading command data header
-	if (p.show_gui == 1.0f) {
-		fprintf(output, "heading_command step_num goal_heading\n");
+	if (p.log_data != 0.0f) {
+		// Step data header
+		fprintf(output, "step step_num avg_heading heading_var centroid_x ");
+		fprintf(output, "centroid_y convex_hull_area explored_area\n");
+		// Heading command data header
+		if (p.show_gui == 1.0f) {
+			fprintf(output, "heading_command step_num goal_heading\n");
+		}
 	}
 }
 
 void logUserHeadingCommand()
 {
-	if (p.show_gui == 1.0f) {
+	if (p.show_gui == 1.0f && p.log_data != 0.0f) {
 		// Note: goal heading is negative due to flipped OpenGL coordinate space
 		fprintf(output, "heading_command %d %6.4f\n", step_num, -goal_heading);
 	}
@@ -789,25 +822,173 @@ void logUserHeadingCommand()
 ***** AUTOOMATION LOOP (PLANNING_H) ******
 *****************************************/
 
-void automate()
+void printDecisionSequence(vector<Decision> b_seq)
 {
-	// Variable that indicates if the goal has been reached
-	bool goal_reached = false;
+	// Print out behavior sequence and score
+	printf("Score: %4.2f\nBehavior Seq: ", b_seq[b_seq.size() - 1].cur_score);
+	for (uint j = 0; j < b_seq.size(); j++) {
+		printf("(%d %4.2f %d %4.2f) ", b_seq[j].behavior, b_seq[j].flock_dir, 
+			b_seq[j].time_started, b_seq[j].cur_score);
+	}
+	printf("\n\n");
+}
+
+void automateExplore()
+{
+	// Begin the clock
+	const clock_t comp_time = clock();
+
 	// Queue for holding candidate states
-	priority_queue<SwarmState, vector<SwarmState>, Compare> queue;
+	priority_queue<SwarmState*, vector<SwarmState*>, Compare> queue;
+	score = 0.0f;
 
 	// Create initial state to go into queue
-	SwarmState initial = SwarmState(positions, velocities, modes, explored_grid,
-		10, num_robots, ws_uint);
+	SwarmState* initial = new SwarmState(positions, velocities, modes, 
+		nearest_leaders, leader_countdowns, step_num, num_robots, ws_uint);
 	queue.push(initial);
 
-	// Continue until goal reached
-	while (!goal_reached) {
-		// Every second is a decision point
-		if ((step_num + 2) % 3600 == 0) {
-			
+	// Continue until queue has been exhausted
+	while (queue.size() > 0) {
+		// Get the top state on the queue
+		SwarmState* s = queue.top();
+		queue.pop();
+
+		// If this branch has reached the time limit, output its behavior sequence; 
+		// else, if this branch should be pruned, output the sequence; 
+		// else, branch this behavior with the possible next behaviors
+		if (s->step_num >= static_cast<float>(p.step_limit)) {
+			printf("Goal reached:\n");
+			printDecisionSequence(s->b_seq);
+			// Update high score
+			score = max(score, 
+				static_cast<float>(s->b_seq[s->b_seq.size() - 1].cur_score));
+		}
+		else if (s->b_seq.size() > 1 && (s->b_seq[s->b_seq.size() - 1].cur_score - 
+				s->b_seq[s->b_seq.size() - 2].cur_score < 50000)) {
+			printf("Branch being pruned:\n");
+			printDecisionSequence(s->b_seq);
+		}
+		else {
+			float4* positions_t = (float4*)malloc(num_robots * sizeof(float4));
+			float3* velocities_t = (float3*)malloc(num_robots * sizeof(float3));
+			int* modes_t = (int*)malloc(num_robots * sizeof(int));
+			int* nearest_leaders_t = (int*)malloc(num_robots * sizeof(int));
+			uint* leader_countdowns_t = (uint*)malloc(num_robots * sizeof(uint));
+			int* explored_grid_t = (int*)malloc(ws_uint * ws_uint * sizeof(int));
+			uint step_num_t = 0;
+
+			// Copy robot data from popped state to temporary arrays
+			for (uint i = 0; i < num_robots; i++) {
+				positions_t[i] = s->pos[i];
+				velocities_t[i] = s->vel[i];
+				modes_t[i] = s->mode[i];
+				nearest_leaders_t[i] = s->nearest_leader[i];
+				leader_countdowns_t[i] = s->leader_countdown[i];
+			}
+			// Copy explored data from popped state to temporary grid
+			for (uint i = 0; i < ws_uint * ws_uint; i++) {
+				explored_grid_t[i] = s->explored[i];
+			}
+			// Get the behavior sequence of this popped state
+			vector<Decision> b_seq;
+			for (uint j = 0; j < s->b_seq.size(); j++) {
+				b_seq.push_back(s->b_seq[j]);
+			}
+			// Get the step number of the popped state
+			step_num_t = s->step_num;
+
+			// If the previous behavior was flocking, allow branching to both flock 
+			// and disperse; else, branch only to flocking
+			uint num_behaviors = 5;
+			if (b_seq.size() > 0 && b_seq.at(b_seq.size() - 1).behavior == 4) {
+				num_behaviors = 4;
+			}
+			// Branch the popped state with possible new behaviors
+			for (uint i = 0; i < num_behaviors; i++) {
+
+				// Set the simulation data on the GPU using the popped state
+				setData(num_robots, positions_t, velocities_t, modes_t,
+					nearest_leaders_t, leader_countdowns_t);
+				step_num = step_num_t;
+
+				// Set the explored grid data
+				for (uint j = 0; j < ws_uint * ws_uint; j++){
+					explored_grid[j] = explored_grid_t[j];
+				}
+
+				// Update the behavior sequence with next candidate behavior
+				vector<Decision> b_seq_t(b_seq);
+				Decision b;
+				b.time_started = step_num;
+				// Set simulation and decision point behavior based on branch number
+				switch (i)
+				{
+				case 0:
+					// Set to flock north in simulation
+					goal_heading = NORTH;
+					b.behavior = 0;
+					break;
+				case 1:
+					// Set to flock east in simulation
+					goal_heading = EAST;
+					b.behavior = 1;
+					break;
+				case 2:
+					// Set to flock south in simulation
+					goal_heading = SOUTH;
+					b.behavior = 2;
+					break;
+				case 3:
+					// Set to flock west in simulation
+					goal_heading = WEST;
+					b.behavior = 3;
+					break;
+				case 4:
+					// Set to dispersion in simulation
+					p.behavior = 2.0f;
+					b.behavior = 2;
+					b.flock_dir = 0.0f;
+					break;
+				}
+				// Finish flocking adjustments if on a flocking branch
+				if (i < 4) {
+					p.behavior = 1.0f;
+					b.flock_dir = goal_heading;
+					goal_vector = make_float3(cosf(goal_heading),
+						sinf(goal_heading), 0.0f);
+				}
+
+				// Simulate 10 seconds with current behavior
+				step(0);
+				while ((step_num) % 600 != 0) {
+					step(0);
+				}
+
+				// Get the new score for this branch and update the behavior 
+				// sequence
+				b.cur_score = data[11];
+				b_seq_t.push_back(b);
+
+				// Create the updated state with the results and put into queue
+				SwarmState* s_new = new SwarmState(positions, velocities, modes,
+					nearest_leaders, leader_countdowns, explored_grid, b_seq_t,
+					step_num, data[11], num_robots, ws_uint);
+				queue.push(s_new);
+			}
+
+			// Free arrays allocated in memory
+			free(positions_t);
+			free(velocities_t);
+			free(modes_t);
+			free(nearest_leaders_t);
+			free(leader_countdowns_t);
+			free(explored_grid_t);
 		}
 	}
+
+	// Print out computation time
+	printf("Best sequence algorithm completed in %4.2f seconds\n", 
+		static_cast<float>(clock() - comp_time) / CLOCKS_PER_SEC);
 }
 
 /************************
@@ -819,12 +1000,26 @@ static void step(int value)
 	// Only perform a step if not paused
 	if (!paused) {
 		// Create the output file for logging
-		if (!log_created) {
-			fopen_s(&output, filename.str().c_str(), "w");
-
+		if (!initial_passed) {
 			// Print the data column headers
-			printDataHeader();
-			log_created = true;
+			if (p.log_data != 0.0f) {
+				fopen_s(&output, filename.str().c_str(), "w");
+				printDataHeader();
+			}
+			
+			// Process data of initial state
+			processData(num_robots, ws_uint, positions, velocities, explored_grid,
+				data, data_size);
+			
+			// Create a random goal heading if not automating control
+			if (p.automated != 0.0f) {
+				goal_heading = 0.001f * ((rand() % 6283) - 3141);
+				goal_vector = make_float3(cosf(goal_heading), sinf(goal_heading), 
+					0.0f);
+			}
+
+			// Indicates inital state has passed
+			initial_passed = true;
 		}
 
 		// Launch the main kernel to perform one simulation step
@@ -837,36 +1032,22 @@ static void step(int value)
 
 		// Retrieve data from GPU (kernels.cu)
 		getData(num_robots, positions, velocities, modes);
-		// Get data variables (data_ops.h)
-		processData(num_robots, positions, velocities, data);
-
 		// Update explored grid
 		updateExplored();
+		// Get data variables (data_ops.h)
+		processData(num_robots, ws_uint, positions, velocities, explored_grid, data,
+			data_size);
 		
-		// Create point array for convex hull calculations
-		vector<Point> points;
-		for (uint i = 0; i < num_robots; i++) {
-			Point p;
-			p.x = positions[i].x;
-			p.y = positions[i].y;
-			points.push_back(p);
-		}
 		// Get convex hull of the robot positions in screen coordinates
-		robot_ch = convexHull(points);
+		robot_ch = convexHull(positions, num_robots);
 		// Get the area of the convex hull
 		float ch_area = convexHullArea(robot_ch);
 
-		// Get the current explored area
-		int explored = 0;
-		for (uint i = 0; i < ws_uint; i++) {
-			for (uint j = 0; j < ws_uint; j++) {
-				explored += explored_grid[i][j];
-			}
+		if (p.log_data != 0.0f) {
+			// Write data to the output log at the end of every step
+			fprintf(output, "step %d %6.4f %6.4f %6.4f %6.4f %6.4f, %d\n",
+				step_num, data[0], data[1], data[2], data[3], ch_area, data[11]);
 		}
-
-		// Write data to the output log at the end of every step
-		fprintf(output, "step %d %6.4f %6.4f %6.4f %6.4f %6.4f, %d\n", 
-			step_num, data[0], data[1], data[2], data[3], ch_area, explored);
 
 		// Increment the simulation step counter
 		step_num++;
@@ -885,7 +1066,7 @@ int main(int argc, char** argv)
 	// Load the parameters from file, given as first command line argument
 	loadParameters(argv[1]);
 
-	// Allow only one of p.automated and p.show_gui to be active
+	// Allow only one of p.automated and p.show_gui to be active; preference to gui
 	if (p.show_gui != 0.0f) {
 		p.show_gui = 1.0f;
 		p.automated = 0.0f;
@@ -896,17 +1077,6 @@ int main(int argc, char** argv)
 	// Get the world size for this simulation
 	ws_uint = static_cast<uint>(p.world_size);
 	ws_2 = p.world_size / 2.0f;
-
-	// Create the explored grid
-	explored_grid = new int*[ws_uint];
-	for (uint i = 0; i < ws_uint; i++) {
-		explored_grid[i] = new int[ws_uint];
-	}
-	for (uint i = 0; i < ws_uint; i++) {
-		for (uint j = 0; j < ws_uint; j++) {
-			explored_grid[i][j] = 0;
-		}
-	}
 
 	// Begin paused if showing the GUI, otherwise start immediately
 	if (p.show_gui == 1.0f && p.automated == 0.0f) {
@@ -920,8 +1090,9 @@ int main(int argc, char** argv)
 	filename << argv[2];
 
 	// Allocate and initialize data vector
-	data = (float*) malloc(16 * sizeof(float));
-	occupancy = (bool*) malloc(ws_uint * 10 * ws_uint * 10 * sizeof(bool));
+	data_size = static_cast<uint>(p.data_size);
+	data = (float*)malloc(data_size * sizeof(float));
+	occupancy = (bool*)malloc(ws_uint * 10 * ws_uint * 10 * sizeof(bool));
 
 	// Initialize pinned host memory for data arrays
 	cudaHostAlloc(&positions, num_robots * sizeof(float4), 0);
@@ -940,6 +1111,16 @@ int main(int argc, char** argv)
 	generateObstacles();
 	// Compute occupancy grid from obstacles
 	calculateOccupancyGrid();
+	// Create the explored grid
+	explored_grid = (int*)malloc(ws_uint * ws_uint * sizeof(int));
+	for (uint i = 0; i < ws_uint * ws_uint; i++) {
+		// Get the coordinates of the grid cell
+		float y = static_cast<float>(i % ws_uint) - ws_2;
+		float x = floorf(static_cast<float>(i) / static_cast<float>(ws_uint)) - 
+			ws_2;
+		// Initialize cell to -1 if it is covered by an obstacle; 0 otherwise
+		(checkCollision(x, y)) ? explored_grid[i] = -1 : explored_grid[i] = 0;
+	}
 
 	// Send parameters to GPU
 	cudaAllocate(p, occupancy);
@@ -965,20 +1146,22 @@ int main(int argc, char** argv)
 	getData(num_robots, positions, velocities, modes);
 	
 	// Start the main loop
-	if (p.show_gui == 1.0f) {
+	if (p.automated == 1.0f) {
+		// Begin automated swarm control to find behavior sequence with best results
+		automateExplore();
+	}
+	else if (p.show_gui == 1.0f) {
 		// Start the glut loop and show the display
 		glutMainLoop();
 	}
-	else if (p.automated == 1.0f) {
-		// Begin automated swarm control to find behavior sequence with best results
-		automate();
-	}
 	else {
 		// Loop without showing the display or automating control
-		while (true) {
+		while (step_num < static_cast<uint>(p.step_limit)) {
 			step(0);
 		}
 	}
+
+	exitSimulation();
 
 	return 0;
 }

@@ -1,7 +1,13 @@
 #include "data_ops.h"
 
-void processData(uint n, float4* positions, float3* velocities, float* data)
+void processData(uint n, uint ws, float4* positions, float3* velocities, 
+	int* explored_grid, float* data, uint data_size)
 {
+	// Clear old data in the array
+	for (uint i = 0; i < data_size; i++) {
+		data[i] = 0.0f;
+	}
+
 	///// HEADING AVERAGE /////
 	float nf = static_cast<float>(n);
 	// Get the average velocity
@@ -64,6 +70,7 @@ void processData(uint n, float4* positions, float3* velocities, float* data)
 	data[4] = data[4] / nf;
 	data[5] = data[5] / nf;
 
+	///// CONVEX HULL /////
 	// Place the positions of the robots in an array for convex hull calculations
 	vector<Point> robot_points;
 	for (uint i = 0; i < n; i++) {
@@ -73,9 +80,16 @@ void processData(uint n, float4* positions, float3* velocities, float* data)
 		robot_points.push_back(p_temp);
 	}
 	// Get the convex hull of the robot positions
-	vector<Point> robot_points_ch = convexHull(robot_points);
+	vector<float4> robot_points_ch = convexHull(positions, n);
 	// Get the area of the robot convex hull
 	data[10] = convexHullArea(robot_points_ch);
+
+	///// EXPLORED AREA /////
+	int explored = 0;
+	for (uint i = 0; i < ws * ws; i++) {
+		explored += explored_grid[i];
+	}
+	data[11] = static_cast<float>(explored);
 }
 
 /*********************************
@@ -84,8 +98,16 @@ void processData(uint n, float4* positions, float3* velocities, float* data)
 
 // Returns a list of points on the convex hull in counter-clockwise order.
 // Note: the last point in the returned list is the same as the first one.
-vector<Point> convexHull(vector<Point> P)
+vector<float4> convexHull(float4* points, uint num)
 {
+	vector<Point> P;
+	for (uint i = 0; i < num; i++) {
+		Point p_temp;
+		p_temp.x = points[i].x;
+		p_temp.y = points[i].y;
+		P.push_back(p_temp);
+	}
+
 	int n = static_cast<int>(P.size()), k = 0;
 	vector<Point> ch(2 * n);
 
@@ -104,13 +126,20 @@ vector<Point> convexHull(vector<Point> P)
 		ch[k++] = P[i];
 	}
 
-	// Resize and return the convex hull
+	// Resize the convex hull point array
 	ch.resize(k);
-	return ch;
+
+	// Convert to array of float4 and return
+	vector<float4> ch_final;
+	for (uint i = 0; i < ch.size(); i++) {
+		float4 temp_point = make_float4(ch[i].x, ch[i].y, 0.0f, 0.0f);
+		ch_final.push_back(temp_point);
+	}
+	return ch_final;
 }
 
 // Compute the centroid (x, y) of the convex hull given by points
-float2 convexHullCentroid(vector<Point> points)
+float2 convexHullCentroid(vector<float4> points)
 {
 	float min_x = FLT_MAX, max_x = -FLT_MAX;
 	float min_y = FLT_MAX, max_y = -FLT_MAX;
@@ -133,7 +162,7 @@ float2 convexHullCentroid(vector<Point> points)
 }
 
 // Compute the area of the convex hull
-float convexHullArea(vector<Point> points)
+float convexHullArea(vector<float4> points)
 {
 	float area = 0.0f;
 	for (int a = 0; static_cast<uint>(a) < points.size(); a++) {
@@ -144,9 +173,10 @@ float convexHullArea(vector<Point> points)
 	return area;
 }
 
-// 2D cross product of OA and OB vectors, i.e. z-component of their 3D cross product.
-// Returns a positive value, if OAB makes a counter-clockwise turn,
-// negative for clockwise turn, and zero if the points are collinear.
+// 2D cross product of OA and OB vectors, i.e. z-component of their 3D cross 
+// product.
+// Returns a positive value, if OAB makes a counter-clockwise turn, negative for 
+// clockwise turn, and zero if the points are collinear.
 float cross(const Point &O, const Point &A, const Point &B)
 {
 	return (float)(A.x - O.x) * (B.y - O.y) - (float)(A.y - O.y) * (B.x - O.x);

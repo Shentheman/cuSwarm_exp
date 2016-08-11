@@ -10,6 +10,7 @@
 #include <math.h>
 #include <thread>
 #include <fstream>
+#include <cstdio>
 
 // Project includes
 #include "kernels.cuh"
@@ -25,11 +26,12 @@ uint num_robots;						// Number of robots
 uint ws_uint;							// Length of a side of the square world
 float ws_2;								// Half the length of the world edge
 ulong step_num = 0;						// Step counter
+bool initial_passed = false;			// Indicates if initial state has passed
 bool paused;							// Simulation paused state
 Parameters p;							// Parameters structure
 float3 goal_vector;						// Goal heading / speed (flocking only)
 float goal_heading;						// goal heading only
-int** explored_grid;					// Grid covering the whole environment, 
+int* explored_grid;						// Grid covering the whole environment, 
 										// showing how explored each cell is
 
 // Data variables
@@ -42,12 +44,13 @@ uint* leader_countdowns;				// Leader countdown array
 float4* obstacles;						// List of obstacles in the environment
 bool* occupancy;						// Occupancy grid for the environment
 float* data;							// Data array (see data_ops.cpp)
-vector<Point> robot_ch;					// Convex hull of the robots
+uint data_size;							// Size of the data array
+vector<float4> robot_ch;				// Convex hull of the robots
+float score;							// Current score value of trial
 
 // Log file
 FILE* output;							// Main log file
 std::stringstream filename;				// Name of the log file
-bool log_created = false;				// Indicates if log file has been created
 
 float mouse_start_x, mouse_start_y, mouse_last_x, mouse_last_y;
 int mb = -1;							// Mouse variables

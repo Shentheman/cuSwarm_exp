@@ -19,12 +19,13 @@ struct Point {
 };
 
 // Data processing main function
-void processData(uint n, float4* positions, float3* velocities, float* data);
+void processData(uint n, uint ws, float4* positions, float3* velocities, 
+	int* explored_grid, float* data, uint data_size);
 
 // Convex hull functions
-vector<Point> convexHull(vector<Point> points);
-float2 convexHullCentroid(vector<Point> points);
-float convexHullArea(vector<Point> points);
+vector<float4> convexHull(float4* points, uint n);
+float2 convexHullCentroid(vector<float4> points);
+float convexHullArea(vector<float4> points);
 float cross(const Point &O, const Point &A, const Point &B);
 
 #endif

@@ -201,7 +201,8 @@ void getData(uint n, float4* positions, float3* velocities, int* modes)
 {
 	// Copy simulation data from device to host arrays
 	cudaMemcpy(positions, d_positions, n * sizeof(float4), cudaMemcpyDeviceToHost);
-	cudaMemcpy(velocities, d_velocities, n * sizeof(float3), cudaMemcpyDeviceToHost);
+	cudaMemcpy(velocities, d_velocities, n * sizeof(float3), 
+		cudaMemcpyDeviceToHost);
 	cudaMemcpy(modes, d_modes, n * sizeof(int), cudaMemcpyDeviceToHost);
 }
 
@@ -210,12 +211,27 @@ void getData(uint n, float4* positions, float3* velocities, int* modes,
 {
 	// Copy simulation data from device to host arrays
 	cudaMemcpy(positions, d_positions, n * sizeof(float4), cudaMemcpyDeviceToHost);
-	cudaMemcpy(velocities, d_velocities, n * sizeof(float3), cudaMemcpyDeviceToHost);
+	cudaMemcpy(velocities, d_velocities, n * sizeof(float3), 
+		cudaMemcpyDeviceToHost);
 	cudaMemcpy(modes, d_modes, n * sizeof(int), cudaMemcpyDeviceToHost);
 	cudaMemcpy(nearest_leader, d_nearest_leader, n * sizeof(int),
 		cudaMemcpyDeviceToHost);
 	cudaMemcpy(leader_countdown, d_leader_countdown, n * sizeof(uint),
 		cudaMemcpyDeviceToHost);
+}
+
+void setData(uint n, float4* positions, float3* velocities, int* modes,
+	int* nearest_leader, uint* leader_countdown)
+{
+	// Copy simulation data from host to device arrays
+	cudaMemcpy(d_positions, positions, n * sizeof(float4), cudaMemcpyHostToDevice);
+	cudaMemcpy(d_velocities, velocities, n * sizeof(float3), 
+		cudaMemcpyHostToDevice);
+	cudaMemcpy(d_modes, modes, n * sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(d_nearest_leader, nearest_leader, n * sizeof(int),
+		cudaMemcpyHostToDevice);
+	cudaMemcpy(d_leader_countdown, leader_countdown, n * sizeof(uint),
+		cudaMemcpyHostToDevice);
 }
 
 /**************************
@@ -245,7 +261,8 @@ __global__ void init_kernel(float4* pos, float3* vel, int* mode,
 		mode[i] = -1;
 	}
 
-	// Initialize nearest_leader and leader_countdown arrays for RCC leader selection
+	// Initialize nearest_leader and leader_countdown arrays for RCC leader 
+	// selection
 	nearest_leader[i] = -1;
 	leader_countdown[i] = curand_uniform(&local_state) * 60; // within first second
 
@@ -301,8 +318,8 @@ __global__ void side_kernel(float4* pos, int* mode, curandState* rand_state,
 		// Random state for this robot
 		curandState local_state = rand_state[i];
 
-		// If the leader countdown for this robot has expired, switch the leader state 
-		// and reset the timer;
+		// If the leader countdown for this robot has expired, switch the leader 
+		// state and reset the timer;
 		if (leader_countdown[i] == 0) {
 			// Switch to a leader if not already; else switch to non-leader
 			if (mode[i] == 0) {
@@ -328,7 +345,7 @@ __global__ void side_kernel(float4* pos, int* mode, curandState* rand_state,
 				float4 them = pos[n];
 				float2 dist = make_float2(me.x - them.x, me.y - them.y);
 				// Determine if these two robots are within range of each other
-				bool within_range = euclidean(dist) < p.max_c;
+				bool within_range = euclidean(dist) < p.max_b;
 
 				// Peform operation based on whether the two robots are within range
 				if (within_range && i != n) {
@@ -362,8 +379,8 @@ __global__ void side_kernel(float4* pos, int* mode, curandState* rand_state,
 }
 
 __global__ void main_kernel(float4* pos, float3* vel, int* mode,
-	float3 goal_heading, curandState* rand_state, float2* flow_pos, float2* flow_dir, 
-	bool* occupancy, Parameters p, uint sn)
+	float3 goal_heading, curandState* rand_state, float2* flow_pos, 
+		float2* flow_dir, bool* occupancy, Parameters p, uint sn)
 {
 	// Index of this robot
 	uint i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -579,7 +596,7 @@ __device__ void disperse(float4 myPos, float4 nPos, float3 nVel, float3 dist3,
 	}
 	if (dist3.z <= p.max_d && dist3.z > p.max_b) {
 		// COHERE
-		float weight = powf(dist3.z - p.max_b, 2.0f);
+		float weight = powf(dist3.z - p.max_b, 3.0f);
 		cohere->x += weight * dist3.x;
 		cohere->y += weight * dist3.y;
 	}

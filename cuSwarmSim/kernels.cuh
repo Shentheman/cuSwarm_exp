@@ -14,6 +14,18 @@
 #ifndef BLOCK_SIZE
 #define BLOCK_SIZE 256
 #endif
+#ifndef NORTH
+#define NORTH 1.57079632679f
+#endif
+#ifndef EAST
+#define EAST 0.0f
+#endif
+#ifndef SOUTH
+#define SOUTH -1.57079632679f
+#endif
+#ifndef WEST
+#define WEST 3.14159265358f
+#endif
 
 /********************
 ***** INCLUDES ******
@@ -57,9 +69,11 @@ struct Parameters
 	float behavior;
 	float cohere_weight;
 	float current;
+	float data_size;
 	float explore_cell_size;
 	float hops;
 	float information_mode;
+	float log_data;
 	float max_a;
 	float max_b;
 	float max_c;
@@ -72,6 +86,7 @@ struct Parameters
 	float point_size;
 	float repel_weight;
 	float show_gui;
+	float step_limit;
 	float update_period;
 	float vel_bound;
 	float window_height;
@@ -83,17 +98,22 @@ struct Parameters
 ***** FORWARD DECLARED FUNCTIONS ******
 **************************************/
 
+// CUDA memory functions
 void cudaAllocate(Parameters p, bool* occupancy);
 void cuFree();
 
+// Kernel launches
 void launchInitKernel(Parameters p, struct cudaGraphicsResource **vbo_resource);
 void launchMainKernel(float3 gp, uint sn, Parameters p,
 	struct cudaGraphicsResource **vbo_resource);
 void launchInitKernel(Parameters p);
 void launchMainKernel(float3 gp, uint sn, Parameters p);
 
+// CUDA host<->device copy functions
 void getData(uint n, float4* positions, float3* velocities, int* modes);
 void getData(uint n, float4* positions, float3* velocities, int* modes, 
+	int* nearest_leader, uint* leader_countdown);
+void setData(uint n, float4* positions, float3* velocities, int* modes,
 	int* nearest_leader, uint* leader_countdown);
 
 /*********************************************
@@ -108,8 +128,8 @@ __global__ void side_kernel(float4* pos, int* mode, curandState* rand_state,
 	Parameters p, int* nearest_leader, uint* leader_countdown, uint sn);
 
 __global__ void main_kernel(float4* pos, float3* vel, int* mode, 
-	float3 goal_heading, curandState* rand_state, float2* flow_pos, float2* flor_dir, 
-	bool* occupancy, Parameters p, uint sn);
+	float3 goal_heading, curandState* rand_state, float2* flow_pos, 
+	float2* flor_dir, bool* occupancy, Parameters p, uint sn);
 
 __device__ void rendezvous(float4 myPos, float4 nPos, float3 nVel, float3 dist3, 
 	float2* min_bounds, float2* max_bounds, float2* repel, Parameters p);

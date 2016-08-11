@@ -13,13 +13,16 @@ using namespace std;
 // Project includes
 #include "kernels.cuh"
 
-/*****************
-***** ENUMS ******
-*****************/
+/***********************************
+***** STRUCTURES AND TYPEDEFS ******
+***********************************/
 
-enum Behavior {
-	RENDEZVOUS, FLOCK_UP, FLOCK_RIGHT, FLOCK_DOWN, FLOCK_LEFT, DISPERSE
-};
+typedef struct {
+	int behavior;
+	float flock_dir;
+	uint time_started;
+	float cur_score;
+} Decision;
 
 /*******************
 ***** CLASSES ******
@@ -28,23 +31,30 @@ enum Behavior {
 // Class for holding a swarm state (with behavior sequence to reach that state)
 class SwarmState {
 public:
-	SwarmState(float4* positions, float3* velocities, int* modes, 
-		int** exp_grid, uint decisions, uint n, uint ws);
+	SwarmState(float4* positions, float3* velocities, int* modes, int* n_l, 
+		uint* l_c, uint sn, uint n, uint ws);
+	SwarmState(float4* positions, float3* velocities, int* modes, int* n_l,
+		uint* l_c, int* exp_grid, vector<Decision> seq, uint sn, float s, 
+		uint n, uint ws);
+	~SwarmState();
 	float4* pos;
 	float3* vel;
 	int* mode;
-	int** explored;
-	Behavior* b_seq;
+	int* nearest_leader;
+	uint* leader_countdown;
+	int* explored;
+	vector<Decision> b_seq;
 	float score;
 	float heuristic;
+	uint step_num;
 };
 
 // Compare class to use with the State class priority queue
 class Compare {
 public:
-	bool operator() (SwarmState a, SwarmState b)
+	bool operator() (SwarmState* a, SwarmState* b)
 	{
-		return (a.score > b.score);
+		return (a->score < b->score);
 	}
 };
 
@@ -53,6 +63,7 @@ public:
 **************************************/
 
 // Main automation loop
-void automate();
+void automateExplore();
+void automateFlockToGoal();
 
 #endif
