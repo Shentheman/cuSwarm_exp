@@ -73,6 +73,7 @@ struct Parameters
 	float explore_cell_size;
 	float hops;
 	float information_mode;
+	float leader_selection;
 	float log_data;
 	float max_a;
 	float max_b;
@@ -104,10 +105,10 @@ void cuFree();
 
 // Kernel launches
 void launchInitKernel(Parameters p, struct cudaGraphicsResource **vbo_resource);
-void launchMainKernel(float3 gp, uint sn, Parameters p,
-	struct cudaGraphicsResource **vbo_resource);
+void launchMainKernel(float3 gp, uint sn, int* leaders, Parameters p, 
+struct cudaGraphicsResource **vbo_resource);
 void launchInitKernel(Parameters p);
-void launchMainKernel(float3 gp, uint sn, Parameters p);
+void launchMainKernel(float3 gp, uint sn, int* leaders, Parameters p);
 
 // CUDA host<->device copy functions
 void getData(uint n, float4* positions, float3* velocities, int* modes);
@@ -124,8 +125,9 @@ __global__ void init_kernel(float4* pos, float3* vel, int* mode,
 	curandState* rand_state, ulong seed, float2* flow_pos, float2* flow_dir, 
 	int* nearest_leader, uint* leader_countdown, Parameters p);
 
-__global__ void side_kernel(float4* pos, int* mode, curandState* rand_state, 
-	Parameters p, int* nearest_leader, uint* leader_countdown, uint sn);
+__global__ void side_kernel(float4* pos, int* mode, int* leaders, 
+	curandState* rand_state, Parameters p, int* nearest_leader, 
+	uint* leader_countdown, uint sn);
 
 __global__ void main_kernel(float4* pos, float3* vel, int* mode, 
 	float3 goal_heading, curandState* rand_state, float2* flow_pos, 

@@ -9,6 +9,7 @@
 float4* d_positions;
 float3* d_velocities;
 int* d_modes;
+int* d_leaders;
 int* d_nearest_leader;
 uint* d_leader_countdown;
 
@@ -43,6 +44,7 @@ void cudaAllocate(Parameters p, bool* occupancy)
 	cudaMalloc(&d_positions, n * sizeof(float4));
 	cudaMalloc(&d_velocities, n * sizeof(float3));
 	cudaMalloc(&d_modes, n * sizeof(int));
+	cudaMalloc(&d_leaders, n * sizeof(int));
 	cudaMalloc(&d_nearest_leader, n * sizeof(int));
 	cudaMalloc(&d_leader_countdown, n * sizeof(uint));
 	// Allocate space on device for environment arrays
@@ -74,6 +76,7 @@ void cuFree()
 	cudaFree(d_positions);
 	cudaFree(d_velocities);
 	cudaFree(d_modes);
+	cudaFree(d_leaders);
 	cudaFree(d_nearest_leader);
 	cudaFree(d_leader_countdown);
 	cudaFree(d_occupancy);
@@ -129,8 +132,12 @@ void launchInitKernel(Parameters p, struct cudaGraphicsResource **vbo_resource)
 	cudaGraphicsUnmapResources(1, vbo_resource, 0);
 }
 
-void launchMainKernel(float3 gp, uint sn, Parameters p)
+void launchMainKernel(float3 gp, uint sn, int* leaders, Parameters p)
 {
+	// Copy leader list to GPU
+	cudaMemcpy(d_leaders, leaders, static_cast<uint>(p.num_robots), 
+		cudaMemcpyHostToDevice);
+
 	// Launch the main and side kernels
 	main_kernel <<<grid, block, 0, streams[0]>>>(
 		d_positions,
@@ -148,6 +155,7 @@ void launchMainKernel(float3 gp, uint sn, Parameters p)
 	side_kernel <<<grid, block, 0, streams[1]>>>(
 		d_positions,
 		d_modes,
+		d_leaders,
 		d_rand_states,
 		p, 
 		d_nearest_leader,
@@ -158,9 +166,13 @@ void launchMainKernel(float3 gp, uint sn, Parameters p)
 	//cudaDeviceSynchronize();
 }
 
-void launchMainKernel(float3 gp, uint sn, Parameters p,
-struct cudaGraphicsResource **vbo_resource)
+void launchMainKernel(float3 gp, uint sn, int* leaders, Parameters p, 
+	struct cudaGraphicsResource **vbo_resource)
 {
+	// Copy leader list to GPU
+	//cudaMemcpy(d_leaders, leaders, static_cast<uint>(p.num_robots), 
+	//	cudaMemcpyHostToDevice);
+
 	// Map OpenGL buffer object for writing from CUDA
 	cudaGraphicsMapResources(1, vbo_resource, 0);
 	size_t num_bytes;
@@ -184,6 +196,7 @@ struct cudaGraphicsResource **vbo_resource)
 	side_kernel << <grid, block, 0, streams[1] >> >(
 		d_positions,
 		d_modes,
+		d_leaders,
 		d_rand_states,
 		p,
 		d_nearest_leader,
@@ -297,84 +310,98 @@ __global__ void init_kernel(float4* pos, float3* vel, int* mode,
 	}
 }
 
-__global__ void side_kernel(float4* pos, int* mode, curandState* rand_state, 
-	Parameters p, int* nearest_leader, uint* leader_countdown, uint sn)
+__global__ void side_kernel(float4* pos, int* mode, int* leaders,
+	curandState* rand_state, Parameters p, int* nearest_leader,
+	uint* leader_countdown, uint sn)
 {
 	// Index of this robot
 	uint i = blockIdx.x * blockDim.x + threadIdx.x;
 
-	// Holds the new mode during computation
-	int new_mode = mode[i];
-
-	// Do the following only if this robot is not noise, and if RCC leader 
-	// selection mode is being used
-	// Update mode once every update_period steps (see params.txt file)
-	if (mode[i] != -1 && 
+	// Do not perform any leader calculation if a noise robot, or in a non-update 
+	// step
+	if (mode[i] != -1 &&
 		((sn + i) % static_cast<int>(p.update_period) == 0 || sn == 0)) {
 
-		uint num_robots = p.num_robots;
-		int new_nearest_leader = nearest_leader[i];
+		// Perform either RCC or CH leader assignment, depending on parameter
+		if (p.leader_selection == 0.0f) {
 
-		// Random state for this robot
-		curandState local_state = rand_state[i];
+			// Holds the new mode during computation
+			int new_mode = mode[i];
 
-		// If the leader countdown for this robot has expired, switch the leader 
-		// state and reset the timer;
-		if (leader_countdown[i] == 0) {
-			// Switch to a leader if not already; else switch to non-leader
-			if (mode[i] == 0) {
-				new_mode = 99;
-				new_nearest_leader = -1;
-				// Assign as non-leader for 6 +/- 3 seconds
-				leader_countdown[i] =
-					360 + curand_uniform(&local_state) * 180;
+			uint num_robots = p.num_robots;
+			int new_nearest_leader = nearest_leader[i];
+
+			// Random state for this robot
+			curandState local_state = rand_state[i];
+
+			// If the leader countdown for this robot has expired, switch the leader 
+			// state and reset the timer;
+			if (leader_countdown[i] == 0) {
+				// Switch to a leader if not already; else switch to non-leader
+				if (mode[i] == 0) {
+					new_mode = 99;
+					new_nearest_leader = -1;
+					// Assign as non-leader for 6 +/- 3 seconds
+					leader_countdown[i] =
+						360 + curand_uniform(&local_state) * 180;
+				}
+				else if (mode[i] > 0) {
+					new_mode = 0;
+					new_nearest_leader = i;
+					// Assign as a leader for 12 +/- 6 seconds
+					leader_countdown[i] =
+						720 + curand_uniform(&local_state) * 360;
+				}
 			}
-			else if (mode[i] > 0) {
-				new_mode = 0;
-				new_nearest_leader = i;
-				// Assign as a leader for 12 +/- 6 seconds
-				leader_countdown[i] =
-					720 + curand_uniform(&local_state) * 360;
-			}
-		}
-		else {
-			// Iterate through all neighbor robots
-			for (int n = 0; n < num_robots; n++) {
-				// Get the distance between the robots
-				float4 me = pos[i];
-				float4 them = pos[n];
-				float2 dist = make_float2(me.x - them.x, me.y - them.y);
-				// Determine if these two robots are within range of each other
-				bool within_range = euclidean(dist) < p.max_b;
+			else {
+				// Iterate through all neighbor robots
+				for (int n = 0; n < num_robots; n++) {
+					// Get the distance between the robots
+					float4 me = pos[i];
+					float4 them = pos[n];
+					float2 dist = make_float2(me.x - them.x, me.y - them.y);
+					// Determine if these two robots are within range of each other
+					bool within_range = euclidean(dist) < p.max_b;
 
-				// Peform operation based on whether the two robots are within range
-				if (within_range && i != n) {
-					// If a neighbor with a lower/equal mode and higher nearest 
-					// leader ID is found, set this robot to follow that neighbor's
-					// leader, and reset the leader countdown timer
-					if (mode[n] <= static_cast<int>(p.hops) &&
-						(mode[n] <= mode[i] ||
-						nearest_leader[n] > nearest_leader[i]))
-					{
-						new_mode = mode[n] + 1;
-						new_nearest_leader = nearest_leader[n];
-						// Reset leader countdown timer to 6 +/- 3 seconds
-						leader_countdown[i] = 360 +
-							curand_uniform(&local_state) * 180;
+					// Peform operation based on whether the two robots are within range
+					if (within_range && i != n) {
+						// If a neighbor with a lower/equal mode and higher nearest 
+						// leader ID is found, set this robot to follow that neighbor's
+						// leader, and reset the leader countdown timer
+						if (mode[n] <= static_cast<int>(p.hops) &&
+							(mode[n] <= mode[i] ||
+							nearest_leader[n] > nearest_leader[i]))
+						{
+							new_mode = mode[n] + 1;
+							new_nearest_leader = nearest_leader[n];
+							// Reset leader countdown timer to 6 +/- 3 seconds
+							leader_countdown[i] = 360 +
+								curand_uniform(&local_state) * 180;
+						}
 					}
 				}
 			}
+
+			// Synchronize threads before updating mode and nearest neighbor arrays
+			__syncthreads();
+
+			// Update this robot's mode and nearest leader
+			mode[i] = new_mode;
+			nearest_leader[i] = new_nearest_leader;
+
+			// Decrease countdown timer
+			leader_countdown[i]--;
 		}
-
-		// Synchronize threads before updating mode and nearest neighbor arrays
-		__syncthreads();
-
-		// Update this robot's mode and nearest leader
-		mode[i] = new_mode;
-		nearest_leader[i] = new_nearest_leader;
-
-		// Decrease countdown timer
-		leader_countdown[i]--;
+		else if (p.leader_selection == 1.0f) {
+			// Look at the index of this robot in the leader list to determine if 
+			// this robot should be a leader
+			if (leaders[i] == 0) {
+				mode[i] = 0;
+			}
+			else {
+				mode[i] = 1;
+			}
+		}
 	}
 }
 

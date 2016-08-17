@@ -71,18 +71,8 @@ void processData(uint n, uint ws, float4* positions, float3* velocities,
 	data[5] = data[5] / nf;
 
 	///// CONVEX HULL /////
-	// Place the positions of the robots in an array for convex hull calculations
-	vector<Point> robot_points;
-	for (uint i = 0; i < n; i++) {
-		Point p_temp;
-		p_temp.x = positions[i].x;
-		p_temp.y = positions[i].y;
-		robot_points.push_back(p_temp);
-	}
-	// Get the convex hull of the robot positions
-	vector<float4> robot_points_ch = convexHull(positions, n);
-	// Get the area of the robot convex hull
-	data[10] = convexHullArea(robot_points_ch);
+	// Convex hull area is computed in the step() function in run.cpp
+	data[10] = 0.0f;
 
 	///// EXPLORED AREA /////
 	int explored = 0;
@@ -98,44 +88,51 @@ void processData(uint n, uint ws, float4* positions, float3* velocities,
 
 // Returns a list of points on the convex hull in counter-clockwise order.
 // Note: the last point in the returned list is the same as the first one.
-vector<float4> convexHull(float4* points, uint num)
+void convexHull(float4* pos, vector<float4>* points, vector<uint>* indicies,  uint num)
 {
+	int n = static_cast<int>(num), k = 0;
 	vector<Point> P;
-	for (uint i = 0; i < num; i++) {
+	for (int i = 0; i < n; i++) {
 		Point p_temp;
-		p_temp.x = points[i].x;
-		p_temp.y = points[i].y;
+		p_temp.x = pos[i].x;
+		p_temp.y = pos[i].y;
 		P.push_back(p_temp);
 	}
 
-	int n = static_cast<int>(P.size()), k = 0;
 	vector<Point> ch(2 * n);
+	vector<uint> ch_i(2 * n);
 
 	// Sort points lexicographically
 	sort(P.begin(), P.end());
 
 	// Build lower hull
-	for (int i = 0; i < n; ++i) {
+	for (int i = 0; i < n; i++) {
 		while (k >= 2 && cross(ch[k - 2], ch[k - 1], P[i]) <= 0) k--;
-		ch[k++] = P[i];
+		ch[k] = P[i];
+		ch_i[k] = i;
+		k++;
 	}
 
 	// Build upper hull
 	for (int i = n - 2, t = k + 1; i >= 0; i--) {
 		while (k >= t && cross(ch[k - 2], ch[k - 1], P[i]) <= 0) k--;
-		ch[k++] = P[i];
+		ch[k] = P[i];
+		ch_i[k] = i;
+		k++;
 	}
 
 	// Resize the convex hull point array
 	ch.resize(k);
+	ch_i.resize(k);
 
-	// Convert to array of float4 and return
-	vector<float4> ch_final;
+	// Convert to array of float4/uint
 	for (uint i = 0; i < ch.size(); i++) {
 		float4 temp_point = make_float4(ch[i].x, ch[i].y, 0.0f, 0.0f);
-		ch_final.push_back(temp_point);
+		points->push_back(temp_point);
 	}
-	return ch_final;
+	for (uint i = 0; i < ch_i.size(); i++) {
+		indicies->push_back(ch_i[i]);
+	}
 }
 
 // Compute the centroid (x, y) of the convex hull given by points

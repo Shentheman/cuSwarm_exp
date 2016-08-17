@@ -8,6 +8,7 @@ data_size 11.0
 explore_cell_size 1.0
 hops 1.0
 information_mode 2.0
+leader_selection 1.0
 log_data 0.0
 max_a 0.5
 max_b 2.0
@@ -17,7 +18,7 @@ max_explore 200.0
 max_obstacle_size 20.0
 noise 0.0
 num_obstacles 5.0
-num_robots 256.0
+num_robots 16.0
 point_size 15.0
 repel_weight 1.25
 show_gui 1.0

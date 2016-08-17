@@ -605,6 +605,8 @@ void loadParameters(std::string filename)
 				p.hops = std::stof(tokens[1]);
 			else if (tokens[0] == "information_mode")
 				p.information_mode = std::stof(tokens[1]);
+			else if (tokens[0] == "leader_selection")
+				p.leader_selection = std::stof(tokens[1]);
 			else if (tokens[0] == "log_data")
 				p.log_data = std::stof(tokens[1]);
 			else if (tokens[0] == "max_a")
@@ -1024,10 +1026,11 @@ static void step(int value)
 
 		// Launch the main kernel to perform one simulation step
 		if (p.show_gui == 1.0f) {
-			launchMainKernel(goal_vector, step_num, p, &cuda_vbo_resource);
+			launchMainKernel(goal_vector, step_num, leaders, p, 
+				&cuda_vbo_resource);
 		}
 		else {
-			launchMainKernel(goal_vector, step_num, p);
+			launchMainKernel(goal_vector, step_num, leaders, p);
 		}
 
 		// Retrieve data from GPU (kernels.cu)
@@ -1039,9 +1042,18 @@ static void step(int value)
 			data_size);
 		
 		// Get convex hull of the robot positions in screen coordinates
-		robot_ch = convexHull(positions, num_robots);
+		convexHull(positions, &ch_coords, &ch_idx, num_robots);
 		// Get the area of the convex hull
-		float ch_area = convexHullArea(robot_ch);
+		float ch_area = convexHullArea(ch_coords);
+
+		// Clear the leader list (all indicies -1), then change to 0 the 
+		// indicies of the robots that make up the convex hull
+		for (uint i = 0; i < num_robots; i++) {
+			leaders[1] = -1;
+		}
+		for (uint i = 0; i < ch_idx.size(); i++) {
+			leaders[ch_idx[i]] = 0;
+		}
 
 		if (p.log_data != 0.0f) {
 			// Write data to the output log at the end of every step
@@ -1098,15 +1110,15 @@ int main(int argc, char** argv)
 	cudaHostAlloc(&positions, num_robots * sizeof(float4), 0);
 	cudaHostAlloc(&velocities, num_robots * sizeof(float3), 0);
 	cudaHostAlloc(&modes, num_robots * sizeof(float4), 0);
-	cudaHostAlloc(&leaders, 16 * sizeof(int), 0);
+	cudaHostAlloc(&leaders, num_robots * sizeof(int), 0);
 	cudaHostAlloc(&nearest_leaders, num_robots * sizeof(int), 0);
 	cudaHostAlloc(&leader_countdowns, num_robots * sizeof(uint), 0);
 	cudaHostAlloc(&obstacles, static_cast<uint>(p.num_obstacles) *
 		sizeof(float4), 0);
-
-	// Initialize leader list
-	fill(leaders, leaders + 10, -1);
 	
+	// Fill the leader list with -1 initially
+	fill(leaders, leaders + num_robots, -1);
+
 	// Generate random obstacle positions
 	generateObstacles();
 	// Compute occupancy grid from obstacles

@@ -45,7 +45,8 @@ float4* obstacles;						// List of obstacles in the environment
 bool* occupancy;						// Occupancy grid for the environment
 float* data;							// Data array (see data_ops.cpp)
 uint data_size;							// Size of the data array
-vector<float4> robot_ch;				// Convex hull of the robots
+vector<float4> ch_coords;				// Coordinates of robots of the convex hull
+vector<uint> ch_idx;					// Indicies of robots of the convex hull
 float score;							// Current score value of trial
 
 // Log file
