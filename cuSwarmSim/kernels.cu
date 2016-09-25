@@ -12,6 +12,8 @@ int* d_modes;
 int* d_leaders;
 int* d_nearest_leader;
 uint* d_leader_countdown;
+int4* d_laplacian;
+bool* d_ap;
 
 // Device pointers for environment variables
 bool* d_occupancy;
@@ -33,34 +35,28 @@ cudaStream_t streams[4];
 ***** HELPER FUNCTIONS ******
 ****************************/
 
-void cudaAllocate(Parameters p, bool* occupancy)
+void cudaAllocate(Parameters p)
 {
-	// Frequently-used parameters
-	float n_f = p.num_robots;
-	uint n = static_cast<uint>(n_f);
-	uint ws = static_cast<uint>(p.world_size);
-
 	// Allocate space on device for simulation arrays
-	cudaMalloc(&d_positions, n * sizeof(float4));
-	cudaMalloc(&d_velocities, n * sizeof(float3));
-	cudaMalloc(&d_modes, n * sizeof(int));
-	cudaMalloc(&d_leaders, n * sizeof(int));
-	cudaMalloc(&d_nearest_leader, n * sizeof(int));
-	cudaMalloc(&d_leader_countdown, n * sizeof(uint));
+	cudaMalloc(&d_positions, p.num_robots * sizeof(float4));
+	cudaMalloc(&d_velocities, p.num_robots * sizeof(float3));
+	cudaMalloc(&d_modes, p.num_robots * sizeof(int));
+	cudaMalloc(&d_leaders, p.num_robots * sizeof(int));
+	cudaMalloc(&d_nearest_leader, p.num_robots * sizeof(int));
+	cudaMalloc(&d_leader_countdown, p.num_robots * sizeof(uint));
+	cudaMalloc(&d_laplacian, p.num_robots * p.num_robots * sizeof(int4));
+	cudaMalloc(&d_ap, p.num_robots * sizeof(bool));
 	// Allocate space on device for environment arrays
-	cudaMalloc(&d_occupancy, ws * 10 * ws * 10 * sizeof(bool));
+	cudaMalloc(&d_occupancy, p.world_size * 10 * p.world_size * 10 * sizeof(bool));
 	cudaMalloc(&d_flow_pos, 256 * sizeof(float2));
 	cudaMalloc(&d_flow_dir, 256 * sizeof(float2));
 	// Allocate space on device for random state variables
-	cudaMalloc(&d_rand_states, n * sizeof(curandState));
-
-	// Copy occupancy grid to device
-	cudaMemcpyAsync(d_occupancy, occupancy, ws * 10 * ws * 10 * sizeof(bool), 
-		cudaMemcpyHostToDevice);
+	cudaMalloc(&d_rand_states, p.num_robots * sizeof(curandState));
 
 	// Set kernel launch parameters
-	grid_dim = static_cast<uint>(ceilf(n_f / BLOCK_SIZE));
-	block = dim3(min(n, BLOCK_SIZE), 1, 1);
+	grid_dim = static_cast<uint>(ceilf(static_cast<float>(p.num_robots) / 
+		BLOCK_SIZE));
+	block = dim3(min(p.num_robots, BLOCK_SIZE), 1, 1);
 	grid = dim3(grid_dim, 1, 1);
 
 	// Create streams for simultaneous kernel launches
@@ -79,6 +75,7 @@ void cuFree()
 	cudaFree(d_leaders);
 	cudaFree(d_nearest_leader);
 	cudaFree(d_leader_countdown);
+	cudaFree(d_laplacian);
 	cudaFree(d_occupancy);
 	cudaFree(d_flow_pos);
 	cudaFree(d_flow_dir);
@@ -116,7 +113,7 @@ void launchInitKernel(Parameters p, struct cudaGraphicsResource **vbo_resource)
 		*vbo_resource);
 
 	// Run initialization kernel to load initial simulation state
-	init_kernel << <grid, block >> >(
+	init_kernel <<<grid, block>>>(
 		d_positions,
 		d_velocities,
 		d_modes,
@@ -132,19 +129,21 @@ void launchInitKernel(Parameters p, struct cudaGraphicsResource **vbo_resource)
 	cudaGraphicsUnmapResources(1, vbo_resource, 0);
 }
 
-void launchMainKernel(float3 gp, uint sn, int* leaders, Parameters p)
+void launchMainKernel(float3 gp, uint sn, int* leaders, bool* ap, Parameters p)
 {
-	// Copy leader list to GPU
-	cudaMemcpy(d_leaders, leaders, static_cast<uint>(p.num_robots), 
+	// Copy leader and articulation point data to GPU
+	cudaMemcpy(d_leaders, leaders, p.num_robots * sizeof(int),
 		cudaMemcpyHostToDevice);
+	cudaMemcpy(d_ap, ap, p.num_robots * sizeof(bool), cudaMemcpyHostToDevice);
 
 	// Launch the main and side kernels
 	main_kernel <<<grid, block, 0, streams[0]>>>(
 		d_positions,
 		d_velocities,
 		d_modes,
-		gp,  
+		gp,
 		d_rand_states,
+		d_ap, 
 		d_flow_pos,
 		d_flow_dir,
 		d_occupancy, 
@@ -160,51 +159,23 @@ void launchMainKernel(float3 gp, uint sn, int* leaders, Parameters p)
 		p, 
 		d_nearest_leader,
 		d_leader_countdown, 
+		d_laplacian, 
 		sn);
 
 	// Synchronize kernels on device
-	//cudaDeviceSynchronize();
+	cudaDeviceSynchronize();
 }
 
-void launchMainKernel(float3 gp, uint sn, int* leaders, Parameters p, 
+void launchMainKernel(float3 gp, uint sn, int* leaders, bool* ap, Parameters p, 
 	struct cudaGraphicsResource **vbo_resource)
 {
-	// Copy leader list to GPU
-	//cudaMemcpy(d_leaders, leaders, static_cast<uint>(p.num_robots), 
-	//	cudaMemcpyHostToDevice);
-
 	// Map OpenGL buffer object for writing from CUDA
 	cudaGraphicsMapResources(1, vbo_resource, 0);
 	size_t num_bytes;
 	cudaGraphicsResourceGetMappedPointer((void **)&d_positions, &num_bytes,
 		*vbo_resource);
 
-	// Launch the main and side kernels
-	main_kernel << <grid, block, 0, streams[0] >> >(
-		d_positions,
-		d_velocities,
-		d_modes,
-		gp,
-		d_rand_states,
-		d_flow_pos,
-		d_flow_dir,
-		d_occupancy,
-		p,
-		sn);
-
-	// Run side kernel for extra computations outside the control loop
-	side_kernel << <grid, block, 0, streams[1] >> >(
-		d_positions,
-		d_modes,
-		d_leaders,
-		d_rand_states,
-		p,
-		d_nearest_leader,
-		d_leader_countdown,
-		sn);
-
-	// Synchronize kernels on device
-	//cudaDeviceSynchronize();
+	launchMainKernel(gp, sn, leaders, ap, p);
 
 	// Unmap OpenGL buffer object
 	cudaGraphicsUnmapResources(1, vbo_resource, 0);
@@ -233,6 +204,21 @@ void getData(uint n, float4* positions, float3* velocities, int* modes,
 		cudaMemcpyDeviceToHost);
 }
 
+void getLaplacian(uint n, int4* laplacian)
+{
+	cudaMemcpy(laplacian, d_laplacian, n * n * sizeof(int4), 
+		cudaMemcpyDeviceToHost);
+}
+
+void setData(uint n, float4* positions, float3* velocities, int* modes)
+{
+	// Copy simulation data from host to device arrays
+	cudaMemcpy(d_positions, positions, n * sizeof(float4), cudaMemcpyHostToDevice);
+	cudaMemcpy(d_velocities, velocities, n * sizeof(float3),
+		cudaMemcpyHostToDevice);
+	cudaMemcpy(d_modes, modes, n * sizeof(int), cudaMemcpyHostToDevice);
+}
+
 void setData(uint n, float4* positions, float3* velocities, int* modes,
 	int* nearest_leader, uint* leader_countdown)
 {
@@ -247,6 +233,13 @@ void setData(uint n, float4* positions, float3* velocities, int* modes,
 		cudaMemcpyHostToDevice);
 }
 
+void setOccupancy(Parameters p, bool* occupancy)
+{
+	// Copy occupancy data from host to device array
+	cudaMemcpy(d_occupancy, occupancy, p.world_size * 10 * p.world_size * 10 * 
+		sizeof(bool), cudaMemcpyHostToDevice);
+}
+
 /**************************
 ***** CUDA FUNCTIONS ******
 **************************/
@@ -259,9 +252,9 @@ __global__ void init_kernel(float4* pos, float3* vel, int* mode,
 	uint i = blockIdx.x * blockDim.x + threadIdx.x;
 
 	// Frequently-used parameters
-	uint num_robots = static_cast<uint>(p.num_robots);
-	float start_size = sqrtf(static_cast<float>(num_robots)) * 1.5f;
-	float ws = p.world_size;
+	float n_f = static_cast<float>(p.num_robots);
+	float start_size = sqrtf(n_f) * 1.5f;
+	float ws = static_cast<float>(p.world_size);
 
 	// Seed the RNG
 	curand_init(seed, i, 0, &rand_state[i]);
@@ -270,14 +263,14 @@ __global__ void init_kernel(float4* pos, float3* vel, int* mode,
 	// Initialize mode
 	mode[i] = p.hops + 1;
 	// Make the first noise % robots have a mode of -1 (noise mode)
-	if (i < static_cast<int>(p.noise * static_cast<float>(num_robots))) {
+	if (i < static_cast<int>(p.noise * n_f)) {
 		mode[i] = -1;
 	}
 
 	// Initialize nearest_leader and leader_countdown arrays for RCC leader 
 	// selection
 	nearest_leader[i] = -1;
-	leader_countdown[i] = curand_uniform(&local_state) * 60; // within first second
+	leader_countdown[i] = i;// curand_uniform(&local_state) * 60; // within first second
 
 	// Randomly place this robot within the starting circle
 	float theta = curand_uniform(&local_state) * 2.0f * PI;
@@ -288,7 +281,7 @@ __global__ void init_kernel(float4* pos, float3* vel, int* mode,
 
 	// Set the initial color
 	Color color;
-	setColor(&(color.components), 1, p);
+	setColor(&(color.components), 1, false, p);
 
 	// Set speed manually from params.txt
 	float speed = p.vel_bound / 60.0f;
@@ -312,7 +305,7 @@ __global__ void init_kernel(float4* pos, float3* vel, int* mode,
 
 __global__ void side_kernel(float4* pos, int* mode, int* leaders,
 	curandState* rand_state, Parameters p, int* nearest_leader,
-	uint* leader_countdown, uint sn)
+	uint* leader_countdown, int4* laplacian, uint sn)
 {
 	// Index of this robot
 	uint i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -320,19 +313,14 @@ __global__ void side_kernel(float4* pos, int* mode, int* leaders,
 	// Do not perform any leader calculation if a noise robot, or in a non-update 
 	// step
 	if (mode[i] != -1 &&
-		((sn + i) % static_cast<int>(p.update_period) == 0 || sn == 0)) {
+		((sn + i) % p.update_period == 0 || sn == 0)) {
 
 		// Perform either RCC or CH leader assignment, depending on parameter
-		if (p.leader_selection == 0.0f) {
+		if (p.leader_selection == 0) {
 
-			// Holds the new mode during computation
+			// Holds the new mode and nearest leader during computation
 			int new_mode = mode[i];
-
-			uint num_robots = p.num_robots;
 			int new_nearest_leader = nearest_leader[i];
-
-			// Random state for this robot
-			curandState local_state = rand_state[i];
 
 			// If the leader countdown for this robot has expired, switch the leader 
 			// state and reset the timer;
@@ -342,20 +330,18 @@ __global__ void side_kernel(float4* pos, int* mode, int* leaders,
 					new_mode = 99;
 					new_nearest_leader = -1;
 					// Assign as non-leader for 6 +/- 3 seconds
-					leader_countdown[i] =
-						360 + curand_uniform(&local_state) * 180;
+					leader_countdown[i] = 360;
 				}
 				else if (mode[i] > 0) {
 					new_mode = 0;
 					new_nearest_leader = i;
 					// Assign as a leader for 12 +/- 6 seconds
-					leader_countdown[i] =
-						720 + curand_uniform(&local_state) * 360;
+					leader_countdown[i] = 720;
 				}
 			}
 			else {
 				// Iterate through all neighbor robots
-				for (int n = 0; n < num_robots; n++) {
+				for (int n = 0; n < p.num_robots; n++) {
 					// Get the distance between the robots
 					float4 me = pos[i];
 					float4 them = pos[n];
@@ -363,20 +349,19 @@ __global__ void side_kernel(float4* pos, int* mode, int* leaders,
 					// Determine if these two robots are within range of each other
 					bool within_range = euclidean(dist) < p.max_b;
 
-					// Peform operation based on whether the two robots are within range
+					// Peform operation based on whether the robots are within range
 					if (within_range && i != n) {
 						// If a neighbor with a lower/equal mode and higher nearest 
-						// leader ID is found, set this robot to follow that neighbor's
-						// leader, and reset the leader countdown timer
-						if (mode[n] <= static_cast<int>(p.hops) &&
+						// leader ID is found, follow that neighbor's leader and 
+						// reset the leader countdown timer
+						if (mode[n] <= p.hops &&
 							(mode[n] <= mode[i] ||
 							nearest_leader[n] > nearest_leader[i]))
 						{
 							new_mode = mode[n] + 1;
 							new_nearest_leader = nearest_leader[n];
 							// Reset leader countdown timer to 6 +/- 3 seconds
-							leader_countdown[i] = 360 +
-								curand_uniform(&local_state) * 180;
+							leader_countdown[i] = 360;
 						}
 					}
 				}
@@ -392,7 +377,7 @@ __global__ void side_kernel(float4* pos, int* mode, int* leaders,
 			// Decrease countdown timer
 			leader_countdown[i]--;
 		}
-		else if (p.leader_selection == 1.0f) {
+		else if (p.leader_selection == 1) {
 			// Look at the index of this robot in the leader list to determine if 
 			// this robot should be a leader
 			if (leaders[i] == 0) {
@@ -403,10 +388,66 @@ __global__ void side_kernel(float4* pos, int* mode, int* leaders,
 			}
 		}
 	}
+
+	// Degree for laplacian
+	uint degree_a = 0, degree_b = 0, degree_c = 0, degree_d = 0;
+	// Iterate through all other robots
+	for (uint j = 0; j < p.num_robots; j++) {
+		if (i != j) {
+			// Get the distance between the robots
+			float4 me = pos[i];
+			float4 them = pos[j];
+			float2 dist_xy = make_float2(me.x - them.x, me.y - them.y);
+			float dist = euclidean(dist_xy);
+			// Set the non-diagonal values based on whether robots are connected
+			// at the four different ranges, -1 means connected, 0 disconnected
+			if (dist < p.max_a) {
+				degree_a++;
+				laplacian[(i * p.num_robots) + j].x = -1;
+				laplacian[(j * p.num_robots) + i].x = -1;
+			}
+			else {
+				laplacian[(i * p.num_robots) + j].x = 0;
+				laplacian[(j * p.num_robots) + i].x = 0;
+			}
+			if (dist < p.max_b) {
+				degree_b++;
+				laplacian[(i * p.num_robots) + j].y = -1;
+				laplacian[(j * p.num_robots) + i].y = -1;
+			}
+			else {
+				laplacian[(i * p.num_robots) + j].y = 0;
+				laplacian[(j * p.num_robots) + i].y = 0;
+			}
+			if (dist < p.max_c) {
+				degree_c++;
+				laplacian[(i * p.num_robots) + j].z = -1;
+				laplacian[(j * p.num_robots) + i].z = -1;
+			}
+			else {
+				laplacian[(i * p.num_robots) + j].z = 0;
+				laplacian[(j * p.num_robots) + i].z = 0;
+			}
+			if (dist < p.max_d) {
+				degree_d++;
+				laplacian[(i * p.num_robots) + j].w = -1;
+				laplacian[(j * p.num_robots) + i].w = -1;
+			}
+			else {
+				laplacian[(i * p.num_robots) + j].w = 0;
+				laplacian[(j * p.num_robots) + i].w = 0;
+			}
+		}
+	}
+	// Set the diagonal of the laplacian to the degree of corresponding robot
+	laplacian[(i * p.num_robots) + i].x = degree_a;
+	laplacian[(i * p.num_robots) + i].y = degree_b;
+	laplacian[(i * p.num_robots) + i].z = degree_c;
+	laplacian[(i * p.num_robots) + i].w = degree_d;
 }
 
 __global__ void main_kernel(float4* pos, float3* vel, int* mode,
-	float3 goal_heading, curandState* rand_state, float2* flow_pos, 
+	float3 goal_heading, curandState* rand_state, bool* ap, float2* flow_pos, 
 		float2* flow_dir, bool* occupancy, Parameters p, uint sn)
 {
 	// Index of this robot
@@ -415,6 +456,7 @@ __global__ void main_kernel(float4* pos, float3* vel, int* mode,
 	__shared__ float4 s_pos[BLOCK_SIZE];
 	__shared__ float3 s_vel[BLOCK_SIZE];
 	__shared__ int s_mode[BLOCK_SIZE];
+	__shared__ bool s_ap[BLOCK_SIZE];
 
 	__syncthreads();
 
@@ -422,7 +464,7 @@ __global__ void main_kernel(float4* pos, float3* vel, int* mode,
 	float4 myPos = pos[i];
 	int myMode = mode[i];
 	float mySpeed = p.vel_bound / 60.0f;
-	float dist_to_obstacle = FLT_MAX;
+	float dist_to_obstacle = p.max_d;
 	curandState local_state = rand_state[i];
 
 	// Computation variable initializations
@@ -452,6 +494,7 @@ __global__ void main_kernel(float4* pos, float3* vel, int* mode,
 			s_pos[threadIdx.x] = pos[n];
 			s_vel[threadIdx.x] = vel[n];
 			s_mode[threadIdx.x] = mode[n];
+			s_ap[threadIdx.x] = ap[n];
 
 			// Synchronize threads after shared memory is assigned
 			__syncthreads();
@@ -475,18 +518,17 @@ __global__ void main_kernel(float4* pos, float3* vel, int* mode,
 
 						// Perform the interaction for this robot pair based on 
 						// the current behavior
-						switch (static_cast<int>(p.behavior)) {
+						switch (p.behavior) {
 						case 0:
-							rendezvous(myPos, s_pos[ti], s_vel[ti], dist3,
-								&min_bounds, &max_bounds, &repel, p);
+							rendezvous(dist3, &min_bounds, &max_bounds, &repel, 
+								s_ap[ti], p);
 							break;
 						case 1:
-							flock(myPos, vel[i], myMode, s_pos[ti], s_vel[ti],
-								s_mode[ti], dist3, &repel, &align, &cohere, p);
+							flock(myMode, s_vel[ti], s_mode[ti], dist3, &repel, 
+								&align, &cohere, s_ap[ti], p);
 							break;
 						case 2:
-							disperse(myPos, s_pos[ti], s_vel[ti], dist3, &repel, 
-								&cohere, p);
+							disperse(dist3, &repel, &cohere, s_ap[ti], p);
 							break;
 						}
 					}
@@ -498,7 +540,7 @@ __global__ void main_kernel(float4* pos, float3* vel, int* mode,
 		obstacleAvoidance(myPos, &avoid, &dist_to_obstacle, occupancy, p);
 
 		// Finish necessary summary computations for each behavior
-		switch (static_cast<uint>(p.behavior)) {
+		switch (p.behavior) {
 		case 0:
 			// Finish computation of parallel circumcenter algorithm
 			cohere.x = ((min_bounds.x + max_bounds.x) / 2.0f);
@@ -525,7 +567,7 @@ __global__ void main_kernel(float4* pos, float3* vel, int* mode,
 		rescale(&repel, p.repel_weight, false);
 		rescale(&align, p.align_weight, false);
 		rescale(&cohere, p.cohere_weight, false);
-		rescale(&avoid, 2.0f * (1.0f - (dist_to_obstacle / p.max_d)), false);
+		rescale(&avoid, 100.0f * (1.0f - (dist_to_obstacle / p.max_d)), false);
 		// Add random currents, if applicable
 		if (p.current > 0.0f) {
 			rescale(&flow, p.current, false);
@@ -542,8 +584,7 @@ __global__ void main_kernel(float4* pos, float3* vel, int* mode,
 	}
 
 	// Cap the angular velocity
-	capAngularVelocity(make_float2(vel[i].x, vel[i].y), &goal, 
-		p.ang_bound / 60.0f);
+	capAngularVelocity(make_float2(vel[i].x, vel[i].y), &goal, p.ang_bound / 60.0f);
 	// Rescale the goal to the calculated speed
 	rescale(&goal, mySpeed, true);
 
@@ -552,9 +593,9 @@ __global__ void main_kernel(float4* pos, float3* vel, int* mode,
 
 	// Set the color based on current mode (leaders in red)
 	Color color;
-	setColor(&(color.components), myMode, p);
+	setColor(&(color.components), myMode, ap[i], p);
 	// Update velocity and mode once every update_period steps (see params.txt file)
-	if ((sn + i) % static_cast<int>(p.update_period) == 0 || sn == 0) {
+	if ((sn + i) % p.update_period == 0 || sn == 0) {
 		vel[i] = make_float3(goal.x, goal.y, mySpeed);
 	}
 	// Update position
@@ -564,11 +605,12 @@ __global__ void main_kernel(float4* pos, float3* vel, int* mode,
 	rand_state[i] = local_state;
 }
 
-__device__ void rendezvous(float4 myPos, float4 nPos, float3 nVel, float3 dist3, 
-	float2* min_bounds, float2* max_bounds, float2* repel, Parameters p)
+__device__ void rendezvous(float3 dist3, float2* min_bounds, float2* max_bounds, 
+	float2* repel, bool is_ap, Parameters p)
 {
 	if (dist3.z <= p.max_a) {
 		// REPEL
+		// Repel from robots within closest range (max_a)
 		float weight = powf(p.max_a - dist3.z, 2.0f);
 		repel->x -= weight * dist3.x;
 		repel->y -= weight * dist3.y;
@@ -577,6 +619,7 @@ __device__ void rendezvous(float4 myPos, float4 nPos, float3 nVel, float3 dist3,
 	{
 		// COHERE
 		// Robots cohere to the center of the rectangle that bounds their neighbors
+		// Do not cohere to neighbors within max_a range
 		min_bounds->x = fminf(min_bounds->x, dist3.x);
 		min_bounds->y = fminf(min_bounds->y, dist3.y);
 		max_bounds->x = fmaxf(max_bounds->x, dist3.x);
@@ -584,13 +627,13 @@ __device__ void rendezvous(float4 myPos, float4 nPos, float3 nVel, float3 dist3,
 	}
 }
 
-__device__ void flock(float4 myPos, float3 myVel, int myMode, float4 nPos,
-	float3 nVel, int nMode, float3 dist3, float2* repel, float2* align, 
-	float2* cohere, Parameters p)
+__device__ void flock(int myMode, float3 nVel, int nMode, float3 dist3, 
+	float2* repel, float2* align, float2* cohere, bool is_ap, Parameters p)
 {
 	// Main flocking section
 	if (dist3.z <= p.max_b) {
 		// REPEL
+		// Robots repel from neighbors within max_b range
 		float weight = powf(p.max_b - dist3.z, 2.0f);
 		repel->x -= weight * dist3.x;
 		repel->y -= weight * dist3.y;
@@ -604,25 +647,28 @@ __device__ void flock(float4 myPos, float3 myVel, int myMode, float4 nPos,
 	}
 	if (dist3.z > p.max_b && dist3.z <= p.max_d) {
 		// COHERE
+		// Do not cohere to neighbors within max_b range
 		float weight = powf(dist3.z - p.max_b, 2.0f);
 		cohere->x += weight * dist3.x;
 		cohere->y += weight * dist3.y;
 	}
 }
 
-__device__ void disperse(float4 myPos, float4 nPos, float3 nVel, float3 dist3, 
-	float2* repel, float2* cohere, Parameters p)
+__device__ void disperse(float3 dist3, float2* repel, float2* cohere, bool is_ap, 
+	Parameters p)
 {
 	// Determine whether we should repel or cohere based on the 
 	// distance to the neighbor
 	if (dist3.z <= p.max_c) {
 		// REPEL
+		// Robots repel from neighbors within max_c range
 		float weight = powf(p.max_c - dist3.z, 2.0f);
 		repel->x -= weight * dist3.x;
 		repel->y -= weight * dist3.y;
 	}
 	if (dist3.z <= p.max_d && dist3.z > p.max_b) {
 		// COHERE
+		// Do not cohere to robots within max_b range
 		float weight = powf(dist3.z - p.max_b, 3.0f);
 		cohere->x += weight * dist3.x;
 		cohere->y += weight * dist3.y;
@@ -632,13 +678,13 @@ __device__ void disperse(float4 myPos, float4 nPos, float3 nVel, float3 dist3,
 __device__ void obstacleAvoidance(float4 myPos, float2* avoid, 
 	float* dist_to_obstacle, bool* occupancy, Parameters p)
 {
+	*(dist_to_obstacle) = FLT_MAX;
 	int count = 0;
-	for (float i = 0; i < 2.0 * PI; i += PI / 45) {
-		float i_f = static_cast<float>(i);
-		float cos = cosf(i_f);
-		float sin = sinf(i_f);
-		// Ray trace along this angle up to the robot's maximum range
-		for (float r = 0.0f; r < p.max_d; r += 1.0f) {
+	for (float i = 0; i < 2.0f * PI; i += PI / 45.0f) {
+		float cos = cosf(i);
+		float sin = sinf(i);
+		// Ray trace along this angle up to the robot's avoidance range
+		for (float r = 0.0f; r < p.max_b; r += 1.0f) {
 			count++;
 			float x_check = myPos.x + r * cos;
 			float y_check = myPos.y + r * sin;
@@ -646,9 +692,9 @@ __device__ void obstacleAvoidance(float4 myPos, float2* avoid,
 			// component to the obstacle vector
 			if (checkOccupancy(x_check, y_check, occupancy, p)) {
 				// Get weight for obstacle repulsion force
-				float weight = powf(1.0f - (r / p.max_d), 2.0f);
+				float weight = powf(1.0f - (r / p.max_b), 2.0f);
 				// Update the distance to the closest obstacle
-				if (*dist_to_obstacle > r) {
+				if (r < *dist_to_obstacle) {
 					*dist_to_obstacle = r;
 				}
 				// Update the obstacle avoidance vector
@@ -662,8 +708,8 @@ __device__ void obstacleAvoidance(float4 myPos, float2* avoid,
 
 __device__ bool checkOccupancy(float x, float y, bool* occupancy, Parameters p)
 {
-	float ws_2 = p.world_size / 2.0f;
-	float ws_10 = p.world_size * 10.0f;
+	float ws_2 = static_cast<float>(p.world_size) / 2.0f;
+	float ws_10 = static_cast<float>(p.world_size) * 10.0f;
 	// Return false if the coordinates to check are outside the world boundaries; 
 	// else, return the occupancy grid value for these coordinates
 	if (x < -ws_2 || x > ws_2 || y < -ws_2 || y > ws_2) {
@@ -673,18 +719,18 @@ __device__ bool checkOccupancy(float x, float y, bool* occupancy, Parameters p)
 		// Get the 1d index for the occupancy array from the x and y coordinates
 		uint x_component = static_cast<uint>((x + ws_2) * 10.0f);
 		uint y_component = static_cast<uint>(floorf(y + ws_2) * ws_10 * 10.0f);
-		uint idx = x_component + y_component;
-		return occupancy[idx];
+		uint index = x_component + y_component;
+		return occupancy[index];
 	}
 }
 
-__device__ void setColor(uchar4* color, int mode, Parameters p)
+__device__ void setColor(uchar4* color, int mode, bool is_ap, Parameters p)
 {
-	if (p.information_mode == 0.0f) {
+	if (p.information_mode == 0) {
 		// Centroid-ellipse mode
 		*color = make_uchar4(0, 0, 0, 0);
 	}
-	else if (p.information_mode == 1.0f) {
+	else if (p.information_mode == 1) {
 		// Leader only mode
 		switch (mode) {
 		case -1:
@@ -711,6 +757,12 @@ __device__ void setColor(uchar4* color, int mode, Parameters p)
 			*color = make_uchar4(255, 255, 255, 255);
 			break;
 		}
+	}
+
+	// If this robot is the vertex of an articulation point in the communication 
+	// graph, and in simulation is in full information mode, show it in green
+	if (is_ap && p.information_mode == 2) {
+		*color = make_uchar4(0, 200, 0, 255);
 	}
 }
 

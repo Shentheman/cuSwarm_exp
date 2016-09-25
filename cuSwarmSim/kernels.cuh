@@ -1,31 +1,5 @@
-#ifndef GPU_SWARM_H
-#define GPU_SWARM_H
-
-/*******************
-***** DEFINES ******
-*******************/
-
-#ifndef PI
-#define PI 3.14159265358979323846f
-#endif
-#ifndef DEG2RAD
-#define DEG2RAD 0.01745329251f
-#endif
-#ifndef BLOCK_SIZE
-#define BLOCK_SIZE 256
-#endif
-#ifndef NORTH
-#define NORTH 1.57079632679f
-#endif
-#ifndef EAST
-#define EAST 0.0f
-#endif
-#ifndef SOUTH
-#define SOUTH -1.57079632679f
-#endif
-#ifndef WEST
-#define WEST 3.14159265358f
-#endif
+#ifndef KERNELS_H
+#define KERNELS_H
 
 /********************
 ***** INCLUDES ******
@@ -48,12 +22,12 @@
 #include <gl/freeglut.h>
 #include <cuda_gl_interop.h>
 
+// Project includes
+#include "utils.h"
+
 /***********************************
 ***** STRUCTURES AND TYPEDEFS ******
 ***********************************/
-
-typedef unsigned int uint;
-typedef unsigned long ulong;
 
 union Color
 {
@@ -61,61 +35,30 @@ union Color
 	uchar4 components;
 };
 
-struct Parameters
-{
-	float align_weight;
-	float automated;
-	float ang_bound;
-	float behavior;
-	float cohere_weight;
-	float current;
-	float data_size;
-	float explore_cell_size;
-	float hops;
-	float information_mode;
-	float leader_selection;
-	float log_data;
-	float max_a;
-	float max_b;
-	float max_c;
-	float max_d;
-	float max_explore;
-	float max_obstacle_size;
-	float noise;
-	float num_obstacles;
-	float num_robots;
-	float point_size;
-	float repel_weight;
-	float show_gui;
-	float step_limit;
-	float update_period;
-	float vel_bound;
-	float window_height;
-	float window_width;
-	float world_size;
-};
-
 /**************************************
 ***** FORWARD DECLARED FUNCTIONS ******
 **************************************/
 
 // CUDA memory functions
-void cudaAllocate(Parameters p, bool* occupancy);
+void cudaAllocate(Parameters p);
 void cuFree();
 
 // Kernel launches
 void launchInitKernel(Parameters p, struct cudaGraphicsResource **vbo_resource);
-void launchMainKernel(float3 gp, uint sn, int* leaders, Parameters p, 
+void launchMainKernel(float3 gp, uint sn, int* leaders, bool* ap, Parameters p, 
 struct cudaGraphicsResource **vbo_resource);
 void launchInitKernel(Parameters p);
-void launchMainKernel(float3 gp, uint sn, int* leaders, Parameters p);
+void launchMainKernel(float3 gp, uint sn, int* leaders, bool* ap, Parameters p);
 
 // CUDA host<->device copy functions
 void getData(uint n, float4* positions, float3* velocities, int* modes);
 void getData(uint n, float4* positions, float3* velocities, int* modes, 
 	int* nearest_leader, uint* leader_countdown);
+void getLaplacian(uint n, int4* laplacian);
+void setData(uint n, float4* positions, float3* velocities, int* modes);
 void setData(uint n, float4* positions, float3* velocities, int* modes,
 	int* nearest_leader, uint* leader_countdown);
+void setOccupancy(Parameters p, bool* occupancy);
 
 /*********************************************
 ***** FORWARD DECLARED DEVICE FUNCTIONS ******
@@ -127,28 +70,27 @@ __global__ void init_kernel(float4* pos, float3* vel, int* mode,
 
 __global__ void side_kernel(float4* pos, int* mode, int* leaders, 
 	curandState* rand_state, Parameters p, int* nearest_leader, 
-	uint* leader_countdown, uint sn);
+	uint* leader_countdown, int4* laplacian, uint sn);
 
 __global__ void main_kernel(float4* pos, float3* vel, int* mode, 
-	float3 goal_heading, curandState* rand_state, float2* flow_pos, 
+	float3 goal_heading, curandState* rand_state, bool* ap, float2* flow_pos, 
 	float2* flor_dir, bool* occupancy, Parameters p, uint sn);
 
-__device__ void rendezvous(float4 myPos, float4 nPos, float3 nVel, float3 dist3, 
-	float2* min_bounds, float2* max_bounds, float2* repel, Parameters p);
+__device__ void rendezvous(float3 dist3, float2* min_bounds, float2* max_bounds, 
+	float2* repel, bool is_ap, Parameters p);
 
-__device__ void flock(float4 myPos, float3 myVel, int myMode, float4 nPos,
-	float3 nVel, int nMode, float3 dist4, float2* repel, float2* align, 
-	float2* cohere, Parameters p);
+__device__ void flock(int myMode, float3 nVel, int nMode, float3 dist3, 
+	float2* repel, float2* align, float2* cohere, bool is_ap, Parameters p);
 
-__device__ void disperse(float4 myPos, float4 nPos, float3 nVel, float3 dist3, 
-	float2* repel, float2* cohere, Parameters p);
+__device__ void disperse(float3 dist3, float2* repel, float2* cohere, bool is_ap, 
+	Parameters p);
 
 __device__ void obstacleAvoidance(float4 myPos, float2* avoid, 
 	float* dist_to_obstacle, bool* occupancy, Parameters p);
 
 __device__ bool checkOccupancy(float x, float y, bool* occupancy, Parameters p);
 
-__device__ void setColor(uchar4* color, int mode, Parameters p);
+__device__ void setColor(uchar4* color, int mode, bool is_ap, Parameters p);
 
 __device__ float euclidean(float2 vector);
 

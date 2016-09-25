@@ -1,13 +1,127 @@
 #include "data_ops.h"
 
-void processData(uint n, uint ws, float4* positions, float3* velocities, 
-	int* explored_grid, float* data, uint data_size)
-{
-	// Clear old data in the array
-	for (uint i = 0; i < data_size; i++) {
-		data[i] = 0.0f;
+///////////////////////
+///// GRAPH CLASS /////
+///////////////////////
+
+class Graph {
+private:
+	// V is the number of vertices in the graph
+	// time is used to determine when a node has a back-link to one of its ancestors
+	int V, time;
+
+	// adjList[u] is the adjacency list of vertex u, 0 <= u < V
+	vector <int> *adjList;
+
+	// explored[u] is true if u has been explored
+	// articulation_point[u] is true is u is an articulation point
+	bool *explored, *articulation_point, done;
+
+	// disc_time[u] is the time at which vertex u was explored
+	// parent[u] = v if in the dfs tree, there is an edge from v to u
+	// low[u] is the time of the earliest explored vertex reachable from u
+	// If low[u] < disc_time[u], then there is a back-link from some node in the 
+	// subtree rooted at u to some ancestor of u
+	int *disc_time, *parent, *low;
+
+	// articulation_points stores the articulation points/cut vertices in the graph
+	vector <int> articulation_points;
+
+	void dfsUtil(int u) {
+		explored[u] = true;
+		int num_child = 0;
+		disc_time[u] = low[u] = ++time;
+
+		for (vector <int>::iterator v = adjList[u].begin(); v != adjList[u].end(); v++)	{
+			if (!explored[*v])	{
+				num_child++;
+				parent[*v] = u;
+				dfsUtil(*v);
+				low[u] = min(low[u], low[*v]);
+
+				// u is an articulation point iff
+				// 1. It the the root and has more than 1 child.
+				// 2. It is not the root and no vertex in the subtree rooted at one of its
+				//    children has a back-link to its ancestor.
+				//    A child has a back-link to an ancestor of its parent when its low
+				//    value is less than the discovery time of its parent.
+				if (parent[u] == -1 && num_child > 1)
+					articulation_point[u] = true;
+				else if (parent[u] != -1 && low[*v] >= disc_time[u])
+					articulation_point[u] = true;
+			}
+			else if (*v != parent[u])
+				low[u] = min(low[u], disc_time[*v]);
+		}
 	}
 
+	void dfs()    {
+		for (int u = 0; u < V; u++)
+			if (!explored[u])
+				dfsUtil(u);
+	}
+
+public:
+
+	// create an empty undirected graph having V vertices
+	Graph(int V) {
+		this->V = V;
+		time = 0;
+		done = false;
+
+		adjList = new vector <int>[V];
+		explored = new bool[V];
+		articulation_point = new bool[V];
+		disc_time = new int[V];
+		parent = new int[V];
+		low = new int[V];
+
+		memset(explored, false, V * sizeof(bool));
+		memset(articulation_point, false, V * sizeof(bool));
+		memset(parent, -1, V * sizeof(int));
+	}
+
+	~Graph()    {
+		delete[] adjList;
+		delete[] articulation_point;
+		delete[] explored;
+		delete[] parent;
+		delete[] disc_time;
+		delete[] low;
+	}
+
+	// add an undirected edge (u, v) to the graph
+	// returns false if either u or v is less than 0 or greater than equal to V
+	// returns true if the edge was added to the digraph
+	bool addEdge(int u, int v)  {
+		if (u < 0 || u >= V) return false;
+		if (v < 0 || v >= V) return false;
+		adjList[u].push_back(v);
+		adjList[v].push_back(u);
+		return true;
+	}
+
+	// Performs dfs over the graph and returns a vector containing
+	// the articulation points
+	vector <int> getArticulationPoints()	{
+		if (done)
+			return articulation_points;
+		dfs();
+		done = true;
+		for (int u = 0; u < V; u++)
+			if (articulation_point[u])
+				articulation_points.push_back(u);
+		return articulation_points;
+	}
+};
+
+///////////////////////////
+///// END GRAPH CLASS /////
+///////////////////////////
+
+void processData(uint n, uint ws, float4* positions, float3* velocities, 
+	int* explored_grid, Data* data)
+{
 	///// HEADING AVERAGE /////
 	float nf = static_cast<float>(n);
 	// Get the average velocity
@@ -24,7 +138,7 @@ void processData(uint n, uint ws, float4* positions, float3* velocities,
 	avg_vel.y /= nf;
 
 	float avg_h = atan2(avg_vel.y, avg_vel.x);
-	data[0] = avg_h;
+	data->heading_avg = avg_h;
 
 	///// HEADING VARIANCE /////
 	float var = 0.0f;
@@ -37,49 +151,42 @@ void processData(uint n, uint ws, float4* positions, float3* velocities,
 		var += abs(diff);
 	}
 
-	data[1] = var;
+	data->heading_var = var;
 
 	///// CENTROID /////
 	for (uint i = 0; i < n; i++) {
-		data[2] += positions[i].x;
-		data[3] += positions[i].y;
+		data->centroid.x += positions[i].x;
+		data->centroid.y += positions[i].y;
 	}
 
-	data[2] = data[2] / nf;
-	data[3] = data[3] / nf;
+	data->centroid.x = data->centroid.x / nf;
+	data->centroid.y = data->centroid.y / nf;
 
 	///// POSITION BOUNDS and VARIANCE /////
 	// Initialize position bounds to minima/maxima
-	data[6] = FLT_MAX;
-	data[7] = -FLT_MAX;
-	data[8] = FLT_MAX;
-	data[9] = -FLT_MAX;
+	data->bounds.x = FLT_MAX;
+	data->bounds.y = -FLT_MAX;
+	data->bounds.z = FLT_MAX;
+	data->bounds.w = -FLT_MAX;
 
 	for (uint i = 0; i < n; i++) {
-		// Update variance calculation for x and y  coordinates
-		data[4] += fabsf(positions[i].x - data[2]);
-		data[5] += fabsf(positions[i].y - data[3]);
-
 		// Check bounds of the swarm
-		data[6] = min(data[6], positions[i].x);
-		data[7] = max(data[7], positions[i].x);
-		data[8] = min(data[8], positions[i].y);
-		data[9] = max(data[9], positions[i].y);
+		data->bounds.x = min(data->bounds.x, positions[i].x);
+		data->bounds.y = max(data->bounds.y, positions[i].x);
+		data->bounds.z = min(data->bounds.z, positions[i].y);
+		data->bounds.w = max(data->bounds.w, positions[i].y);
 	}
-
-	data[4] = data[4] / nf;
-	data[5] = data[5] / nf;
 
 	///// CONVEX HULL /////
 	// Convex hull area is computed in the step() function in run.cpp
-	data[10] = 0.0f;
+	data->ch_area = 0.0f;
 
 	///// EXPLORED AREA /////
 	int explored = 0;
 	for (uint i = 0; i < ws * ws; i++) {
-		explored += explored_grid[i];
+		explored += abs(explored_grid[i]);
 	}
-	data[11] = static_cast<float>(explored);
+	data->score = static_cast<float>(explored);
 }
 
 /*********************************
@@ -88,7 +195,8 @@ void processData(uint n, uint ws, float4* positions, float3* velocities,
 
 // Returns a list of points on the convex hull in counter-clockwise order.
 // Note: the last point in the returned list is the same as the first one.
-void convexHull(float4* pos, vector<float4>* points, vector<uint>* indicies,  uint num)
+void convexHull(float4* pos, vector<float4>* points, vector<uint>* indicies, 
+	uint num)
 {
 	int n = static_cast<int>(num), k = 0;
 	vector<Point> P;
@@ -190,4 +298,84 @@ vector<Point> float4toPointArray(float4* points, uint n) {
 	}
 	// Return the new vector of points
 	return vector_points;
+}
+
+float connectivity(uint n, int4* laplacian, uint level)
+{
+	// Laplacian matrix in Eigen form
+	Eigen::MatrixXf A(n, n);
+	// Populate Eigen matrix
+	for (uint i = 0; i < n; i++) {
+		for (uint j = 0; j < n; j++) {
+			// Get connectivity based on robot range level specified to compute 
+			// laplacian of communication graph (1 = max_a ... 4 = max_d).
+			switch (level) {
+			case 1:
+				A(i, j) = static_cast<float>(laplacian[(i * n) + j].x);
+				break;
+			case 2:
+				A(i, j) = static_cast<float>(laplacian[(i * n) + j].y);
+				break;
+			case 3:
+				A(i, j) = static_cast<float>(laplacian[(i * n) + j].z);
+				break;
+			case 4:
+			default:
+				// Report max_d (maximum comm range) by default
+				A(i, j) = static_cast<float>(laplacian[(i * n) + j].w);
+				break;
+			}
+			
+		}
+	}
+
+	// Get eigenvalues of laplacian
+	Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> eigensolver(A);
+
+	// Return second-smallest eigenvalue
+	return eigensolver.eigenvalues()[1];
+}
+
+void articulationPoints(uint n, int4* laplacian, bool* ap, uint level)
+{
+	// Clear the articulation point vector
+	for (uint i = 0; i < n; i++) {
+		ap[i] = false;
+	}
+
+	// Graph object
+	Graph g(n);
+
+	// Create graph
+	for (uint i = 0; i < n; i++) {
+		for (uint j = i + 1; j < n; j++) {
+			bool connected;
+			// Compute articulation points based on the robot range level specified
+			// for the laplacian (1 = max_a ... 4 = max_d).
+			switch (level) {
+			case 1:
+				connected = laplacian[(i * n) + j].x == -1;
+				break;
+			case 2:
+				connected = laplacian[(i * n) + j].y == -1;
+				break;
+			case 3:
+				connected = laplacian[(i * n) + j].z == -1;
+				break;
+			case 4:
+			default:
+				connected = laplacian[(i * n) + j].w == -1;
+				break;
+			}
+			if (connected) {
+				g.addEdge(i, j);
+			}
+		}
+	}
+
+	// Get articulation points of graph
+	vector<int> points = g.getArticulationPoints();
+	for (uint i = 0; i < points.size(); i++) {
+		ap[points[i]] = true;
+	}
 }

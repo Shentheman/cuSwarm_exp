@@ -18,10 +18,12 @@ using namespace std;
 ***********************************/
 
 typedef struct {
-	int behavior;
-	float flock_dir;
-	uint time_started;
-	float cur_score;
+	uint behavior;
+	float flock_dir;	// 0.0 if rendezvous or dispersion
+	uint time_start;
+	uint time_end;
+	float score_start;
+	float score_end;
 } Decision;
 
 /*******************
@@ -35,7 +37,7 @@ public:
 		uint* l_c, uint sn, uint n, uint ws);
 	SwarmState(float4* positions, float3* velocities, int* modes, int* n_l,
 		uint* l_c, int* exp_grid, vector<Decision> seq, uint sn, float s, 
-		uint n, uint ws);
+		float h, float c, uint n, uint ws);
 	~SwarmState();
 	float4* pos;
 	float3* vel;
@@ -46,6 +48,7 @@ public:
 	vector<Decision> b_seq;
 	float score;
 	float heuristic;
+	float connectivity;
 	uint step_num;
 };
 
@@ -54,7 +57,7 @@ class Compare {
 public:
 	bool operator() (SwarmState* a, SwarmState* b)
 	{
-		return (a->score < b->score);
+		return (a->score + a->heuristic < b->score + b->heuristic);
 	}
 };
 
