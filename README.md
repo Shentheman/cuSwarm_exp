@@ -22,18 +22,23 @@ Other parameters can be changed in the params.txt file, including number of robo
 FILE DESCRIPTIONS
 
 ---run.cpp/run.h---
+
 The main file that runs the simulation and draws the interface using OpenGL
 
----kernels.cu/kernels.cuh----
+---kernels.cu/kernels.cuh---
+
 CUDA file containing all device kernels
 
 ---data.cpp/data.h---
+
 Data calculations used for logging and drawing certain GUI elements
 
 ---planning.cpp/planning.h---
+
 Contains structures and variables used by the planning algorithm for op mode 0
 
 ---utils.cpp/utils.h---
+
 Utilities file
 
 Questions can be directed to Phillip Walker pmwalk@gmail.com
