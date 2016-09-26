@@ -184,16 +184,6 @@ void keyboard(unsigned char key, int x, int y)
 		moveRight();
 		break;
 	}
-	case 'q': {
-		p.vel_bound -= 0.1f;
-		p.repel_weight -= 0.05f;
-		break;
-	}
-	case 'e': {
-		p.vel_bound += 0.1f;
-		p.repel_weight += 0.05f;
-		break;
-	}
 	case ' ': {
 		// Pause / resume the simulation
 		paused = !paused;

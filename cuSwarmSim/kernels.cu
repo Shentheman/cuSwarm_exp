@@ -334,14 +334,14 @@ __global__ void side_kernel(float4* pos, int* mode, int* leaders,
 				if (mode[i] == 0) {
 					new_mode = 99;
 					new_nearest_leader = -1;
-					// Assign as non-leader for 6 +/- 3 seconds
-					leader_countdown[i] = 360;
+					// Assign as non-leader for 3 seconds
+					leader_countdown[i] = 180;
 				}
 				else if (mode[i] > 0) {
 					new_mode = 0;
 					new_nearest_leader = i;
-					// Assign as a leader for 12 +/- 6 seconds
-					leader_countdown[i] = 720;
+					// Assign as a leader for 6 seconds
+					leader_countdown[i] = 360;
 				}
 			}
 			else {
@@ -351,8 +351,8 @@ __global__ void side_kernel(float4* pos, int* mode, int* leaders,
 					float4 me = pos[i];
 					float4 them = pos[n];
 					float2 dist = make_float2(me.x - them.x, me.y - them.y);
-					// Determine if these two robots are within range
-					bool within_range = euclidean(dist) < p.max_b;
+					// Range for hops/leader calculations is max_range / 2
+					bool within_range = euclidean(dist) < (p.max_d / 2.0f);
 
 					// Peform operation based on if the robots are within range
 					if (within_range && i != n) {
@@ -365,8 +365,8 @@ __global__ void side_kernel(float4* pos, int* mode, int* leaders,
 						{
 							new_mode = mode[n] + 1;
 							new_nearest_leader = nearest_leader[n];
-							// Reset leader countdown timer to 6 +/- 3 seconds
-							leader_countdown[i] = 360;
+							// Reset leader countdown timer to 3 seconds
+							leader_countdown[i] = 180;
 						}
 					}
 				}

@@ -46,7 +46,7 @@ float4* obstacles;						// List of obstacles in the environment
 int3* targets;							// List of targets in the environment
 										// (x, y, found[0 or 1])
 bool* occupancy;						// Occupancy grid for the environment
-Data data;								// Data pbject (see data_ops.cpp for data 
+Data data;								// Data object (see data_ops.cpp for data 
 										// calculations)
 vector<Decision> sequence;				// Current behavior sequence
 
@@ -54,6 +54,7 @@ vector<Decision> sequence;				// Current behavior sequence
 FILE* output_f, *world_f;				// Main log and world files
 std::stringstream output_fname;			// Name of the log file
 
+// GUI variables
 float mouse_start_x, mouse_start_y, mouse_last_x, mouse_last_y;
 int mb = -1;							// Mouse variables
 
