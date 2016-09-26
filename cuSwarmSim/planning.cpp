@@ -1,7 +1,7 @@
 #include "planning.h"
 
-SwarmState::SwarmState(float4* positions, float3* velocities, int* modes, int* n_l, 
-	uint* l_c, uint sn, uint n, uint world_size)
+SwarmState::SwarmState(float4* positions, float3* velocities, int* modes, 
+	int* n_l, uint* l_c, uint sn, uint n, uint world_size)
 {
 	// Initialize arrays and values
 	pos = (float4*)malloc(n * sizeof(float4));
@@ -29,9 +29,9 @@ SwarmState::SwarmState(float4* positions, float3* velocities, int* modes, int* n
 	}
 }
 
-SwarmState::SwarmState(float4* positions, float3* velocities, int* modes, int* n_l,
-	uint* l_c, int* exp_grid, vector<Decision> seq, uint sn, float s, float h, 
-	float c, uint n, uint world_size)
+SwarmState::SwarmState(float4* positions, float3* velocities, int* modes, 
+	int* n_l, uint* l_c, int* exp_grid, vector<Decision> seq, uint sn, float s, 
+	float h, float c, uint n, uint world_size)
 {
 	// Initialize arrays and values
 	pos = (float4*)malloc(n * sizeof(float4));

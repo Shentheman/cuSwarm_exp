@@ -120,7 +120,7 @@ public:
 ///////////////////////////
 
 void processData(uint n, uint ws, float4* positions, float3* velocities, 
-	int* explored_grid, Data* data)
+	int* explored_grid, int4* laplacian, bool* ap, Data* data)
 {
 	///// HEADING AVERAGE /////
 	float nf = static_cast<float>(n);
@@ -187,6 +187,10 @@ void processData(uint n, uint ws, float4* positions, float3* velocities,
 		explored += abs(explored_grid[i]);
 	}
 	data->score = static_cast<float>(explored);
+
+	getLaplacian(n, laplacian);
+	articulationPoints(n, laplacian, ap, 4);
+	data->connectivity = connectivity(n, laplacian, 4);
 }
 
 /*********************************
@@ -262,7 +266,8 @@ float2 convexHullCentroid(vector<float4> points)
 			max_y = points[i].y;
 		}
 	}
-	float2 to_return = make_float2((min_x + max_x) / 2.0f, (min_y + max_y) / 2.0f);
+	float2 to_return = make_float2((min_x + max_x) / 2.0f, 
+		(min_y + max_y) / 2.0f);
 	return to_return;
 }
 
@@ -350,7 +355,7 @@ void articulationPoints(uint n, int4* laplacian, bool* ap, uint level)
 	for (uint i = 0; i < n; i++) {
 		for (uint j = i + 1; j < n; j++) {
 			bool connected;
-			// Compute articulation points based on the robot range level specified
+			// Compute articulation points based on specified robot range level
 			// for the laplacian (1 = max_a ... 4 = max_d).
 			switch (level) {
 			case 1:

@@ -32,16 +32,19 @@ float3 goal_vector;						// Goal heading / speed (flocking only)
 float goal_heading;						// goal heading only
 int* explored_grid;						// Grid covering the whole environment, 
 										// showing how explored each cell is
-float4* positions;						// Robot positions
-float3* velocities;						// Robot velocities
+float4* positions;						// Robot positions (x, y, z, color)
+float3* velocities;						// Robot velocities (x, y, z)
 int* modes;								// Robot modes
 int* leaders;							// List of current swarm leaders
 int* nearest_leaders;					// Nearest leader array
 uint* leader_countdowns;				// Leader countdown array
 int4* laplacian;						// Laplacian matrix of robot connectivity
-bool* ap;								// Articulation points (min vertex cut set)
+										// (max_a, max_b, max_c, max_d)
+bool* ap;								// Articulation pts (min vertex cut set)
 float4* obstacles;						// List of obstacles in the environment
-float2* targets;						// List of targets in the environment
+										// (top_left_x, top_left_y, w, h)
+int3* targets;							// List of targets in the environment
+										// (x, y, found[0 or 1])
 bool* occupancy;						// Occupancy grid for the environment
 Data data;								// Data pbject (see data_ops.cpp for data 
 										// calculations)
