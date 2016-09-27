@@ -9,6 +9,8 @@ ang_bound 6.283185307180
 behavior 1
 # Weight given to the align vector
 cohere_weight 1.0
+# Require key press in console to complete exit
+confirm_quit 0
 # Strength of random currents in environment (0.0 = no currents)
 current 0.0
 # Number of hops used in RCC leader selection mode
@@ -23,7 +25,7 @@ information_mode 2
 #     1 = MVEE selection
 leader_selection 0
 # Logging toggle (saves swarm data to output.txt; world data to world.txt)
-log_data true
+log_data 1
 # Different ranges used by the robot (max_d is maximum range), see behavior 
 # kernels (rendezvous, flock, disperse) for more details
 max_a 0.5
@@ -38,7 +40,7 @@ max_obstacle_size 20
 # Percentage of robots to be used as noise (not affected by control laws)
 noise 0.0
 # Number of obstacles present in the environment
-num_obstacles 20
+num_obstacles 10
 # Number of robots in simulation (works best as power of 2)
 num_robots 64
 # Operation mode of the simulator:
@@ -47,14 +49,14 @@ num_robots 64
 #     1 = playback (algorithm plays back last sequence, GUI shown but input 
 #          not allowed)
 #     2 = manual (user manually controls the swarm, GUI shown)
-op_mode 2
+op_mode 1
 # Size of robots in GUI
 point_size 15
 # Weight given to the align vector
 repel_weight 1.2
 # Number of steps before simulation automatically closes (60 steps/sec during) 
 # GUI mode
-step_limit 7200
+step_limit 600
 # Number of targets in the environment
 targets 50
 # Robots update their motion once every update_period steps

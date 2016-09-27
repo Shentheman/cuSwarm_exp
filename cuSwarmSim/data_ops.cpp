@@ -1,123 +1,98 @@
 #include "data_ops.h"
 
-///////////////////////
-///// GRAPH CLASS /////
-///////////////////////
+/////////////////////////
+///// Graph Methods /////
+/////////////////////////
 
-class Graph {
-private:
-	// V is the number of vertices in the graph
-	// time is used to determine when a node has a back-link to one of its ancestors
-	int V, time;
+Graph::Graph(int V)
+{
+	this->V = V;
+	time = 0;
+	done = false;
 
-	// adjList[u] is the adjacency list of vertex u, 0 <= u < V
-	vector <int> *adjList;
+	adjList = new vector <int>[V];
+	explored = new bool[V];
+	articulation_point = new bool[V];
+	disc_time = new int[V];
+	parent = new int[V];
+	low = new int[V];
 
-	// explored[u] is true if u has been explored
-	// articulation_point[u] is true is u is an articulation point
-	bool *explored, *articulation_point, done;
+	memset(explored, false, V * sizeof(bool));
+	memset(articulation_point, false, V * sizeof(bool));
+	memset(parent, -1, V * sizeof(int));
+}
 
-	// disc_time[u] is the time at which vertex u was explored
-	// parent[u] = v if in the dfs tree, there is an edge from v to u
-	// low[u] is the time of the earliest explored vertex reachable from u
-	// If low[u] < disc_time[u], then there is a back-link from some node in the 
-	// subtree rooted at u to some ancestor of u
-	int *disc_time, *parent, *low;
+Graph::~Graph()
+{
+	delete[] adjList;
+	delete[] articulation_point;
+	delete[] explored;
+	delete[] parent;
+	delete[] disc_time;
+	delete[] low;
+}
 
-	// articulation_points stores the articulation points/cut vertices in the graph
-	vector <int> articulation_points;
+bool Graph::addEdge(int u, int v)
+{
+	if (u < 0 || u >= V) return false;
+	if (v < 0 || v >= V) return false;
+	adjList[u].push_back(v);
+	adjList[v].push_back(u);
+	return true;
+}
 
-	void dfsUtil(int u) {
-		explored[u] = true;
-		int num_child = 0;
-		disc_time[u] = low[u] = ++time;
-
-		for (vector <int>::iterator v = adjList[u].begin(); v != adjList[u].end(); v++)	{
-			if (!explored[*v])	{
-				num_child++;
-				parent[*v] = u;
-				dfsUtil(*v);
-				low[u] = min(low[u], low[*v]);
-
-				// u is an articulation point iff
-				// 1. It the the root and has more than 1 child.
-				// 2. It is not the root and no vertex in the subtree rooted at one of its
-				//    children has a back-link to its ancestor.
-				//    A child has a back-link to an ancestor of its parent when its low
-				//    value is less than the discovery time of its parent.
-				if (parent[u] == -1 && num_child > 1)
-					articulation_point[u] = true;
-				else if (parent[u] != -1 && low[*v] >= disc_time[u])
-					articulation_point[u] = true;
-			}
-			else if (*v != parent[u])
-				low[u] = min(low[u], disc_time[*v]);
-		}
-	}
-
-	void dfs()    {
-		for (int u = 0; u < V; u++)
-			if (!explored[u])
-				dfsUtil(u);
-	}
-
-public:
-
-	// create an empty undirected graph having V vertices
-	Graph(int V) {
-		this->V = V;
-		time = 0;
-		done = false;
-
-		adjList = new vector <int>[V];
-		explored = new bool[V];
-		articulation_point = new bool[V];
-		disc_time = new int[V];
-		parent = new int[V];
-		low = new int[V];
-
-		memset(explored, false, V * sizeof(bool));
-		memset(articulation_point, false, V * sizeof(bool));
-		memset(parent, -1, V * sizeof(int));
-	}
-
-	~Graph()    {
-		delete[] adjList;
-		delete[] articulation_point;
-		delete[] explored;
-		delete[] parent;
-		delete[] disc_time;
-		delete[] low;
-	}
-
-	// add an undirected edge (u, v) to the graph
-	// returns false if either u or v is less than 0 or greater than equal to V
-	// returns true if the edge was added to the digraph
-	bool addEdge(int u, int v)  {
-		if (u < 0 || u >= V) return false;
-		if (v < 0 || v >= V) return false;
-		adjList[u].push_back(v);
-		adjList[v].push_back(u);
-		return true;
-	}
-
-	// Performs dfs over the graph and returns a vector containing
-	// the articulation points
-	vector <int> getArticulationPoints()	{
-		if (done)
-			return articulation_points;
-		dfs();
-		done = true;
-		for (int u = 0; u < V; u++)
-			if (articulation_point[u])
-				articulation_points.push_back(u);
+vector<int> Graph::getArticulationPoints()
+{
+	if (done)
 		return articulation_points;
-	}
-};
+	dfs();
+	done = true;
+	for (int u = 0; u < V; u++)
+		if (articulation_point[u])
+			articulation_points.push_back(u);
+	return articulation_points;
+}
 
-///////////////////////////
-///// END GRAPH CLASS /////
-///////////////////////////
+void Graph::dfsUtil(int u)
+{
+	explored[u] = true;
+	int num_child = 0;
+	disc_time[u] = low[u] = ++time;
+
+	for (vector <int>::iterator v = adjList[u].begin();
+		v != adjList[u].end(); v++)	{
+		if (!explored[*v])	{
+			num_child++;
+			parent[*v] = u;
+			dfsUtil(*v);
+			low[u] = min(low[u], low[*v]);
+
+			// u is an articulation point iff
+			// 1. It the the root and has more than 1 child
+			// 2. It is not the root and no vertex in the subtree rooted at 
+			//    one of its children has a back-link to its ancestor.
+			//    A child has a back-link to an ancestor of its parent when 
+			//    its low value is less than the discovery time of its parent
+			if (parent[u] == -1 && num_child > 1)
+				articulation_point[u] = true;
+			else if (parent[u] != -1 && low[*v] >= disc_time[u])
+				articulation_point[u] = true;
+		}
+		else if (*v != parent[u])
+			low[u] = min(low[u], disc_time[*v]);
+	}
+}
+
+void Graph::dfs()
+{
+	for (int u = 0; u < V; u++)
+		if (!explored[u])
+			dfsUtil(u);
+}
+
+////////////////////////////////
+///// Main Data Processing /////
+////////////////////////////////
 
 void processData(uint n, uint ws, float4* positions, float3* velocities, 
 	int* explored_grid, int4* laplacian, bool* ap, Data* data)
@@ -186,7 +161,10 @@ void processData(uint n, uint ws, float4* positions, float3* velocities,
 	for (uint i = 0; i < ws * ws; i++) {
 		explored += abs(explored_grid[i]);
 	}
-	data->score = static_cast<float>(explored);
+	data->explored = explored;
+	// Score is the explored area plus a bonus for each target fully explored
+	data->score = static_cast<float>(data->explored + 
+		(5000 * data->targets_explored));
 
 	getLaplacian(n, laplacian);
 	articulationPoints(n, laplacian, ap, 4);

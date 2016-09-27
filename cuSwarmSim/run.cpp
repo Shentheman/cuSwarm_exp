@@ -22,19 +22,6 @@ void drawInterface(float window_width, float window_height)
 
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-	// Draw obstacles
-	/*glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
-	for (uint i = 0; i < p.num_obstacles; i++) {
-		glBegin(GL_POLYGON);
-		glVertex3f(obstacles[i].x, obstacles[i].y, 0.0f);
-		glVertex3f(obstacles[i].x + obstacles[i].z, obstacles[i].y, 0.0f);
-		glVertex3f(obstacles[i].x + obstacles[i].z, 
-			obstacles[i].y + obstacles[i].w, 0.0f);
-		glVertex3f(obstacles[i].x, obstacles[i].y + obstacles[i].w, 0.0f);
-		glEnd();
-	}*/
-
 	// Draw explored grid cells on the GUI
 	for (uint i = 0; i < p.world_size * p.world_size; i++) {
 		// Get the world coordinates for this iteration
@@ -90,8 +77,7 @@ void drawInterface(float window_width, float window_height)
 			// so in array and add bonus to score
 			if (targets[i].z == 0) {
 				targets[i].z = 1;
-				data.score += 5000;
-				printf("Target fully explored!\n");
+				data.targets_explored++;
 			}
 		}
 
@@ -194,7 +180,8 @@ void keyboard(unsigned char key, int x, int y)
 		if (p.op_mode == 2) {
 			p.behavior = 0;
 			if (p.log_data) {
-				fprintf(output_f, "rendezvous\n");
+				fprintf(world_f, "d %d %4.2f %d %4.2f\n", p.behavior, 0.0f, 
+					step_num, data.score);
 			}
 		}
 		break;
@@ -204,7 +191,8 @@ void keyboard(unsigned char key, int x, int y)
 		if (p.op_mode == 2) {
 			p.behavior = 1;
 			if (p.log_data) {
-				fprintf(output_f, "flocking\n");
+				fprintf(world_f, "d %d %4.2f %d %4.2f\n", p.behavior, 
+					goal_heading, step_num, data.score);
 			}
 		}
 		break;
@@ -214,9 +202,8 @@ void keyboard(unsigned char key, int x, int y)
 		if (p.op_mode == 2) {
 			p.behavior = 2;
 			if (p.log_data) {
-				fprintf(output_f, "dispersion\n");
-				fprintf(world_f, "d %d %d %4.2f %4.2f\n", step_num, p.behavior, 
-					0.0f, data.score);
+				fprintf(world_f, "d %d %4.2f %d %4.2f\n", p.behavior, 0.0f,
+					step_num, data.score);
 			}
 		}
 		break;
@@ -290,14 +277,20 @@ void mouse(int button, int state, int x, int y)
 				goal_vector = make_float3(cosf(goal_heading), 
 					-sinf(goal_heading), 0.0f);
 
-				// Log the heading command
-				logUserHeadingCommand();
-
 				// Clear the user-drawn line data points
 				mouse_start_x = 0;
 				mouse_start_y = 0;
 				mouse_last_x = 0;
 				mouse_last_y = 0;
+
+				// Log goal heading to world file
+				if (p.log_data) {
+					fprintf(world_f, "d %d %4.2f %d %4.2f\n", p.behavior,
+						goal_heading, step_num, data.score);
+				}
+
+				printf("Starting %d %4.2f at %d\n", p.behavior,
+					goal_heading, step_num);
 			}
 		}
 
@@ -665,6 +658,8 @@ void processParam(std::vector<std::string> tokens)
 		p.behavior = std::stoul(tokens[1]);
 	else if (tokens[0] == "cohere_weight")
 		p.cohere_weight = std::stof(tokens[1]);
+	else if (tokens[0] == "confirm_quit")
+		p.confirm_quit = (std::stoul(tokens[1]) != 0);
 	else if (tokens[0] == "current")
 		p.current = std::stof(tokens[1]);
 	else if (tokens[0] == "hops")
@@ -674,7 +669,7 @@ void processParam(std::vector<std::string> tokens)
 	else if (tokens[0] == "leader_selection")
 		p.leader_selection = std::stoul(tokens[1]);
 	else if (tokens[0] == "log_data")
-		p.log_data = tokens[1] != "false";
+		p.log_data = (std::stoul(tokens[1]) != 0);
 	else if (tokens[0] == "max_a")
 		p.max_a = std::stof(tokens[1]);
 	else if (tokens[0] == "max_b")
@@ -715,14 +710,14 @@ void processParam(std::vector<std::string> tokens)
 		p.world_size = std::stoul(tokens[1]);
 }
 
-void generateWorld()
+void generateWorld(char* filepath)
 {
 	// Get the starting area
 	float start_size = sqrtf(static_cast<float>(p.num_robots)) * 1.5f / 1.5f;
 
 	// Open world file to log obstacle data
 	if (p.log_data != 0.0f) {
-		fopen_s(&world_f, "world.txt", "w");
+		fopen_s(&world_f, filepath, "w");
 	}
 
 	// Do not write to world file if in playback mode
@@ -732,6 +727,7 @@ void generateWorld()
 		fprintf(world_f, "ang_bound %4.2f\n", p.ang_bound);
 		fprintf(world_f, "behavior %d\n", p.behavior);
 		fprintf(world_f, "cohere_weight %4.2f\n", p.cohere_weight);
+		fprintf(world_f, "confirm_quit %d", p.confirm_quit);
 		fprintf(world_f, "current %4.2f\n", p.current);
 		fprintf(world_f, "hops %d\n", p.hops);
 		fprintf(world_f, "information_mode %d\n", p.information_mode);
@@ -750,6 +746,7 @@ void generateWorld()
 		fprintf(world_f, "point_size %d\n", p.point_size);
 		fprintf(world_f, "repel_weight %4.2f\n", p.repel_weight);
 		fprintf(world_f, "step_limit %d\n", p.step_limit);
+		fprintf(world_f, "targets %d\n", p.targets);
 		fprintf(world_f, "update_period %d\n", p.update_period);
 		fprintf(world_f, "vel_bound %4.2f\n", p.vel_bound);
 		fprintf(world_f, "window_height %d\n", p.window_height);
@@ -827,9 +824,9 @@ void generateWorld()
 	}
 }
 
-void loadSavedMap()
+void loadSavedMap(char* filepath)
 {
-	std::fstream file("world.txt");
+	std::fstream file(filepath);
 	std::string str;
 	size_t comment;
 
@@ -893,7 +890,6 @@ void loadSavedMap()
 	for (uint i = 0; i < t_temp.size(); i++) {
 		targets[i] = t_temp[i];
 	}
-
 }
 
 void calculateOccupancyGrid()
@@ -1005,12 +1001,15 @@ void exitSimulation()
 		glutDestroyWindow(0);
 	}
 
-	// Wait for final input before closing if not showing GUI
+	// Show final score if not in automated mode
 	if (p.op_mode == 1 || p.op_mode == 2) {
 		std::printf("Score: %1.0f\n", data.score);
 	}
-	std::printf("Enter any key to quit.\n");
-	getchar();
+	// Wait for keypress to exit (if set in parameters)
+	if (p.confirm_quit) {
+		std::printf("Enter any key to quit.\n");
+		getchar();
+	}
 
 	// Reset CUDA device
 	cudaDeviceReset();
@@ -1022,22 +1021,9 @@ void printDataHeader()
 {
 	if (p.log_data) {
 		// Step data header
-		fprintf(output_f, "step avg_heading heading_var centroid_x centroid_y ");
-		fprintf(output_f, "convex_hull_area explored_area connectivity score\n");
-		// Heading command data header
-		if (p.op_mode == 2) {
-			fprintf(output_f, "heading_command step_num goal_heading\n");
-		}
-	}
-}
-
-void logUserHeadingCommand()
-{
-	if (p.op_mode == 2 && p.log_data) {
-		// Note: goal heading is negative due to flipped OpenGL coordinate space
-		fprintf(output_f, "heading_command %d %6.4f\n", step_num, -goal_heading);
-		fprintf(world_f, "d %d %4.2f %d %4.2f\n", p.behavior, 
-			-goal_heading, step_num, data.score);
+		fprintf(output_f, "step step_num behavior behavior_data avg_heading ");
+		fprintf(output_f, "heading_var centroid_x centroid_y convex_hull_area ");
+		fprintf(output_f, "connectivity explored_area targets_explored score\n");
 	}
 }
 
@@ -1237,7 +1223,7 @@ void automateExplore()
 					goal_heading = -PI + (i * (PI / 2.0f)); // Four directions
 					b.flock_dir = goal_heading;
 					goal_vector = make_float3(cosf(goal_heading),
-						sinf(goal_heading), 0.0f);
+						-sinf(goal_heading), 0.0f);
 				}
 				else {
 					// Set to dispersion
@@ -1336,12 +1322,6 @@ static void step(int value)
 
 			// Indicates inital state has passed
 			initial_passed = true;
-
-			if (p.op_mode == 2) {
-				goal_heading = getBestHeading();
-				goal_vector.x = cosf(goal_heading);
-				goal_vector.y = sinf(goal_heading);
-			}
 		}
 
 		// If in playback mode (op_mode = 1), load next behavior if applicable
@@ -1353,16 +1333,16 @@ static void step(int value)
 			case 1:		// Flocking
 				p.behavior = 1;
 				goal_heading = sequence[0].flock_dir;
-				goal_vector = make_float3(cosf(goal_heading), sinf(goal_heading),
-					0.0f);
+				goal_vector = make_float3(cosf(goal_heading), 
+					-sinf(goal_heading), 0.0f);
 				break;
 			case 2:		// Dispersion
 				p.behavior = 2;
 				break;
 			}
 
-			printf("Starting %d %4.2f\n", sequence[0].behavior,
-				sequence[0].flock_dir);
+			printf("Starting %d %4.2f at %d\n", sequence[0].behavior,
+				sequence[0].flock_dir, step_num);
 
 			// Remove the behavior from sequence
 			sequence.erase(sequence.begin(), sequence.begin() + 1);
@@ -1387,10 +1367,12 @@ static void step(int value)
 
 		if (p.log_data) {
 			// Write data to the output log at the end of every step
-			fprintf(output_f, "step %d %4.2f %4.2f %4.2f %4.2f %4.2f %4.2f ", 
-				step_num, data.heading_avg, data.heading_var, data.centroid.x, 
-				data.centroid.y, data.ch_area, data.connectivity);
-			fprintf(output_f, "%4.2f\n", data.score);
+			fprintf(output_f, "step %d %d %4.2f %4.2f %4.2f %4.2f %4.2f %4.2f ",
+				step_num, p.behavior, -goal_heading, data.heading_avg,
+				data.heading_var, data.centroid.x, data.centroid.y, 
+				data.ch_area);
+			fprintf(output_f, "%4.2f %d %d %4.2f\n", data.connectivity, 
+				data.explored, data.targets_explored, data.score);
 		}
 
 		// Increment the simulation step counter
@@ -1413,7 +1395,7 @@ int main(int argc, char** argv)
 	// else, load the world file in playback mode
 	loadParametersFromFile(argv[1]);
 	if (p.op_mode == 1) {
-		loadParametersFromFile("world.txt");
+		loadParametersFromFile(argv[2]);
 	}
 	// Begin paused if showing the GUI, otherwise start immediately
 	if (p.op_mode != 0) {
@@ -1425,7 +1407,7 @@ int main(int argc, char** argv)
 	// Half the world size
 	ws_2 = static_cast<float>(p.world_size) / 2.0f;
 	// Open new data file for this trial
-	output_fname << argv[2];
+	output_fname << argv[3];
 
 	///// MEMORY ALLOCATION /////
 	explored_grid = (int*)malloc(p.world_size * p.world_size * sizeof(int));
@@ -1473,10 +1455,10 @@ int main(int argc, char** argv)
 	// If not in playback mode (from saved world) generate obstacles; 
 	// else, allocate and load obstacles in loadSavedMap function
 	if (p.op_mode != 1) {
-		generateWorld();
+		generateWorld(argv[2]);
 	}
 	else {
-		loadSavedMap();
+		loadSavedMap(argv[2]);
 		setData(p.num_robots, positions, velocities, modes);
 	}
 
@@ -1494,6 +1476,9 @@ int main(int argc, char** argv)
 		// Initialize cell to -1 if it is covered by an obstacle; 0 otherwise
 		(checkCollision(x, y)) ? explored_grid[i] = -1 : explored_grid[i] = 0;
 	}
+
+	// Initialize goal heading to 0
+	goal_heading = 0.0f;
 	
 	///// START MAIN LOOP /////
 	if (p.op_mode == 0) {

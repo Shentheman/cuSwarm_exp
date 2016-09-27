@@ -99,14 +99,13 @@ void calculateFPS(int value);
 void clearUserPositionEstimate();
 void loadParametersFromFile(std::string filename);
 void processParam(std::vector<std::string> tokens);
-void generateWorld();
-void loadSavedMap();
+void generateWorld(char* filepath);
+void loadSavedMap(char* filepath);
 void calculateOccupancyGrid();
 bool checkCollision(float x, float y);
 void updateExplored();
 void exitSimulation();
 void printDataHeader();
-void logUserHeadingCommand();
 
 // Automation functions
 float getBestHeading();

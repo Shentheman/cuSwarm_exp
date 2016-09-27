@@ -42,6 +42,7 @@ struct Parameters
 	float ang_bound;
 	uint behavior;
 	float cohere_weight;
+	bool confirm_quit;
 	float current;
 	uint hops;
 	uint information_mode;
