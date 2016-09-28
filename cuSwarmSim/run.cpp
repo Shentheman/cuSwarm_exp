@@ -180,8 +180,8 @@ void keyboard(unsigned char key, int x, int y)
 		if (p.op_mode == 2) {
 			p.behavior = 0;
 			if (p.log_data) {
-				fprintf(world_f, "d %d %4.2f %d %4.2f\n", p.behavior, 0.0f, 
-					step_num, data.score);
+				fprintf(world_f, "d %d %4.2f %4.2f %d %4.2f\n", p.behavior, 0.0f, 
+					p.vel_bound, step_num, data.score);
 			}
 		}
 		break;
@@ -191,8 +191,8 @@ void keyboard(unsigned char key, int x, int y)
 		if (p.op_mode == 2) {
 			p.behavior = 1;
 			if (p.log_data) {
-				fprintf(world_f, "d %d %4.2f %d %4.2f\n", p.behavior, 
-					goal_heading, step_num, data.score);
+				fprintf(world_f, "d %d %4.2f %4.2f %d %4.2f\n", p.behavior, 
+					goal_heading, p.vel_bound, step_num, data.score);
 			}
 		}
 		break;
@@ -202,8 +202,8 @@ void keyboard(unsigned char key, int x, int y)
 		if (p.op_mode == 2) {
 			p.behavior = 2;
 			if (p.log_data) {
-				fprintf(world_f, "d %d %4.2f %d %4.2f\n", p.behavior, 0.0f,
-					step_num, data.score);
+				fprintf(world_f, "d %d %4.2f %4.2f %d %4.2f\n", p.behavior, 0.0f,
+					p.vel_bound, step_num, data.score);
 			}
 		}
 		break;
@@ -244,26 +244,30 @@ void mouse(int button, int state, int x, int y)
 		// Get mouse button
 		mb = button;
 
-		// Zoom in/out if mouse wheel is used
-		if (mb == 3) {
-			translate_z0 -= 5.0f;
+		if (mb == 0) { // Left click
+			// Set the user-drawn line start point if the user pressed the primary 
+			// mouse button and the simulation is not paused
+			if ((!paused) && p.op_mode == 2 && mb == 0) {
+				mouse_start_x = static_cast<float>(x);
+				mouse_start_y = static_cast<float>(y);
+				mouse_last_x = mouse_start_x;
+				mouse_last_y = mouse_start_y;
+			}
 		}
-		else if (mb == 4) {
-			translate_z0 += 5.0f;
+		else if (mb == 3) {		// Scroll wheel forward to increase speed
+			p.vel_bound = min(4.0f, p.vel_bound + 0.1f);
+			fprintf(world_f, "d %d %4.2f %4.2f %d %4.2f\n", p.behavior,
+				goal_heading, p.vel_bound, step_num, data.score);
 		}
-
-		// Set the user-drawn line start point if the user pressed the primary 
-		// mouse button and the simulation is not paused
-		if ((!paused) && p.op_mode == 2 && mb == 0) {
-			mouse_start_x = static_cast<float>(x);
-			mouse_start_y = static_cast<float>(y);
-			mouse_last_x = mouse_start_x;
-			mouse_last_y = mouse_start_y;
+		else if (mb == 4) {		// Scroll wheel backward to decrease speed
+			p.vel_bound = max(1.0f, p.vel_bound - 0.1f);
+			fprintf(world_f, "d %d %4.2f %4.2f %d %4.2f\n", p.behavior,
+				goal_heading, p.vel_bound, step_num, data.score);
 		}
+		
 	}
 	else if (state == GLUT_UP) {	// If the button is released
-		// Only primary mouse button releases trigger events
-		if (mb == 0) {
+		if (mb == 0) {	// Left click
 			// If the simulation is paused, unpause it; 
 			// else log the new user goal heading and log the information; 
 			if (paused) {
@@ -285,17 +289,30 @@ void mouse(int button, int state, int x, int y)
 
 				// Log goal heading to world file
 				if (p.log_data) {
-					fprintf(world_f, "d %d %4.2f %d %4.2f\n", p.behavior,
-						goal_heading, step_num, data.score);
+					fprintf(world_f, "d %d %4.2f %4.2f %d %4.2f\n", p.behavior,
+						goal_heading, p.vel_bound, step_num, data.score);
 				}
-
-				printf("Starting %d %4.2f at %d\n", p.behavior,
-					goal_heading, step_num);
 			}
 		}
+		else if (mb == 5) {		// Scroll wheel forward to increase speed
+			p.vel_bound = min(4.0f, p.vel_bound + 0.1f);
+			fprintf(world_f, "d %d %4.2f %4.2f %d %4.2f\n", p.behavior,
+				goal_heading, p.vel_bound, step_num, data.score);
+		}
+		else if (mb == 6) {		// Scroll wheel backward to decrease speed
+			p.vel_bound = max(1.0f, p.vel_bound - 0.1f);
+			fprintf(world_f, "d %d %4.2f %4.2f %d %4.2f\n", p.behavior,
+				goal_heading, p.vel_bound, step_num, data.score);
+		}
 
-		// Reset mouse button
-		mb = -1;
+		// If mouse_up event cause by scrolling while left mouse is down, reset 
+		// mb to 0 (left click); else, reset to null
+		if (mb == 5 || mb == 6) {
+			mb = 0;
+		}
+		else {
+			mb = -1;
+		}
 	}
 }
 
@@ -872,8 +889,9 @@ void loadSavedMap(char* filepath)
 			Decision d;
 			d.behavior = stoul(tokens[1]);
 			d.flock_dir = stof(tokens[2]);
-			d.time_start = stoul(tokens[3]);
-			d.score_start = stof(tokens[4]);
+			d.velocity = stof(tokens[3]);
+			d.time_start = stoul(tokens[4]);
+			d.score_start = stof(tokens[5]);
 			sequence.push_back(d);
 		}
 		else if (tokens[0] == "r") {	// Robot
@@ -1061,9 +1079,9 @@ void printDecisionSequence(vector<Decision> b_seq)
 	std::printf("Score: %4.2f\nBehavior Seq: ", 
 		b_seq[b_seq.size() - 1].score_end);
 	for (uint j = 0; j < b_seq.size(); j++) {
-		std::printf("(%d %4.2f (%d-%d) %4.2f) ", b_seq[j].behavior, 
-			b_seq[j].flock_dir, b_seq[j].time_start, b_seq[j].time_end, 
-			b_seq[j].score_end);
+		std::printf("(%d %4.2f %4.2f (%d-%d) %4.2f) ", b_seq[j].behavior, 
+			b_seq[j].flock_dir, b_seq[j].velocity, b_seq[j].time_start, 
+			b_seq[j].time_end, b_seq[j].score_end);
 	}
 	std::printf("\n\n");
 }
@@ -1212,6 +1230,7 @@ void automateExplore()
 				vector<Decision> b_seq_t(b_seq);
 				Decision b;
 				b.time_start = step_num;
+				b.velocity = p.vel_bound;
 				(b_seq.size() > 0) ? b.score_start = last_dec.score_end : 
 					b.score_start = 0.0f;
 				
@@ -1289,9 +1308,10 @@ void automateExplore()
 		// Log this sequence to the world file if logging is on
 		if (p.log_data) {
 			for (uint i = 0; i < best_seq.size(); i++) {
-				fprintf(world_f, "d %d %4.2f %d %4.2f\n",
-					best_seq[i].behavior, best_seq[i].flock_dir,
-					best_seq[i].time_start, best_seq[i].score_start);
+				fprintf(world_f, "d %d %4.2f %4.2f %d %4.2f\n",
+					best_seq[i].behavior, best_seq[i].flock_dir, 
+					best_seq[i].velocity, best_seq[i].time_start, 
+					best_seq[i].score_start);
 			}
 		}
 	}
@@ -1329,6 +1349,7 @@ static void step(int value)
 			sequence[0].time_start == step_num) {
 
 			// Set the correct behavior (flocking or disperse)
+			p.vel_bound = sequence[0].velocity;
 			switch (sequence[0].behavior) {
 			case 1:		// Flocking
 				p.behavior = 1;
@@ -1340,9 +1361,6 @@ static void step(int value)
 				p.behavior = 2;
 				break;
 			}
-
-			printf("Starting %d %4.2f at %d\n", sequence[0].behavior,
-				sequence[0].flock_dir, step_num);
 
 			// Remove the behavior from sequence
 			sequence.erase(sequence.begin(), sequence.begin() + 1);
@@ -1368,10 +1386,10 @@ static void step(int value)
 		if (p.log_data) {
 			// Write data to the output log at the end of every step
 			fprintf(output_f, "step %d %d %4.2f %4.2f %4.2f %4.2f %4.2f %4.2f ",
-				step_num, p.behavior, -goal_heading, data.heading_avg,
-				data.heading_var, data.centroid.x, data.centroid.y, 
-				data.ch_area);
-			fprintf(output_f, "%4.2f %d %d %4.2f\n", data.connectivity, 
+				step_num, p.behavior, -goal_heading, p.vel_bound, 
+				data.heading_avg, data.heading_var, data.centroid.x, 
+				data.centroid.y);
+			fprintf(output_f, "%4.2f %4.2f %d %d %4.2f\n", data.ch_area, data.connectivity,
 				data.explored, data.targets_explored, data.score);
 		}
 

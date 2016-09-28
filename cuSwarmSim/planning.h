@@ -20,6 +20,7 @@ using namespace std;
 typedef struct {
 	uint behavior;
 	float flock_dir;	// 0.0 if rendezvous or dispersion
+	float velocity;
 	uint time_start;
 	uint time_end;
 	float score_start;

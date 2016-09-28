@@ -49,7 +49,7 @@ num_robots 64
 #     1 = playback (algorithm plays back last sequence, GUI shown but input 
 #          not allowed)
 #     2 = manual (user manually controls the swarm, GUI shown)
-op_mode 1
+op_mode 2
 # Size of robots in GUI
 point_size 15
 # Weight given to the align vector
@@ -62,7 +62,7 @@ targets 50
 # Robots update their motion once every update_period steps
 update_period 1
 # Velocity bound of the robots in m/s (one cell = one meter)
-vel_bound 3.0
+vel_bound 2.5
 # Initial window height of GUI (depricated)
 window_height 0
 # Initial window width of GUI (depricated)
