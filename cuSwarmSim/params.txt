@@ -22,14 +22,14 @@ hops 1
 information_mode 2
 # Leader selection mode to be used by the swarm:
 #     0 = RCC selection
-#     1 = MVEE selection
-leader_selection 0
+#     1 = Convex hull selection (not yet working)
+leader_selection 1
 # Logging toggle (saves swarm data to output.txt; world data to world.txt)
 log_data 1
 # Different ranges used by the robot (max_d is maximum range), see behavior 
 # kernels (rendezvous, flock, disperse) for more details
 max_a 0.5
-max_b 2.5
+max_b 2.0
 max_c 3.0
 max_d 4.0
 # Number of sightings a cell or target needs to reach before fully epxlored

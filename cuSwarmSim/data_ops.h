@@ -16,19 +16,6 @@ using namespace std;
 ***** STRUCTURES AND TYPEDEFS ******
 ***********************************/
 
-struct Data
-{
-	float2 centroid;
-	float4 bounds;
-	float score;
-	float heading_avg;
-	float heading_var;
-	float ch_area;
-	int explored;
-	int targets_explored;
-	float connectivity;
-};
-
 struct Point {
 	float x, y;
 
@@ -37,6 +24,19 @@ struct Point {
 	}
 };
 
+struct Data
+{
+	float2 centroid;
+	float4 bounds;
+	float score;
+	float heading_avg;
+	float heading_var;
+	vector<Point> ch;
+	float ch_area;
+	int explored;
+	int targets_explored;
+	float connectivity;
+};
 
 /**********************
 ***** GRAPH CLASS *****
@@ -93,10 +93,9 @@ void processData(uint n, uint ws, float4* positions, float3* velocities,
 	int* explored_grid, int4* laplacian, bool* ap, Data* data);
 
 // Convex hull functions
-void convexHull(float4* pos, vector<float4>* points, vector<uint>* indicies,   
-	uint n);
+void convexHull(float4* pos, vector<Point>* points, uint n);
 float2 convexHullCentroid(vector<float4> points);
-float convexHullArea(vector<float4> points);
+float convexHullArea(vector<Point> points);
 float cross(const Point &O, const Point &A, const Point &B);
 
 // Eigenvalue functions

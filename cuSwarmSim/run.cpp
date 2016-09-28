@@ -6,7 +6,7 @@
 
 void drawInterface(float window_width, float window_height)
 {
-	// Only draw edges (wire frame)
+	// Draw edge only polygons (wire frame)
 	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 	glLineWidth(2.0f);
@@ -20,6 +20,16 @@ void drawInterface(float window_width, float window_height)
 	glVertex3f(world_size_2, -world_size_2, 0.0f);
 	glEnd();
 
+	// Draw convex hull
+	glColor4f(1.0f, 1.0f, 1.0f, 0.4f);
+	glLineWidth(1.0f);
+	glBegin(GL_POLYGON);
+	for (uint i = 0; i < data.ch.size(); i++) {
+		glVertex3f(data.ch[i].x, data.ch[i].y, 0.0f);
+	}
+	glEnd();
+
+	// Draw filled polygons
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
 	// Draw explored grid cells on the GUI
@@ -1003,8 +1013,10 @@ void exitSimulation()
 	cudaFree(obstacles);
 
 	// Free non-CUDA variables
-	std::free(occupancy);
 	std::free(explored_grid);
+	std::free(ap);
+	std::free(targets);
+	std::free(occupancy);
 
 	// Close the output and world data files
 	if (output_f != NULL) {

@@ -153,8 +153,13 @@ void processData(uint n, uint ws, float4* positions, float3* velocities,
 	}
 
 	///// CONVEX HULL /////
-	// Convex hull area is computed in the step() function in run.cpp
-	data->ch_area = 0.0f;
+	// Coordinates of convex hull vertices
+	// Indices of robots making up the convex hull
+	data->ch.clear();
+	// Compute convex hull of swarm
+	convexHull(positions, &(data->ch), n);
+	// Get the area of the convex hull
+	data->ch_area = convexHullArea(data->ch);
 
 	///// EXPLORED AREA /////
 	int explored = 0;
@@ -177,10 +182,10 @@ void processData(uint n, uint ws, float4* positions, float3* velocities,
 
 // Returns a list of points on the convex hull in counter-clockwise order.
 // Note: the last point in the returned list is the same as the first one.
-void convexHull(float4* pos, vector<float4>* points, vector<uint>* indicies, 
-	uint num)
+void convexHull(float4* pos, vector<Point>* points, uint num)
 {
-	int n = static_cast<int>(num), k = 0;
+	int n = static_cast<int>(num);
+	int k = 0;
 	vector<Point> P;
 	for (int i = 0; i < n; i++) {
 		Point p_temp;
@@ -189,8 +194,8 @@ void convexHull(float4* pos, vector<float4>* points, vector<uint>* indicies,
 		P.push_back(p_temp);
 	}
 
+	// Convex hull vector
 	vector<Point> ch(2 * n);
-	vector<uint> ch_i(2 * n);
 
 	// Sort points lexicographically
 	sort(P.begin(), P.end());
@@ -198,30 +203,24 @@ void convexHull(float4* pos, vector<float4>* points, vector<uint>* indicies,
 	// Build lower hull
 	for (int i = 0; i < n; i++) {
 		while (k >= 2 && cross(ch[k - 2], ch[k - 1], P[i]) <= 0) k--;
-		ch[k] = P[i];
-		ch_i[k] = i;
-		k++;
+		ch[k++] = P[i];
 	}
 
 	// Build upper hull
 	for (int i = n - 2, t = k + 1; i >= 0; i--) {
 		while (k >= t && cross(ch[k - 2], ch[k - 1], P[i]) <= 0) k--;
-		ch[k] = P[i];
-		ch_i[k] = i;
-		k++;
+		ch[k++] = P[i];
 	}
 
 	// Resize the convex hull point array
 	ch.resize(k);
-	ch_i.resize(k);
 
 	// Convert to array of float4/uint
 	for (uint i = 0; i < ch.size(); i++) {
-		float4 temp_point = make_float4(ch[i].x, ch[i].y, 0.0f, 0.0f);
+		Point temp_point;
+		temp_point.x = ch[i].x;
+		temp_point.y = ch[i].y;
 		points->push_back(temp_point);
-	}
-	for (uint i = 0; i < ch_i.size(); i++) {
-		indicies->push_back(ch_i[i]);
 	}
 }
 
@@ -250,7 +249,7 @@ float2 convexHullCentroid(vector<float4> points)
 }
 
 // Compute the area of the convex hull
-float convexHullArea(vector<float4> points)
+float convexHullArea(vector<Point> points)
 {
 	float area = 0.0f;
 	for (int a = 0; static_cast<uint>(a) < points.size(); a++) {
