@@ -23,7 +23,7 @@ information_mode 2
 # Leader selection mode to be used by the swarm:
 #     0 = RCC selection
 #     1 = Convex hull selection (not yet working)
-leader_selection 0
+leader_selection 1
 # Logging toggle (saves swarm data to output.txt; world data to world.txt)
 log_data 1
 # Different ranges used by the robot (max_d is maximum range), see behavior 

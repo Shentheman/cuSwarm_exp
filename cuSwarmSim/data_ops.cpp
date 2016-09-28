@@ -153,8 +153,7 @@ void processData(uint n, uint ws, float4* positions, float3* velocities,
 	}
 
 	///// CONVEX HULL /////
-	// Coordinates of convex hull vertices
-	// Indices of robots making up the convex hull
+	// Coordinates of convex hull vertices (stored in data object)
 	data->ch.clear();
 	// Compute convex hull of swarm
 	convexHull(positions, &(data->ch), n);
@@ -215,7 +214,7 @@ void convexHull(float4* pos, vector<Point>* points, uint num)
 	// Resize the convex hull point array
 	ch.resize(k);
 
-	// Convert to array of float4/uint
+	// Copy ch to points list supplied in arguments
 	for (uint i = 0; i < ch.size(); i++) {
 		Point temp_point;
 		temp_point.x = ch[i].x;
