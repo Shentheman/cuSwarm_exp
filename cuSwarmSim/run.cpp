@@ -1039,9 +1039,10 @@ void printDataHeader()
 {
 	if (p.log_data) {
 		// Step data header
-		fprintf(output_f, "step step_num behavior behavior_data avg_heading ");
-		fprintf(output_f, "heading_var centroid_x centroid_y convex_hull_area ");
-		fprintf(output_f, "connectivity explored_area targets_explored score\n");
+		fprintf(output_f, "step step_num behavior behavior_data velocity ");
+		fprintf(output_f, "avg_heading heading_var centroid_x centroid_y ");
+		fprintf(output_f, "convex_hull_area connectivity explored_area ");
+		fprintf(output_f, "targets_explored score\n");
 	}
 }
 
@@ -1389,8 +1390,9 @@ static void step(int value)
 				step_num, p.behavior, -goal_heading, p.vel_bound, 
 				data.heading_avg, data.heading_var, data.centroid.x, 
 				data.centroid.y);
-			fprintf(output_f, "%4.2f %4.2f %d %d %4.2f\n", data.ch_area, data.connectivity,
-				data.explored, data.targets_explored, data.score);
+			fprintf(output_f, "%4.2f %4.2f %d %d %d\n", data.ch_area, 
+				data.connectivity, data.explored, data.targets_explored, 
+				static_cast<int>(data.score));
 		}
 
 		// Increment the simulation step counter
