@@ -21,11 +21,10 @@ void drawInterface(float window_width, float window_height)
 	glEnd();
 
 	// Draw convex hull
-	glColor4f(1.0f, 1.0f, 1.0f, 0.4f);
-	glLineWidth(1.0f);
+	glColor4f(0.9f, 0.9f, 0.1f, 0.7f);
 	glBegin(GL_POLYGON);
 	for (uint i = 0; i < data.ch.size(); i++) {
-		glVertex3f(data.ch[i].x, data.ch[i].y, 0.0f);
+		glVertex3f(data.ch[i].x, data.ch[i].y, -0.1f);
 	}
 	glEnd();
 
@@ -1395,6 +1394,20 @@ static void step(int value)
 		// Get data variables (data_ops.h)
 		processData(p.num_robots, p.world_size, positions, velocities, 
 			explored_grid, laplacian, ap, &data);
+
+		// Update leader list (Very inefficient now, should compute at the same 
+		// time as convex hull)
+		for (uint i = 0; i < p.num_robots; i++) {
+			bool is_in_ch = false;
+			for (uint j = 0; j < data.ch.size(); j++) {
+				if (positions[i].x == data.ch[j].x &&
+					positions[i].y == data.ch[j].y) {
+					is_in_ch = true;
+					break;
+				}
+			}
+			(is_in_ch) ? leaders[i] = 0 : leaders[i] = 1;
+		}
 
 		if (p.log_data) {
 			// Write data to the output log at the end of every step
