@@ -35,6 +35,7 @@ struct Data
 	float ch_area;
 	int explored;
 	int targets_explored;
+	int targets_seen;
 	float connectivity;
 };
 

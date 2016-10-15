@@ -258,7 +258,7 @@ __global__ void init_kernel(float4* pos, float3* vel, int* mode,
 
 	// Frequently-used parameters
 	float n_f = static_cast<float>(p.num_robots);
-	float start_size = sqrtf(n_f) * 1.5f;
+	float start_size = sqrtf(2.0f * n_f);
 	float ws = static_cast<float>(p.world_size);
 
 	// Seed the RNG
@@ -281,8 +281,8 @@ __global__ void init_kernel(float4* pos, float3* vel, int* mode,
 	float theta = curand_uniform(&local_state) * 2.0f * PI;
 	float unit_r = curand_uniform(&local_state);
 	float sqrt_unit_r = sqrtf(unit_r);
-	float x_pos = start_size * 0.5f * sqrt_unit_r * cosf(theta);
-	float y_pos = start_size * 0.5f * sqrt_unit_r * sinf(theta);
+	float x_pos = start_size * sqrt_unit_r * cosf(theta);
+	float y_pos = start_size * sqrt_unit_r * sinf(theta);
 
 	// Set the initial color
 	Color color;
@@ -334,13 +334,13 @@ __global__ void side_kernel(float4* pos, int* mode, int* leaders,
 				if (mode[i] == 0) {
 					new_mode = 99;
 					new_nearest_leader = -1;
-					// Assign as non-leader for 3 seconds
-					leader_countdown[i] = 180;
+					// Assign as non-leader for 1 second
+					leader_countdown[i] = 60;
 				}
-				else if (mode[i] > 0) {
+				if (mode[i] > 0) {
 					new_mode = 0;
 					new_nearest_leader = i;
-					// Assign as a leader for 6 seconds
+					// Assign as a leader for 3 seconds
 					leader_countdown[i] = 360;
 				}
 			}
@@ -352,21 +352,20 @@ __global__ void side_kernel(float4* pos, int* mode, int* leaders,
 					float4 them = pos[n];
 					float2 dist = make_float2(me.x - them.x, me.y - them.y);
 					// Range for hops/leader calculations is max_range / 2
-					bool within_range = euclidean(dist) < (p.max_d / 2.0f);
+					bool within_range = euclidean(dist) < (p.range_l);
 
 					// Peform operation based on if the robots are within range
 					if (within_range && i != n) {
-						// If a neighbor with a lower/equal mode & higher nearest 
-						// leader ID is found, follow that neighbor's leader and 
-						// reset the leader countdown timer
-						if (mode[n] <= p.hops &&
-							(mode[n] <= mode[i] ||
-							nearest_leader[n] > nearest_leader[i]))
+						// If a neighbor with a hop value less than the max and 
+						// not greater than this robot is found with a lower ID, 
+						// set this robot to non-leader status
+						if ((mode[n] < p.hops) && (mode[n] <= mode[i]) && 
+							(n < i))
 						{
 							new_mode = mode[n] + 1;
 							new_nearest_leader = nearest_leader[n];
-							// Reset leader countdown timer to 3 seconds
-							leader_countdown[i] = 180;
+							// Reset leader countdown timer to 1 second
+							leader_countdown[i] = 60;
 						}
 					}
 				}
@@ -406,7 +405,7 @@ __global__ void side_kernel(float4* pos, int* mode, int* leaders,
 			float dist = euclidean(dist_xy);
 			// Set the non-diagonal values based on whether robots are connected
 			// at the four different ranges, -1 means connected, 0 disconnected
-			if (dist < p.max_a) {
+			if (dist < p.range) {
 				degree_a++;
 				laplacian[(i * p.num_robots) + j].x = -1;
 				laplacian[(j * p.num_robots) + i].x = -1;
@@ -415,7 +414,7 @@ __global__ void side_kernel(float4* pos, int* mode, int* leaders,
 				laplacian[(i * p.num_robots) + j].x = 0;
 				laplacian[(j * p.num_robots) + i].x = 0;
 			}
-			if (dist < p.max_b) {
+			if (dist < p.range_r) {
 				degree_b++;
 				laplacian[(i * p.num_robots) + j].y = -1;
 				laplacian[(j * p.num_robots) + i].y = -1;
@@ -424,7 +423,7 @@ __global__ void side_kernel(float4* pos, int* mode, int* leaders,
 				laplacian[(i * p.num_robots) + j].y = 0;
 				laplacian[(j * p.num_robots) + i].y = 0;
 			}
-			if (dist < p.max_c) {
+			if (dist < p.range_f) {
 				degree_c++;
 				laplacian[(i * p.num_robots) + j].z = -1;
 				laplacian[(j * p.num_robots) + i].z = -1;
@@ -433,7 +432,7 @@ __global__ void side_kernel(float4* pos, int* mode, int* leaders,
 				laplacian[(i * p.num_robots) + j].z = 0;
 				laplacian[(j * p.num_robots) + i].z = 0;
 			}
-			if (dist < p.max_d) {
+			if (dist < p.range_l) {
 				degree_d++;
 				laplacian[(i * p.num_robots) + j].w = -1;
 				laplacian[(j * p.num_robots) + i].w = -1;
@@ -469,7 +468,7 @@ __global__ void main_kernel(float4* pos, float3* vel, int* mode,
 	float4 myPos = pos[i];
 	int myMode = mode[i];
 	float mySpeed = p.vel_bound / 60.0f;
-	float dist_to_obstacle = p.max_d;
+	float dist_to_obstacle = p.range_o;
 	curandState local_state = rand_state[i];
 
 	// Computation variable initializations
@@ -516,7 +515,7 @@ __global__ void main_kernel(float4* pos, float3* vel, int* mode,
 					float dist = euclidean(make_float2(dist_x, dist_y));
 
 					// Perform interaction for neighbors within range
-					if (dist <= p.max_d) {
+					if (dist <= p.range) {
 
 						// Create collecte distance variable (for readability)
 						float3 dist3 = make_float3(dist_x, dist_y, dist);
@@ -572,7 +571,7 @@ __global__ void main_kernel(float4* pos, float3* vel, int* mode,
 		rescale(&repel, p.repel_weight, false);
 		rescale(&align, p.align_weight, false);
 		rescale(&cohere, p.cohere_weight, false);
-		rescale(&avoid, 100.0f * (1.0f - (dist_to_obstacle / p.max_d)), false);
+		rescale(&avoid, 4.0f * powf((p.range_o - dist_to_obstacle), 4.0f), false);
 		// Add random currents, if applicable
 		if (p.current > 0.0f) {
 			rescale(&flow, p.current, false);
@@ -614,14 +613,14 @@ __global__ void main_kernel(float4* pos, float3* vel, int* mode,
 __device__ void rendezvous(float3 dist3, float2* min_bounds, float2* max_bounds, 
 	float2* repel, bool is_ap, Parameters p)
 {
-	if (dist3.z <= p.max_a) {
+	if (dist3.z <= p.range_r) {
 		// REPEL
 		// Repel from robots within closest range (max_a)
-		float weight = powf(p.max_a - dist3.z, 2.0f);
+		float weight = powf(p.range_r - dist3.z, 2.0f);
 		repel->x -= weight * dist3.x;
 		repel->y -= weight * dist3.y;
 	}
-	if (dist3.z <= p.max_d && dist3.z > p.max_a) 
+	if (dist3.z <= p.range && dist3.z > p.range_r)
 	{
 		// COHERE
 		// Robots cohere to the center of the rectangle that bounds neighbors
@@ -637,10 +636,10 @@ __device__ void flock(int myMode, float3 nVel, int nMode, float3 dist3,
 	float2* repel, float2* align, float2* cohere, bool is_ap, Parameters p)
 {
 	// Main flocking section
-	if (dist3.z <= p.max_b) {
+	if (dist3.z <= p.range_f) {
 		// REPEL
 		// Robots repel from neighbors within max_b range
-		float weight = powf(p.max_b - dist3.z, 2.0f);
+		float weight = powf(p.range_f - dist3.z, 2.0f);
 		repel->x -= weight * dist3.x;
 		repel->y -= weight * dist3.y;
 	}
@@ -651,10 +650,10 @@ __device__ void flock(int myMode, float3 nVel, int nMode, float3 dist3,
 		align->x += weight * nVel.x;
 		align->y += weight * nVel.y;
 	}
-	if (dist3.z > p.max_b && dist3.z <= p.max_d) {
+	if (dist3.z > p.range_f && dist3.z <= p.range) {
 		// COHERE
 		// Do not cohere to neighbors within max_b range
-		float weight = powf(dist3.z - p.max_b, 2.0f);
+		float weight = powf(dist3.z - p.range_f, 2.0f);
 		cohere->x += weight * dist3.x;
 		cohere->y += weight * dist3.y;
 	}
@@ -665,17 +664,17 @@ __device__ void disperse(float3 dist3, float2* repel, float2* cohere, bool is_ap
 {
 	// Determine whether we should repel or cohere based on the 
 	// distance to the neighbor
-	if (dist3.z <= p.max_c) {
+	if (dist3.z <= p.range_d) {
 		// REPEL
 		// Robots repel from neighbors within max_c range
-		float weight = powf(p.max_c - dist3.z, 2.0f);
+		float weight = powf(p.range_d - dist3.z, 2.0f);
 		repel->x -= weight * dist3.x;
 		repel->y -= weight * dist3.y;
 	}
-	if (dist3.z <= p.max_d && dist3.z > p.max_b) {
+	if (dist3.z <= p.range && dist3.z > p.range_f) {
 		// COHERE
 		// Do not cohere to robots within max_b range
-		float weight = powf(dist3.z - p.max_b, 3.0f);
+		float weight = powf(dist3.z - p.range_f, 3.0f);
 		cohere->x += weight * dist3.x;
 		cohere->y += weight * dist3.y;
 	}
@@ -690,7 +689,7 @@ __device__ void obstacleAvoidance(float4 myPos, float2* avoid,
 		float cos = cosf(i);
 		float sin = sinf(i);
 		// Ray trace along this angle up to the robot's avoidance range
-		for (float r = 0.0f; r < p.max_b; r += 1.0f) {
+		for (float r = 0.0f; r < p.range_o; r += 1.0f) {
 			count++;
 			float x_check = myPos.x + r * cos;
 			float y_check = myPos.y + r * sin;
@@ -698,7 +697,7 @@ __device__ void obstacleAvoidance(float4 myPos, float2* avoid,
 			// component to the obstacle vector
 			if (checkOccupancy(x_check, y_check, occupancy, p)) {
 				// Get weight for obstacle repulsion force
-				float weight = powf(1.0f - (r / p.max_b), 2.0f);
+				float weight = powf(1.0f - (r / p.range_o), 2.0f);
 				// Update the distance to the closest obstacle
 				if (r < *dist_to_obstacle) {
 					*dist_to_obstacle = r;
@@ -732,43 +731,27 @@ __device__ bool checkOccupancy(float x, float y, bool* occupancy, Parameters p)
 
 __device__ void setColor(uchar4* color, int mode, bool is_ap, Parameters p)
 {
-	if (p.information_mode == 0) {
-		// Centroid-ellipse mode
-		*color = make_uchar4(0, 0, 0, 0);
+	if (mode == 0 && p.show_leaders) {
+		if (p.highlight_leaders) {
+			(is_ap && p.show_ap) ? *color = make_uchar4(0, 200, 0, 255) :
+				*color = make_uchar4(255, 0, 0, 255);
+		}
+		else {
+			(is_ap && p.show_ap) ? *color = make_uchar4(0, 200, 0, 255) :
+				*color = make_uchar4(255, 255, 255, 255);
+		}
 	}
-	else if (p.information_mode == 1) {
-		// Leader only mode
-		switch (mode) {
-		case -1:
+	else if (mode != 0 && p.show_non_leaders) {
+		if (mode > 0) {
+			(is_ap && p.show_ap) ? *color = make_uchar4(0, 200, 0, 255) :
+				*color = make_uchar4(255, 255, 255, 255);
+		}
+		else {
 			*color = make_uchar4(100, 100, 100, 255);
-			break;
-		case 0:
-			*color = make_uchar4(255, 255, 255, 255);
-			break;
-		default:
-			*color = make_uchar4(0, 0, 0, 0);
-			break;
 		}
 	}
 	else {
-		// Full information mode
-		switch (mode) {
-		case -1:
-			*color = make_uchar4(100, 100, 100, 255);
-			break;
-		case 0:
-			*color = make_uchar4(255, 0, 0, 255);
-			break;
-		default:
-			*color = make_uchar4(255, 255, 255, 255);
-			break;
-		}
-	}
-
-	// If this robot is the vertex of an articulation point in the communication 
-	// graph, and in simulation is in full information mode, show it in green
-	if (is_ap && p.information_mode == 2) {
-		*color = make_uchar4(0, 200, 0, 255);
+		*color = make_uchar4(0, 0, 0, 0);
 	}
 }
 

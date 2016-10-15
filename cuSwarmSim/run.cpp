@@ -21,12 +21,14 @@ void drawInterface(float window_width, float window_height)
 	glEnd();
 
 	// Draw convex hull
-	glColor4f(0.9f, 0.9f, 0.1f, 0.7f);
-	glBegin(GL_POLYGON);
-	for (uint i = 0; i < data.ch.size(); i++) {
-		glVertex3f(data.ch[i].x, data.ch[i].y, -0.1f);
+	if (p.show_convex_hull) {
+		glColor4f(0.9f, 0.9f, 0.1f, 0.7f);
+		glBegin(GL_POLYGON);
+		for (uint i = 0; i < data.ch.size(); i++) {
+			glVertex3f(data.ch[i].x, data.ch[i].y, -0.1f);
+		}
+		glEnd();
 	}
-	glEnd();
 
 	// Draw filled polygons
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
@@ -46,7 +48,7 @@ void drawInterface(float window_width, float window_height)
 			// Color is based on obstacle/free space
 			if (explored_grid[i] > 0) {		// Free space
 				glColor4f(0.1f * explored_color, 0.3f * explored_color, 
-					0.6f * explored_color, 1.0f);
+					0.6f * explored_color, 0.5f);
 			}
 			else {							// Obstacle
 				// Lower bar for showing an obstacle cell as fully explored
@@ -65,27 +67,38 @@ void drawInterface(float window_width, float window_height)
 
 	// Draw targets on the GUI
 	for (uint i = 0; i < p.targets; i++) {
+
 		// Get the explored grid index that this target corresponds to
 		uint exp_ind = static_cast<uint>(((targets[i].x + ws_2) * p.world_size) + 
 			(targets[i].y + ws_2));
+
 		// Set the target color based on explored value
-		float target_color = fabsf(static_cast<float>(explored_grid[exp_ind]) /
-			p.max_explore);
+		float target_color;
+		// Target must be seen at least once to show
+		(explored_grid[exp_ind] == 0) ? target_color = 0.0f : 
+			target_color = fabsf(0.25f + (0.75f * 
+			(static_cast<float>(explored_grid[exp_ind]) / p.max_explore)));
 
 		// Change target color based on whether fully explored
 		if (target_color < 1.0f) {
 			// Purple (not fully explored)
 			glColor4f(0.6f * target_color, 0.0f * target_color,
 				0.6f * target_color, 1.0f);
+			// If first time target is seen, indicate so in target data field, 
+			// and add to targets_seen count
+			if (target_color > 0.0f && targets[i].z == 0) {
+				targets[i].z = 1;
+				data.targets_seen++;
+			}
 		}
 		else {
 			// Green (fully explored)
 			glColor4f(0.2f * target_color, 0.8f * target_color,
 				0.2f * target_color, 1.0f);
-			// If first time reaching fully explored status for target, indicate 
-			// so in array and add bonus to score
-			if (targets[i].z == 0) {
-				targets[i].z = 1;
+			// If first time reaching fully explored status, indicate so in data
+			// field and add to targets_explored count
+			if (targets[i].z == 1) {
+				targets[i].z = 2;
 				data.targets_explored++;
 			}
 		}
@@ -101,14 +114,47 @@ void drawInterface(float window_width, float window_height)
 		glEnd();
 	}
 
-	// Set color to cyan for user inputs
-	glColor4f(0.0f, 1.0f, 1.0f, 1.0f);
+	// Set color to gray for next GUI elements
+	glColor4f(0.8f, 0.8f, 0.8f, 0.2f);
 
-	// Reinitialize OpenGL modelview and projection matricies
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
+	glResetModelAndProjection();
+
+	// Draw text on GUI
+	stringstream ss;
+	ss << "Targets found: " << data.targets_explored << "/" << p.targets;
+	ss << "\nSpeed: " << p.vel_bound;
+	drawText(-0.94f, 0.9f, 0.0003f, 0.00045f, ss.str().c_str(), 0.8f, 0.8f, 
+		0.8f);
+
+	glResetModelAndProjection();
+
+	// Draw progress bar for time remaining
+	glLineWidth(1.0f);
+	float bar_y_end = -0.94f + (1.5f * (static_cast<float>(step_num) /
+		static_cast<float>(p.step_limit)));
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	glBegin(GL_POLYGON);
+	glVertex3f(-0.94f, -0.94f, 0.0f);
+	glVertex3f(-0.94f, 0.56f, 0.0f);
+	glVertex3f(-0.84f, 0.56f, 0.0f);
+	glVertex3f(-0.84f, -0.94f, 0.0f);
+	glEnd();
+	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+	glBegin(GL_POLYGON);
+	glVertex3f(-0.94f, -0.94f, 0.0f);
+	glVertex3f(-0.94f, bar_y_end, 0.0f);
+	glVertex3f(-0.84f, bar_y_end, 0.0f);
+	glVertex3f(-0.84f, -0.94f, 0.0f);
+	glEnd();
+
+	// Set color to cyan for user inputs
+	if (command_trust == 1) {
+		glColor4f(0.0f, 1.0f, 1.0f, 1.0f);
+	}
+	else {
+		glColor4f(1.0f, 0.5f, 0.5f, 1.0f);
+	}
+	glLineWidth(2.0f);
 
 	// Convert user-drawn line from screen to world coordinates
 	float3 screen_start_point = make_float3(mouse_start_x, mouse_start_y, 0.0f);
@@ -249,40 +295,46 @@ void keyboardSpecial(int key, int x, int y)
 
 void mouse(int button, int state, int x, int y)
 {
-	if (state == GLUT_DOWN) {	// If the button is pressed down
+	// If the button is pressed down (ignore subsequent buttons before the first
+	// is released)
+	if (state == GLUT_DOWN && mb == -1) {
 		// Get mouse button
 		mb = button;
 
-		if (mb == 0) { // Left click
-			// Set the user-drawn line start point if the user pressed the primary 
-			// mouse button and the simulation is not paused
-			if ((!paused) && p.op_mode == 2 && mb == 0) {
+		// Only process presses if unpaused and in manual mode
+		if ((!paused) && p.op_mode == 2) {	
+			// Primary buttons to give commands
+			if (mb == 0 || mb == 2) {
+				// Left mb means trusted command; right mb is untrusted
+				(mb == 0) ? command_trust = 1 : command_trust = 2;
 				mouse_start_x = static_cast<float>(x);
 				mouse_start_y = static_cast<float>(y);
 				mouse_last_x = mouse_start_x;
 				mouse_last_y = mouse_start_y;
 			}
+			else if (mb == 3) {		// Scroll wheel forward to increase speed
+				p.vel_bound = min(3.0f, p.vel_bound + 0.1f);
+				fprintf(world_f, "d %d %4.2f %4.2f %d %4.2f\n", p.behavior,
+					goal_heading, p.vel_bound, step_num, data.score);
+			}
+			else if (mb == 4) {		// Scroll wheel backward to decrease speed
+				p.vel_bound = max(1.0f, p.vel_bound - 0.1f);
+				fprintf(world_f, "d %d %4.2f %4.2f %d %4.2f\n", p.behavior,
+					goal_heading, p.vel_bound, step_num, data.score);
+			}
 		}
-		else if (mb == 3) {		// Scroll wheel forward to increase speed
-			p.vel_bound = min(4.0f, p.vel_bound + 0.1f);
-			fprintf(world_f, "d %d %4.2f %4.2f %d %4.2f\n", p.behavior,
-				goal_heading, p.vel_bound, step_num, data.score);
-		}
-		else if (mb == 4) {		// Scroll wheel backward to decrease speed
-			p.vel_bound = max(1.0f, p.vel_bound - 0.1f);
-			fprintf(world_f, "d %d %4.2f %4.2f %d %4.2f\n", p.behavior,
-				goal_heading, p.vel_bound, step_num, data.score);
-		}
-		
 	}
-	else if (state == GLUT_UP) {	// If the button is released
-		if (mb == 0) {	// Left click
+	else if (state == GLUT_UP && mb == button) {	// If the button is released
+		// Primary or seconday mouse button released
+		if (mb == 0 || mb == 2) {
 			// If the simulation is paused, unpause it; 
 			// else log the new user goal heading and log the information; 
 			if (paused) {
 				paused = false;
 			}
 			else if (!paused && p.op_mode == 2) {
+				// Reset command_trust (because command is finished)
+				command_trust = 0;
 				// Get the goal direction in radians
 				goal_heading = atan2f(static_cast<float>(y) - mouse_start_y, 
 					static_cast<float>(x) - mouse_start_x);
@@ -303,12 +355,12 @@ void mouse(int button, int state, int x, int y)
 				}
 			}
 		}
-		else if (mb == 5) {		// Scroll wheel forward to increase speed
+		else if (mb == 5 && !paused && p.op_mode == 2) { // Scroll wheel forward
 			p.vel_bound = min(4.0f, p.vel_bound + 0.1f);
 			fprintf(world_f, "d %d %4.2f %4.2f %d %4.2f\n", p.behavior,
 				goal_heading, p.vel_bound, step_num, data.score);
 		}
-		else if (mb == 6) {		// Scroll wheel backward to decrease speed
+		else if (mb == 6 && !paused && p.op_mode == 2) { // Scroll wheel backward
 			p.vel_bound = max(1.0f, p.vel_bound - 0.1f);
 			fprintf(world_f, "d %d %4.2f %4.2f %d %4.2f\n", p.behavior,
 				goal_heading, p.vel_bound, step_num, data.score);
@@ -329,7 +381,7 @@ void motion(int x, int y)
 {
 	// Draw the user heading line if the primary button is down and simulation 
 	// is not paused
-	if (mb == 0 && p.op_mode == 2 && !paused) {
+	if ((mb == 0 || mb == 2) && p.op_mode == 2 && !paused) {
 		mouse_last_x = static_cast<float>(x);
 		mouse_last_y = static_cast<float>(y);
 	}
@@ -353,6 +405,15 @@ void moveRight()
 void moveDown()
 {
 	translate_y0 -= 1.0f;
+}
+
+void glResetModelAndProjection()
+{
+	// Reinitialize OpenGL modelview and projection matricies
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
 }
 
 /****************************
@@ -508,26 +569,24 @@ static void display(void)
 	glDisableClientState(GL_COLOR_ARRAY);
 
 	// Draw orientation lines
-	if (p.information_mode != 0) {
-		glColor4f(1.0f, 1.0f, 1.0f, 0.5f);
-		glLineWidth(2.0f);
-		for (uint i = 0; i < p.num_robots; i++) {
-			// Only draw the orientation line if in full information mode, or 
-			// leader-only mode with the robot being a leader
-			if (p.information_mode == 2 ||
-				(p.information_mode == 1 && modes[i] == 0)) {
-				glBegin(GL_LINES);
-				glVertex3f(positions[i].x, positions[i].y, 0.0f);
-				glVertex3f(positions[i].x + ((100.0f * velocities[i].x) / 
-					p.vel_bound), positions[i].y + ((100.0f * velocities[i].y) / 
-					p.vel_bound), 0.0f);
-				glEnd();
-			}
+	glColor4f(1.0f, 1.0f, 1.0f, 0.5f);
+	glLineWidth(2.0f);
+	for (uint i = 0; i < p.num_robots; i++) {
+		// Only draw the orientation line if in full information mode, or 
+		// leader-only mode with the robot being a leader
+		if ((p.show_leaders && modes[i] == 0) || 
+			(p.show_non_leaders && modes[i] != 0)) {
+			glBegin(GL_LINES);
+			glVertex3f(positions[i].x, positions[i].y, 0.0f);
+			glVertex3f(positions[i].x + ((100.0f * velocities[i].x) / 
+				p.vel_bound), positions[i].y + ((100.0f * velocities[i].y) / 
+				p.vel_bound), 0.0f);
+			glEnd();
 		}
 	}
 
 	// Draw communication graph
-	if (p.information_mode != 0) {
+	if (p.show_connections) {
 		glColor4f(0.5f, 0.5f, 0.5f, 0.5f);
 		glLineWidth(1.0f);
 		for (uint i = 0; i < p.num_robots - 1; i++) {
@@ -535,9 +594,10 @@ static void display(void)
 				if (laplacian[(i * p.num_robots) + j].w == -1) {
 					// Only draw orientation line if in full information mode, 
 					// or leader-only mode with the robot being a leader
-					if (p.information_mode == 2 ||
-						(p.information_mode == 1 && 
-						modes[i] == 0 && modes[j] == 0)) {
+					if (((p.show_leaders && modes[i] == 0) || 
+						(p.show_non_leaders && modes[i] != 0)) && 
+						((p.show_leaders && modes[j] == 0) || 
+						(p.show_non_leaders && modes[j] != 0))) {
 						glBegin(GL_LINES);
 						glVertex3f(positions[i].x, positions[i].y, 0.0f);
 						glVertex3f(positions[j].x, positions[j].y, 0.0f);
@@ -617,7 +677,7 @@ void resetCamera()
 	// Reset the camera to the start position
 	translate_x0 = 0.0f;
 	translate_y0 = 0.0f;
-	translate_z0 = 70.0f;
+	translate_z0 = 100.0f;
 	rotate_x0 = 0.0f;
 	rotate_y0 = 0.0f;
 }
@@ -690,20 +750,22 @@ void processParam(std::vector<std::string> tokens)
 		p.current = std::stof(tokens[1]);
 	else if (tokens[0] == "hops")
 		p.hops = std::stoul(tokens[1]);
-	else if (tokens[0] == "information_mode")
-		p.information_mode = std::stoul(tokens[1]);
 	else if (tokens[0] == "leader_selection")
 		p.leader_selection = std::stoul(tokens[1]);
 	else if (tokens[0] == "log_data")
 		p.log_data = (std::stoul(tokens[1]) != 0);
-	else if (tokens[0] == "max_a")
-		p.max_a = std::stof(tokens[1]);
-	else if (tokens[0] == "max_b")
-		p.max_b = std::stof(tokens[1]);
-	else if (tokens[0] == "max_c")
-		p.max_c = std::stof(tokens[1]);
-	else if (tokens[0] == "max_d")
-		p.max_d = std::stof(tokens[1]);
+	else if (tokens[0] == "range_r")
+		p.range_r = std::stof(tokens[1]);
+	else if (tokens[0] == "range_f")
+		p.range_f = std::stof(tokens[1]);
+	else if (tokens[0] == "range_d")
+		p.range_d = std::stof(tokens[1]);
+	else if (tokens[0] == "range_o")
+		p.range_o = std::stof(tokens[1]);
+	else if (tokens[0] == "range_l")
+		p.range_l = std::stof(tokens[1]);
+	else if (tokens[0] == "range")
+		p.range = std::stof(tokens[1]);
 	else if (tokens[0] == "max_explore")
 		p.max_explore = std::stoul(tokens[1]);
 	else if (tokens[0] == "max_obstacle_size")
@@ -720,10 +782,24 @@ void processParam(std::vector<std::string> tokens)
 		p.point_size = std::stoul(tokens[1]);
 	else if (tokens[0] == "repel_weight")
 		p.repel_weight = std::stof(tokens[1]);
+	else if (tokens[0] == "show_ap")
+		p.show_ap = (std::stoul(tokens[1]) != 0);
+	else if (tokens[0] == "show_connections")
+		p.show_connections = (std::stoul(tokens[1]) != 0);
+	else if (tokens[0] == "show_convex_hull")
+		p.show_convex_hull = (std::stoul(tokens[1]) != 0);
+	else if (tokens[0] == "show_leaders")
+		p.show_leaders = (std::stoul(tokens[1]) != 0);
+	else if (tokens[0] == "highlight_leaders")
+		p.highlight_leaders = (std::stoul(tokens[1]) != 0);
+	else if (tokens[0] == "show_non_leaders")
+		p.show_non_leaders = (std::stoul(tokens[1]) != 0);
 	else if (tokens[0] == "step_limit")
 		p.step_limit = std::stoul(tokens[1]);
 	else if (tokens[0] == "targets")
 		p.targets = std::stoul(tokens[1]);
+	else if (tokens[0] == "training")
+		p.training = (std::stoul(tokens[1]) != 0);
 	else if (tokens[0] == "update_period")
 		p.update_period = std::stoul(tokens[1]);
 	else if (tokens[0] == "vel_bound")
@@ -756,13 +832,14 @@ void generateWorld(char* filepath)
 		fprintf(world_f, "confirm_quit %d", p.confirm_quit);
 		fprintf(world_f, "current %4.2f\n", p.current);
 		fprintf(world_f, "hops %d\n", p.hops);
-		fprintf(world_f, "information_mode %d\n", p.information_mode);
 		fprintf(world_f, "leader_selection %d\n", p.leader_selection);
 		fprintf(world_f, "log_data %d\n", p.log_data);
-		fprintf(world_f, "max_a %4.2f\n", p.max_a);
-		fprintf(world_f, "max_b %4.2f\n", p.max_b);
-		fprintf(world_f, "max_c %4.2f\n", p.max_c);
-		fprintf(world_f, "max_d %4.2f\n", p.max_d);
+		fprintf(world_f, "range_r %4.2f\n", p.range_r);
+		fprintf(world_f, "range_f %4.2f\n", p.range_f);
+		fprintf(world_f, "range_d %4.2f\n", p.range_d);
+		fprintf(world_f, "range_o %4.2f\n", p.range_o);
+		fprintf(world_f, "range_l %4.2f\n", p.range_l);
+		fprintf(world_f, "range_ %4.2f\n", p.range);
 		fprintf(world_f, "max_explore %d\n", p.max_explore);
 		fprintf(world_f, "max_obstacle_size %d\n", p.max_obstacle_size);
 		fprintf(world_f, "noise %4.2f\n", p.noise);
@@ -771,8 +848,15 @@ void generateWorld(char* filepath)
 		fprintf(world_f, "op_mode %d\n", 1); // Set op_mode to 1 (for replay)
 		fprintf(world_f, "point_size %d\n", p.point_size);
 		fprintf(world_f, "repel_weight %4.2f\n", p.repel_weight);
+		fprintf(world_f, "show_ap %d\n", p.show_ap);
+		fprintf(world_f, "show_connections %d\n", p.show_connections);
+		fprintf(world_f, "show_convex_hull %d\n", p.show_convex_hull);
+		fprintf(world_f, "show_leaders %d\n", p.show_leaders);
+		fprintf(world_f, "highlight_leaders %d\n", p.highlight_leaders);
+		fprintf(world_f, "show_non_leaders %d\n", p.show_non_leaders);
 		fprintf(world_f, "step_limit %d\n", p.step_limit);
 		fprintf(world_f, "targets %d\n", p.targets);
+		fprintf(world_f, "training %d\n", p.training);
 		fprintf(world_f, "update_period %d\n", p.update_period);
 		fprintf(world_f, "vel_bound %4.2f\n", p.vel_bound);
 		fprintf(world_f, "window_height %d\n", p.window_height);
@@ -961,15 +1045,15 @@ void updateExplored()
 
 			// Only do the following if cell is within range of the swarm bounds
 			// Only do the following every 5 steps, and if not paused
-			if ((world_x > data.bounds.x - p.max_d) &&
-				(world_x < data.bounds.y + p.max_d) &&
-				(world_y > data.bounds.z - p.max_d) &&
-				(world_y < data.bounds.w + p.max_d) &&
+			if ((world_x > data.bounds.x - p.range) &&
+				(world_x < data.bounds.y + p.range) &&
+				(world_y > data.bounds.z - p.range) &&
+				(world_y < data.bounds.w + p.range) &&
 				step_num % 5 == 0 && !paused) {
 				// Check each robot to see if it is within range of this cell
 				for (uint n = 0; n < p.num_robots; n++) {
 					if (eucl2(world_x + 0.5f, world_y + 0.5f,
-						positions[n].x, positions[n].y) <= p.max_d) {
+						positions[n].x, positions[n].y) <= p.range) {
 						// Increment/decrement based on whether cell is obstacle
 						if (explored_grid[i] >= 0) {
 							explored_grid[i]++;
@@ -1050,10 +1134,11 @@ void printDataHeader()
 {
 	if (p.log_data) {
 		// Step data header
-		fprintf(output_f, "step step_num behavior behavior_data velocity ");
+		fprintf(output_f, "step_num behavior behavior_data velocity ");
 		fprintf(output_f, "avg_heading heading_var centroid_x centroid_y ");
 		fprintf(output_f, "convex_hull_area connectivity explored_area ");
-		fprintf(output_f, "targets_explored score\n");
+		fprintf(output_f, "targets_explored targets_seen ");
+		fprintf(output_f, "command_trust\n");
 	}
 }
 
@@ -1411,13 +1496,13 @@ static void step(int value)
 
 		if (p.log_data) {
 			// Write data to the output log at the end of every step
-			fprintf(output_f, "step %d %d %4.2f %4.2f %4.2f %4.2f %4.2f %4.2f ",
+			fprintf(output_f, "%d %d %4.2f %4.2f %4.2f %4.2f %4.2f %4.2f ",
 				step_num, p.behavior, -goal_heading, p.vel_bound, 
 				data.heading_avg, data.heading_var, data.centroid.x, 
 				data.centroid.y);
-			fprintf(output_f, "%4.2f %4.2f %d %d %d\n", data.ch_area, 
+			fprintf(output_f, "%4.2f %4.2f %d %d %d %d\n", data.ch_area, 
 				data.connectivity, data.explored, data.targets_explored, 
-				static_cast<int>(data.score));
+				data.targets_seen, command_trust);
 		}
 
 		// Increment the simulation step counter

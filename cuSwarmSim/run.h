@@ -57,6 +57,9 @@ std::stringstream output_fname;			// Name of the log file
 // GUI variables
 float mouse_start_x, mouse_start_y, mouse_last_x, mouse_last_y;
 int mb = -1;							// Mouse variables
+int command_trust = 0;					// Current command to change goal (1) or 
+										// due to lack of trust (2);
+										// 0 indicates no current command
 
 float rotate_x0, rotate_y0;				// Variables for camera view transform
 float translate_x0, translate_y0, translate_z0;
@@ -84,6 +87,7 @@ void moveUp();
 void moveLeft();
 void moveRight();
 void moveDown();
+void glResetModelAndProjection();
 
 // OpenGL utility functions
 void initGL(int argc, char **argv);

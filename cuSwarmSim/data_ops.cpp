@@ -167,8 +167,7 @@ void processData(uint n, uint ws, float4* positions, float3* velocities,
 	}
 	data->explored = explored;
 	// Score is the explored area plus a bonus for each target fully explored
-	data->score = static_cast<float>(data->explored + 
-		(5000 * data->targets_explored));
+	data->score = static_cast<float>(data->explored);
 
 	getLaplacian(n, laplacian);
 	articulationPoints(n, laplacian, ap, 4);
