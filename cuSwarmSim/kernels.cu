@@ -258,7 +258,6 @@ __global__ void init_kernel(float4* pos, float3* vel, int* mode,
 
 	// Frequently-used parameters
 	float n_f = static_cast<float>(p.num_robots);
-	float start_size = sqrtf(2.0f * n_f);
 	float ws = static_cast<float>(p.world_size);
 
 	// Seed the RNG
@@ -281,12 +280,12 @@ __global__ void init_kernel(float4* pos, float3* vel, int* mode,
 	float theta = curand_uniform(&local_state) * 2.0f * PI;
 	float unit_r = curand_uniform(&local_state);
 	float sqrt_unit_r = sqrtf(unit_r);
-	float x_pos = start_size * sqrt_unit_r * cosf(theta);
-	float y_pos = start_size * sqrt_unit_r * sinf(theta);
+	float x_pos = p.start_size * sqrt_unit_r * cosf(theta);
+	float y_pos = p.start_size * sqrt_unit_r * sinf(theta);
 
 	// Set the initial color
 	Color color;
-	setColor(&(color.components), 1, false, p);
+	setColor(&(color.components), 1, false, i, p);
 
 	// Set speed manually from params.txt
 	float speed = p.vel_bound / 60.0f;
@@ -598,7 +597,7 @@ __global__ void main_kernel(float4* pos, float3* vel, int* mode,
 
 	// Set the color based on current mode (leaders in red)
 	Color color;
-	setColor(&(color.components), myMode, ap[i], p);
+	setColor(&(color.components), myMode, ap[i], i, p);
 	// Update velocity and mode once every update_period steps (see params.txt)
 	if ((sn + i) % p.update_period == 0 || sn == 0) {
 		vel[i] = make_float3(goal.x, goal.y, mySpeed);
@@ -650,10 +649,11 @@ __device__ void flock(int myMode, float3 nVel, int nMode, float3 dist3,
 		align->x += weight * nVel.x;
 		align->y += weight * nVel.y;
 	}
-	if (dist3.z > p.range_f && dist3.z <= p.range) {
+	if (dist3.z > p.range_r && dist3.z <= p.range) {
 		// COHERE
 		// Do not cohere to neighbors within max_b range
-		float weight = powf(dist3.z - p.range_f, 2.0f);
+		float weight = powf(dist3.z - p.range_r, 2.0f);
+		//(is_ap) ? weight = 1000.0f : weight *= 1.0f;
 		cohere->x += weight * dist3.x;
 		cohere->y += weight * dist3.y;
 	}
@@ -671,10 +671,10 @@ __device__ void disperse(float3 dist3, float2* repel, float2* cohere, bool is_ap
 		repel->x -= weight * dist3.x;
 		repel->y -= weight * dist3.y;
 	}
-	if (dist3.z <= p.range && dist3.z > p.range_f) {
+	if (dist3.z <= p.range && dist3.z > p.range_d) {
 		// COHERE
 		// Do not cohere to robots within max_b range
-		float weight = powf(dist3.z - p.range_f, 3.0f);
+		float weight = powf(dist3.z - p.range_d, 3.0f);
 		cohere->x += weight * dist3.x;
 		cohere->y += weight * dist3.y;
 	}
@@ -729,7 +729,8 @@ __device__ bool checkOccupancy(float x, float y, bool* occupancy, Parameters p)
 	}
 }
 
-__device__ void setColor(uchar4* color, int mode, bool is_ap, Parameters p)
+__device__ void setColor(uchar4* color, int mode, bool is_ap, uint i, 
+	Parameters p)
 {
 	if (mode == 0 && p.show_leaders) {
 		if (p.highlight_leaders) {

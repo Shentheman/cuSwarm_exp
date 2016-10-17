@@ -117,13 +117,11 @@ void drawInterface(float window_width, float window_height)
 	// Set color to gray for next GUI elements
 	glColor4f(0.8f, 0.8f, 0.8f, 0.2f);
 
-	glResetModelAndProjection();
-
 	// Draw text on GUI
 	stringstream ss;
 	ss << "Targets found: " << data.targets_explored << "/" << p.targets;
 	ss << "\nSpeed: " << p.vel_bound;
-	drawText(-0.94f, 0.9f, 0.0003f, 0.00045f, ss.str().c_str(), 0.8f, 0.8f, 
+	drawText(-0.5f, 0.5f, (const unsigned char*)ss.str().c_str(), 0.8f, 0.8f, 
 		0.8f);
 
 	glResetModelAndProjection();
@@ -157,8 +155,10 @@ void drawInterface(float window_width, float window_height)
 	glLineWidth(2.0f);
 
 	// Convert user-drawn line from screen to world coordinates
-	float3 screen_start_point = make_float3(mouse_start_x, mouse_start_y, 0.0f);
-	float3 screen_last_point = make_float3(mouse_last_x, mouse_last_y, 0.0f);
+	float3 screen_start_point = make_float3(mouse_start_x, mouse_start_y, 
+		translate_z0);
+	float3 screen_last_point = make_float3(mouse_last_x, mouse_last_y, 
+		translate_z0);
 	float3 world_start_point = make_float3(0.0f, 0.0f, 0.0f);
 	float3 world_last_point = make_float3(0.0f, 0.0f, 0.0f);
 	screenToWorld(screen_start_point, &world_start_point);
@@ -193,16 +193,15 @@ void drawEllipse(float cx, float cy, float w, float h)
 	glEnd();
 }
 
-void drawText(float x, float y, float x_scale, float y_scale, const char *string,
-	GLfloat r, GLfloat g, GLfloat b)
+void drawText(float x, float y, const unsigned char *string, GLfloat r,
+	GLfloat g, GLfloat b)
 {
 	// Change to specified color
 	glColor4f(r, g, b, 0.75f);
 
 	// Draw text at the given point
-	glTranslatef(x, y, 0.0f);
-	glScalef(x_scale, y_scale, 1);
-	glutStrokeString(GLUT_STROKE_ROMAN, (unsigned char*)string);
+	glRasterPos2f(-134.0f + translate_x0, 70.0f + translate_y0);
+	glutBitmapString(GLUT_BITMAP_TIMES_ROMAN_24, string);
 }
 
 void keyboard(unsigned char key, int x, int y)
@@ -228,6 +227,27 @@ void keyboard(unsigned char key, int x, int y)
 	case ' ': {
 		// Pause / resume the simulation
 		paused = !paused;
+		break;
+	}
+	case 'z': { // The following three ('z', 'x', 'c', are for current experiment training only, and will be removed later
+		if (p.training) {
+			p.range_r = 2.0f;
+			p.range_f = 3.0f;
+		}
+		break;
+	}
+	case 'x': {
+		if (p.training) {
+			p.range_r = 2.33f;
+			p.range_f = 3.33f;
+		}
+		break;
+	}
+	case 'c': {
+		if (p.training) {
+			p.range_r = 3.0f;
+			p.range_f = 4.0f;
+		}
 		break;
 	}
 	case '1': {
@@ -325,8 +345,7 @@ void mouse(int button, int state, int x, int y)
 		}
 	}
 	else if (state == GLUT_UP && mb == button) {	// If the button is released
-		// Primary or seconday mouse button released
-		if (mb == 0 || mb == 2) {
+		if (mb == 0 || mb == 2) { // Primary or seconday mouse button
 			// If the simulation is paused, unpause it; 
 			// else log the new user goal heading and log the information; 
 			if (paused) {
@@ -385,6 +404,10 @@ void motion(int x, int y)
 		mouse_last_x = static_cast<float>(x);
 		mouse_last_y = static_cast<float>(y);
 	}
+
+	// Assign current mouse coordinates
+	mouse_x = static_cast<float>(x);
+	mouse_y = static_cast<float>(y);
 }
 
 void moveUp()
@@ -549,6 +572,11 @@ static void display(void)
 	glRotatef(rotate_y0, 0.0, 1.0, 0.0);
 	glTranslatef(-translate_x0, -translate_y0, -translate_z0);
 
+	float3 screen = make_float3(mouse_x, mouse_y, translate_z0);
+	float3 world = make_float3(0.0f, 0.0f, 0.0f);
+	screenToWorld(screen, &world);
+	printf("%1.9f, %1.9f\n", world.x, world.y);
+
 	// Closer things cover far things
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
@@ -568,35 +596,32 @@ static void display(void)
 	glDisableClientState(GL_VERTEX_ARRAY);
 	glDisableClientState(GL_COLOR_ARRAY);
 
-	// Draw orientation lines
-	glColor4f(1.0f, 1.0f, 1.0f, 0.5f);
-	glLineWidth(2.0f);
+	// Draw robot data
 	for (uint i = 0; i < p.num_robots; i++) {
-		// Only draw the orientation line if in full information mode, or 
-		// leader-only mode with the robot being a leader
+
+		// Orientation lines
 		if ((p.show_leaders && modes[i] == 0) || 
 			(p.show_non_leaders && modes[i] != 0)) {
+			glColor4f(1.0f, 1.0f, 1.0f, 0.5f);
+			glLineWidth(2.0f);
 			glBegin(GL_LINES);
 			glVertex3f(positions[i].x, positions[i].y, 0.0f);
 			glVertex3f(positions[i].x + ((100.0f * velocities[i].x) / 
 				p.vel_bound), positions[i].y + ((100.0f * velocities[i].y) / 
-				p.vel_bound), 0.0f);
+				p.vel_bound), 0.1f);
 			glEnd();
 		}
-	}
 
-	// Draw communication graph
-	if (p.show_connections) {
-		glColor4f(0.5f, 0.5f, 0.5f, 0.5f);
+		glColor4f(1.0f, 1.0f, 1.0f, 0.1f);
 		glLineWidth(1.0f);
-		for (uint i = 0; i < p.num_robots - 1; i++) {
+
+		// Communication connections
+		if (p.show_connections) {
 			for (uint j = i + 1; j < p.num_robots; j++) {
-				if (laplacian[(i * p.num_robots) + j].w == -1) {
-					// Only draw orientation line if in full information mode, 
-					// or leader-only mode with the robot being a leader
-					if (((p.show_leaders && modes[i] == 0) || 
-						(p.show_non_leaders && modes[i] != 0)) && 
-						((p.show_leaders && modes[j] == 0) || 
+				if (laplacian[(i * p.num_robots) + j].x == -1) {
+					if (((p.show_leaders && modes[i] == 0) ||
+						(p.show_non_leaders && modes[i] != 0)) &&
+						((p.show_leaders && modes[j] == 0) ||
 						(p.show_non_leaders && modes[j] != 0))) {
 						glBegin(GL_LINES);
 						glVertex3f(positions[i].x, positions[i].y, 0.0f);
@@ -606,8 +631,12 @@ static void display(void)
 				}
 			}
 		}
+
+		// Show communication range if specified in parameters
+		if (p.show_range) {
+			drawEllipse(positions[i].x, positions[i].y, p.range, p.range);
+		}
 	}
-	
 
 	// Refresh display
 	glutSwapBuffers();
@@ -643,7 +672,7 @@ void screenToWorld(float3 screen, float3 *world)
 		&x_w, &y_w, &z_w);
 	world->x = static_cast<float>(x_w);
 	world->y = static_cast<float>(y_w);
-	world->z = 0.0f; //static_cast<float>(z_w);
+	world->z = static_cast<float>(z_w);
 }
 
 void worldToScreen(float3 world, float3 *screen)
@@ -790,10 +819,14 @@ void processParam(std::vector<std::string> tokens)
 		p.show_convex_hull = (std::stoul(tokens[1]) != 0);
 	else if (tokens[0] == "show_leaders")
 		p.show_leaders = (std::stoul(tokens[1]) != 0);
+	else if (tokens[0] == "show_range")
+		p.show_range = (std::stoul(tokens[1]) != 0);
 	else if (tokens[0] == "highlight_leaders")
 		p.highlight_leaders = (std::stoul(tokens[1]) != 0);
 	else if (tokens[0] == "show_non_leaders")
 		p.show_non_leaders = (std::stoul(tokens[1]) != 0);
+	else if (tokens[0] == "start_size")
+		p.start_size = std::stof(tokens[1]);
 	else if (tokens[0] == "step_limit")
 		p.step_limit = std::stoul(tokens[1]);
 	else if (tokens[0] == "targets")
@@ -814,9 +847,6 @@ void processParam(std::vector<std::string> tokens)
 
 void generateWorld(char* filepath)
 {
-	// Get the starting area
-	float start_size = sqrtf(static_cast<float>(p.num_robots)) * 1.5f / 1.5f;
-
 	// Open world file to log obstacle data
 	if (p.log_data != 0.0f) {
 		fopen_s(&world_f, filepath, "w");
@@ -852,8 +882,10 @@ void generateWorld(char* filepath)
 		fprintf(world_f, "show_connections %d\n", p.show_connections);
 		fprintf(world_f, "show_convex_hull %d\n", p.show_convex_hull);
 		fprintf(world_f, "show_leaders %d\n", p.show_leaders);
+		fprintf(world_f, "show_range %d\n", p.show_leaders);
 		fprintf(world_f, "highlight_leaders %d\n", p.highlight_leaders);
 		fprintf(world_f, "show_non_leaders %d\n", p.show_non_leaders);
+		fprintf(world_f, "start_size %4.2f\n", p.start_size);
 		fprintf(world_f, "step_limit %d\n", p.step_limit);
 		fprintf(world_f, "targets %d\n", p.targets);
 		fprintf(world_f, "training %d\n", p.training);
@@ -889,10 +921,10 @@ void generateWorld(char* filepath)
 
 			// Ensure obstacle does not cover the start or goal areas and that 
 			// it is not too thin
-			if ((obstacle.x < -start_size - obstacle.z || 
-				obstacle.x > start_size ||
-				obstacle.y < -start_size - obstacle.w || 
-				obstacle.y > start_size) &&
+			if ((obstacle.x < -(p.start_size + 1.0f) - obstacle.z || 
+				obstacle.x > (p.start_size + 1.0f) ||
+				obstacle.y < -(p.start_size + 1.0f) - obstacle.w || 
+				obstacle.y > (p.start_size + 1.0f)) &&
 				(obstacle.z > 3.0f && obstacle.w > 3.0f)) {
 				// Signal the obstacle fits criteria
 				obstacle_accepted = true;

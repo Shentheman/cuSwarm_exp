@@ -90,7 +90,8 @@ __device__ void obstacleAvoidance(float4 myPos, float2* avoid,
 
 __device__ bool checkOccupancy(float x, float y, bool* occupancy, Parameters p);
 
-__device__ void setColor(uchar4* color, int mode, bool is_ap, Parameters p);
+__device__ void setColor(uchar4* color, int mode, bool is_ap, uint i, 
+	Parameters p);
 
 __device__ float euclidean(float2 vector);
 

@@ -66,7 +66,9 @@ struct Parameters
 	bool show_connections;
 	bool show_convex_hull;
 	bool show_leaders;
+	bool show_range;
 	bool show_non_leaders;
+	float start_size;
 	uint step_limit;
 	bool training;
 	uint targets;

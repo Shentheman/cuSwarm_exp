@@ -170,8 +170,8 @@ void processData(uint n, uint ws, float4* positions, float3* velocities,
 	data->score = static_cast<float>(data->explored);
 
 	getLaplacian(n, laplacian);
-	articulationPoints(n, laplacian, ap, 4);
-	data->connectivity = connectivity(n, laplacian, 4);
+	articulationPoints(n, laplacian, ap, 1);
+	data->connectivity = connectivity(n, laplacian, 1);
 }
 
 /*********************************
@@ -310,10 +310,10 @@ float connectivity(uint n, int4* laplacian, uint level)
 	}
 
 	// Get eigenvalues of laplacian
-	Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> eigensolver(A);
+	Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> es(A, true);
 
 	// Return second-smallest eigenvalue
-	return eigensolver.eigenvalues()[1];
+	return es.eigenvalues()[1];
 }
 
 void articulationPoints(uint n, int4* laplacian, bool* ap, uint level)

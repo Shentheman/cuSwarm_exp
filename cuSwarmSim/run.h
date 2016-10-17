@@ -56,6 +56,7 @@ std::stringstream output_fname;			// Name of the log file
 
 // GUI variables
 float mouse_start_x, mouse_start_y, mouse_last_x, mouse_last_y;
+float mouse_x, mouse_y;
 int mb = -1;							// Mouse variables
 int command_trust = 0;					// Current command to change goal (1) or 
 										// due to lack of trust (2);
@@ -77,8 +78,8 @@ struct cudaGraphicsResource* cuda_vbo_resource;
 // User interface functions
 void drawInterface(float world_size, float window_width, float window_height);
 void drawEllipse(float cx, float cy, float w, float h);
-void drawText(float x, float y, float x_scale, float y_scale, const char *string,
-	GLfloat r, GLfloat g, GLfloat b);
+void drawText(float x, float y, const unsigned char *string, GLfloat r, 
+	GLfloat g, GLfloat b);
 void keyboard(unsigned char key, int x, int y);
 void keyboardSpecial(int key, int x, int y);
 void mouse(int button, int state, int x, int y);
