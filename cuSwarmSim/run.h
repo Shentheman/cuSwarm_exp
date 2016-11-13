@@ -29,7 +29,7 @@ bool initial_passed = false;			// Indicates if initial state has passed
 bool paused;							// Simulation paused state
 Parameters p;							// Parameters structure
 float3 goal_vector;						// Goal heading / speed (flocking only)
-float goal_heading;						// goal heading only
+float goal_heading, goal_heading_err;	// Goal heading and error goal heading
 int* explored_grid;						// Grid covering the whole environment, 
 										// showing how explored each cell is
 float4* positions;						// Robot positions (x, y, z, color)
@@ -49,6 +49,9 @@ bool* occupancy;						// Occupancy grid for the environment
 Data data;								// Data object (see data_ops.cpp for data 
 										// calculations)
 vector<Decision> sequence;				// Current behavior sequence
+
+float4 goal_region;						// Goal region
+bool failure;
 
 // Log file
 FILE* output_f, *world_f;				// Main log and world files
@@ -77,7 +80,7 @@ struct cudaGraphicsResource* cuda_vbo_resource;
 
 // User interface functions
 void drawInterface(float world_size, float window_width, float window_height);
-void drawEllipse(float cx, float cy, float w, float h);
+void drawEllipse(float cx, float cy, float w, float h, bool fill);
 void drawText(float x, float y, const unsigned char *string, GLfloat r, 
 	GLfloat g, GLfloat b);
 void keyboard(unsigned char key, int x, int y);
@@ -108,6 +111,10 @@ void generateWorld(char* filepath);
 void loadSavedMap(char* filepath);
 void calculateOccupancyGrid();
 bool checkCollision(float x, float y);
+bool checkGoalReached();
+void generateGoal();
+void injectFailure();
+void clearFailure();
 void updateExplored();
 void exitSimulation();
 void printDataHeader();

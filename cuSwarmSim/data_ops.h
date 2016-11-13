@@ -36,6 +36,7 @@ struct Data
 	int explored;
 	int targets_explored;
 	int targets_seen;
+	int goals_reached;
 	float connectivity;
 };
 

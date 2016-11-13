@@ -13,6 +13,8 @@ cohere_weight 1.0
 confirm_quit 0
 	# Strength of random currents in environment (0.0 = no currents)
 current 0.0
+	# Steps between injected failures
+failures 600
 	# Number of hops used in RCC leader selection mode
 hops 1
 	# Leader selection mode to be used by the swarm:
@@ -23,8 +25,8 @@ leader_selection 0
 log_data 1
 	# Different ranges used by the robot (max_d is maximum range), see behavior 
 	# kernels (rendezvous, flock, disperse) for more details
-range_r 2.0			# Rendezvous repel range
-range_f 3.0			# Flocking repel/cohere divide
+range_r 2.5			# Rendezvous repel range
+range_f 3.5			# Flocking repel/cohere divide
 range_d	5.0			# Disperse repel range
 range_o 2.1			# Obstacle avoidance range
 range_l 6.0			# RCC leader hop range
@@ -37,7 +39,7 @@ max_obstacle_size 25
 	# Percentage of robots to be used as noise (not affected by control laws)
 noise 0.0
 	# Number of obstacles present in the environment
-num_obstacles 10
+num_obstacles 0
 	# Number of robots in simulation (works best as power of 2)
 num_robots 32
 	# Operation mode of the simulator:
@@ -54,30 +56,32 @@ repel_weight 1.2
 	# Show articulation points
 show_ap 0
 	# Show robot comm connections
-show_connections 1
+show_connections 0
 	# Show convex hull
 show_convex_hull 0
+	# Show explored area
+show_explored 0
 	# Show leader robots
 show_leaders 1
 	# Show communication range
 show_range 0
 	# Highlight leaders
-highlight_leaders 1
+highlight_leaders 0
 	# Show non-leader robots
 show_non_leaders 1
 	# Size of the starting space (robot spawn and obstacle-free)
 start_size 10.0
 	# Number of steps before simulation automatically closes (60 steps/sec during) 
 	# GUI mode
-step_limit 18000
+step_limit 36000
 	# Number of targets in the environment
-targets 100
+targets 0
 	# Training mode
 training 1
 	# Robots update their motion once every update_period steps
 update_period 1
 	# Velocity bound of the robots in m/s (one cell = one meter)
-vel_bound 2.0
+vel_bound 3.0
 	# Initial window height of GUI (depricated)
 window_height 0
 	# Initial window width of GUI (depricated)

@@ -34,34 +34,36 @@ void drawInterface(float window_width, float window_height)
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
 	// Draw explored grid cells on the GUI
-	for (uint i = 0; i < p.world_size * p.world_size; i++) {
-		// Get the world coordinates for this iteration
-		float world_x = -world_size_2 + 
-			static_cast<float>(floor(i / p.world_size));
-		float world_y = -world_size_2 + static_cast<float>(i % p.world_size);
+	if (p.show_explored) {
+		for (uint i = 0; i < p.world_size * p.world_size; i++) {
+			// Get the world coordinates for this iteration
+			float world_x = -world_size_2 +
+				static_cast<float>(floor(i / p.world_size));
+			float world_y = -world_size_2 + static_cast<float>(i % p.world_size);
 
-		// Now draw the grid cell if explored
-		float explored_color = 0.0f;
-		if (explored_grid[i] != 0) {
-			explored_color = fabsf(static_cast<float>(explored_grid[i]) /
-				p.max_explore);
-			// Color is based on obstacle/free space
-			if (explored_grid[i] > 0) {		// Free space
-				glColor4f(0.1f * explored_color, 0.3f * explored_color, 
-					0.6f * explored_color, 0.5f);
+			// Now draw the grid cell if explored
+			float explored_color = 0.0f;
+			if (explored_grid[i] != 0) {
+				explored_color = fabsf(static_cast<float>(explored_grid[i]) /
+					p.max_explore);
+				// Color is based on obstacle/free space
+				if (explored_grid[i] > 0) {		// Free space
+					glColor4f(0.1f * explored_color, 0.3f * explored_color,
+						0.6f * explored_color, 0.5f);
+				}
+				else {							// Obstacle
+					// Lower bar for showing an obstacle cell as fully explored
+					explored_color = min(1.0f, explored_color * 4.0f);
+					glColor4f(0.6f * explored_color, 0.2f * explored_color,
+						0.2f * explored_color, 1.0f);
+				}
+				glBegin(GL_POLYGON);
+				glVertex3f(world_x, world_y, -0.2f);
+				glVertex3f(world_x + 1.0f, world_y, -0.2f);
+				glVertex3f(world_x + 1.0f, world_y + 1.0f, -0.2f);
+				glVertex3f(world_x, world_y + 1.0f, -0.2f);
+				glEnd();
 			}
-			else {							// Obstacle
-				// Lower bar for showing an obstacle cell as fully explored
-				explored_color = min(1.0f, explored_color * 4.0f);
-				glColor4f(0.6f * explored_color, 0.2f * explored_color,
-					0.2f * explored_color, 1.0f);
-			}
-			glBegin(GL_POLYGON);
-			glVertex3f(world_x, world_y, -0.2f);
-			glVertex3f(world_x + 1.0f, world_y, -0.2f);
-			glVertex3f(world_x + 1.0f, world_y + 1.0f, -0.2f);
-			glVertex3f(world_x, world_y + 1.0f, -0.2f);
-			glEnd();
 		}
 	}
 
@@ -113,6 +115,10 @@ void drawInterface(float window_width, float window_height)
 		glVertex3f(x, y + 1.0f, -0.1f);
 		glEnd();
 	}
+
+	// Draw goal region
+	glColor4f(0.8f, 0.0f, 0.0f, 0.2f);
+	drawEllipse(goal_region.x, goal_region.y, goal_region.z, goal_region.w, true);
 
 	// Set color to gray for next GUI elements
 	glColor4f(0.8f, 0.8f, 0.8f, 0.2f);
@@ -170,7 +176,7 @@ void drawInterface(float window_width, float window_height)
 	glEnd();
 }
 
-void drawEllipse(float cx, float cy, float w, float h)
+void drawEllipse(float cx, float cy, float w, float h, bool fill)
 {
 	// Variables for incremental lines
 	float theta = 2.0f * static_cast<float>(PI) / 100.0f;
@@ -180,10 +186,14 @@ void drawEllipse(float cx, float cy, float w, float h)
 	float x = 1.0f;
 	float y = 0.0f;
 
+	// Set to filled or wire frame depending on fill parameter
+	(fill) ? glPolygonMode(GL_FRONT_AND_BACK, GL_FILL) : 
+		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
 	// Draw the ellipse
-	glBegin(GL_LINE_LOOP);
+	glBegin(GL_POLYGON);
 	for (uint i = 0; i < 100; i++) {
-		glVertex2f((w * x) + cx, (h * y) + cy);
+		glVertex3f((w * x) + cx, (h * y) + cy, -0.2f);
 
 		// Apply the rotation matrix
 		t = x;
@@ -231,22 +241,22 @@ void keyboard(unsigned char key, int x, int y)
 	}
 	case 'z': { // The following three ('z', 'x', 'c', are for current experiment training only, and will be removed later
 		if (p.training) {
-			p.range_r = 2.0f;
-			p.range_f = 3.0f;
+			p.range_r = 1.5f;
+			p.range_f = 2.5f;
 		}
 		break;
 	}
 	case 'x': {
 		if (p.training) {
-			p.range_r = 2.33f;
-			p.range_f = 3.33f;
+			p.range_r = 2.5f;
+			p.range_f = 3.5f;
 		}
 		break;
 	}
 	case 'c': {
 		if (p.training) {
-			p.range_r = 3.0f;
-			p.range_f = 4.0f;
+			p.range_r = 3.5f;
+			p.range_f = 4.5f;
 		}
 		break;
 	}
@@ -255,7 +265,7 @@ void keyboard(unsigned char key, int x, int y)
 		if (p.op_mode == 2) {
 			p.behavior = 0;
 			if (p.log_data) {
-				fprintf(world_f, "d %d %4.2f %4.2f %d %4.2f\n", p.behavior, 0.0f, 
+				fprintf(world_f, "d %d %f %f %d %f\n", p.behavior, 0.0f, 
 					p.vel_bound, step_num, data.score);
 			}
 		}
@@ -266,7 +276,7 @@ void keyboard(unsigned char key, int x, int y)
 		if (p.op_mode == 2) {
 			p.behavior = 1;
 			if (p.log_data) {
-				fprintf(world_f, "d %d %4.2f %4.2f %d %4.2f\n", p.behavior, 
+				fprintf(world_f, "d %d %f %f %d %f\n", p.behavior, 
 					goal_heading, p.vel_bound, step_num, data.score);
 			}
 		}
@@ -277,7 +287,7 @@ void keyboard(unsigned char key, int x, int y)
 		if (p.op_mode == 2) {
 			p.behavior = 2;
 			if (p.log_data) {
-				fprintf(world_f, "d %d %4.2f %4.2f %d %4.2f\n", p.behavior, 0.0f,
+				fprintf(world_f, "d %d %f %f %d %f\n", p.behavior, 0.0f,
 					p.vel_bound, step_num, data.score);
 			}
 		}
@@ -333,14 +343,14 @@ void mouse(int button, int state, int x, int y)
 				mouse_last_y = mouse_start_y;
 			}
 			else if (mb == 3) {		// Scroll wheel forward to increase speed
-				p.vel_bound = min(3.0f, p.vel_bound + 0.1f);
-				fprintf(world_f, "d %d %4.2f %4.2f %d %4.2f\n", p.behavior,
-					goal_heading, p.vel_bound, step_num, data.score);
+				//p.vel_bound = min(3.0f, p.vel_bound + 0.1f);
+				//fprintf(world_f, "d %d %f %f %d %f\n", p.behavior,
+				//	goal_heading, p.vel_bound, step_num, data.score);
 			}
 			else if (mb == 4) {		// Scroll wheel backward to decrease speed
-				p.vel_bound = max(1.0f, p.vel_bound - 0.1f);
-				fprintf(world_f, "d %d %4.2f %4.2f %d %4.2f\n", p.behavior,
-					goal_heading, p.vel_bound, step_num, data.score);
+				//p.vel_bound = max(1.0f, p.vel_bound - 0.1f);
+				//fprintf(world_f, "d %d %f %f %d %f\n", p.behavior,
+				//	goal_heading, p.vel_bound, step_num, data.score);
 			}
 		}
 	}
@@ -367,21 +377,24 @@ void mouse(int button, int state, int x, int y)
 				mouse_last_x = 0;
 				mouse_last_y = 0;
 
+				// Clear failure
+				clearFailure();
+
 				// Log goal heading to world file
 				if (p.log_data) {
-					fprintf(world_f, "d %d %4.2f %4.2f %d %4.2f\n", p.behavior,
+					fprintf(world_f, "d %d %f %f %d %f\n", p.behavior,
 						goal_heading, p.vel_bound, step_num, data.score);
 				}
 			}
 		}
 		else if (mb == 5 && !paused && p.op_mode == 2) { // Scroll wheel forward
 			p.vel_bound = min(4.0f, p.vel_bound + 0.1f);
-			fprintf(world_f, "d %d %4.2f %4.2f %d %4.2f\n", p.behavior,
+			fprintf(world_f, "d %d %f %f %d %f\n", p.behavior,
 				goal_heading, p.vel_bound, step_num, data.score);
 		}
 		else if (mb == 6 && !paused && p.op_mode == 2) { // Scroll wheel backward
 			p.vel_bound = max(1.0f, p.vel_bound - 0.1f);
-			fprintf(world_f, "d %d %4.2f %4.2f %d %4.2f\n", p.behavior,
+			fprintf(world_f, "d %d %f %f %d %f\n", p.behavior,
 				goal_heading, p.vel_bound, step_num, data.score);
 		}
 
@@ -575,7 +588,6 @@ static void display(void)
 	float3 screen = make_float3(mouse_x, mouse_y, translate_z0);
 	float3 world = make_float3(0.0f, 0.0f, 0.0f);
 	screenToWorld(screen, &world);
-	printf("%1.9f, %1.9f\n", world.x, world.y);
 
 	// Closer things cover far things
 	glEnable(GL_DEPTH_TEST);
@@ -634,7 +646,7 @@ static void display(void)
 
 		// Show communication range if specified in parameters
 		if (p.show_range) {
-			drawEllipse(positions[i].x, positions[i].y, p.range, p.range);
+			drawEllipse(positions[i].x, positions[i].y, p.range, p.range, false);
 		}
 	}
 
@@ -777,6 +789,8 @@ void processParam(std::vector<std::string> tokens)
 		p.confirm_quit = (std::stoul(tokens[1]) != 0);
 	else if (tokens[0] == "current")
 		p.current = std::stof(tokens[1]);
+	else if (tokens[0] == "failures")
+		p.failures = std::stoul(tokens[1]);
 	else if (tokens[0] == "hops")
 		p.hops = std::stoul(tokens[1]);
 	else if (tokens[0] == "leader_selection")
@@ -817,6 +831,8 @@ void processParam(std::vector<std::string> tokens)
 		p.show_connections = (std::stoul(tokens[1]) != 0);
 	else if (tokens[0] == "show_convex_hull")
 		p.show_convex_hull = (std::stoul(tokens[1]) != 0);
+	else if (tokens[0] == "show_explored")
+		p.show_explored = (std::stoul(tokens[1]) != 0);
 	else if (tokens[0] == "show_leaders")
 		p.show_leaders = (std::stoul(tokens[1]) != 0);
 	else if (tokens[0] == "show_range")
@@ -855,49 +871,51 @@ void generateWorld(char* filepath)
 	// Do not write to world file if in playback mode
 	if (p.log_data && (p.op_mode != 1)) {
 		// Add parameters to world data file
-		fprintf(world_f, "align_weight %4.2f\n", p.align_weight);
-		fprintf(world_f, "ang_bound %4.2f\n", p.ang_bound);
+		fprintf(world_f, "align_weight %f\n", p.align_weight);
+		fprintf(world_f, "ang_bound %f\n", p.ang_bound);
 		fprintf(world_f, "behavior %d\n", p.behavior);
-		fprintf(world_f, "cohere_weight %4.2f\n", p.cohere_weight);
+		fprintf(world_f, "cohere_weight %f\n", p.cohere_weight);
 		fprintf(world_f, "confirm_quit %d", p.confirm_quit);
-		fprintf(world_f, "current %4.2f\n", p.current);
+		fprintf(world_f, "current %f\n", p.current);
+		fprintf(world_f, "failures %d\n", p.failures);
 		fprintf(world_f, "hops %d\n", p.hops);
 		fprintf(world_f, "leader_selection %d\n", p.leader_selection);
 		fprintf(world_f, "log_data %d\n", p.log_data);
-		fprintf(world_f, "range_r %4.2f\n", p.range_r);
-		fprintf(world_f, "range_f %4.2f\n", p.range_f);
-		fprintf(world_f, "range_d %4.2f\n", p.range_d);
-		fprintf(world_f, "range_o %4.2f\n", p.range_o);
-		fprintf(world_f, "range_l %4.2f\n", p.range_l);
-		fprintf(world_f, "range_ %4.2f\n", p.range);
+		fprintf(world_f, "range_r %f\n", p.range_r);
+		fprintf(world_f, "range_f %f\n", p.range_f);
+		fprintf(world_f, "range_d %f\n", p.range_d);
+		fprintf(world_f, "range_o %f\n", p.range_o);
+		fprintf(world_f, "range_l %f\n", p.range_l);
+		fprintf(world_f, "range_ %f\n", p.range);
 		fprintf(world_f, "max_explore %d\n", p.max_explore);
 		fprintf(world_f, "max_obstacle_size %d\n", p.max_obstacle_size);
-		fprintf(world_f, "noise %4.2f\n", p.noise);
+		fprintf(world_f, "noise %f\n", p.noise);
 		fprintf(world_f, "num_obstacles %d\n", p.num_obstacles);
 		fprintf(world_f, "num_robots %d\n", p.num_robots);
 		fprintf(world_f, "op_mode %d\n", 1); // Set op_mode to 1 (for replay)
 		fprintf(world_f, "point_size %d\n", p.point_size);
-		fprintf(world_f, "repel_weight %4.2f\n", p.repel_weight);
+		fprintf(world_f, "repel_weight %f\n", p.repel_weight);
 		fprintf(world_f, "show_ap %d\n", p.show_ap);
 		fprintf(world_f, "show_connections %d\n", p.show_connections);
 		fprintf(world_f, "show_convex_hull %d\n", p.show_convex_hull);
+		fprintf(world_f, "show_explored %d\n", p.show_explored);
 		fprintf(world_f, "show_leaders %d\n", p.show_leaders);
 		fprintf(world_f, "show_range %d\n", p.show_leaders);
 		fprintf(world_f, "highlight_leaders %d\n", p.highlight_leaders);
 		fprintf(world_f, "show_non_leaders %d\n", p.show_non_leaders);
-		fprintf(world_f, "start_size %4.2f\n", p.start_size);
+		fprintf(world_f, "start_size %f\n", p.start_size);
 		fprintf(world_f, "step_limit %d\n", p.step_limit);
 		fprintf(world_f, "targets %d\n", p.targets);
 		fprintf(world_f, "training %d\n", p.training);
 		fprintf(world_f, "update_period %d\n", p.update_period);
-		fprintf(world_f, "vel_bound %4.2f\n", p.vel_bound);
+		fprintf(world_f, "vel_bound %f\n", p.vel_bound);
 		fprintf(world_f, "window_height %d\n", p.window_height);
 		fprintf(world_f, "window_width %d\n", p.window_width);
 		fprintf(world_f, "world_size %d\n", p.world_size);
 
 		// Add robot initial positions to world data file
 		for (uint i = 0; i < p.num_robots; i++) {
-			fprintf(world_f, "r %d %4.2f %4.2f\n", i, positions[i].x,
+			fprintf(world_f, "r %d %f %f\n", i, positions[i].x,
 				positions[i].y);
 		}
 	}
@@ -932,7 +950,7 @@ void generateWorld(char* filepath)
 				obstacles[i] = obstacle;
 				// Add this obstacle to world data file if not in playback mode
 				if (p.log_data && (p.op_mode != 1)) {
-					fprintf(world_f, "o %4.2f %4.2f %4.2f %4.2f\n", obstacle.x,
+					fprintf(world_f, "o %f %f %f %f\n", obstacle.x,
 						obstacle.y, obstacle.z, obstacle.w);
 				}
 			}
@@ -1061,6 +1079,80 @@ bool checkCollision(float x, float y)
 	return false;
 }
 
+bool checkGoalReached()
+{
+	uint rob_in_region = 0;
+	bool result;
+	// Count the number of robots within the goal region
+	for (uint i = 0; i < p.num_robots; i++) {
+		if (eucl2(positions[i].x, positions[i].y, goal_region.x, goal_region.y) <
+			goal_region.z) {
+			rob_in_region++;
+		}
+	}
+
+	// Goal is reached if over half the robots are within it
+	if (rob_in_region > static_cast<uint>(p.num_robots / 2.0f)) {
+		result = true;
+		data.goals_reached++;
+		generateGoal();
+	}
+	else {
+		result = false;
+	}
+
+	return result;
+}
+
+void generateGoal()
+{
+	// Generate new x and y coordinates for goal
+	float prev_x = goal_region.x;
+	float prev_y = goal_region.y;
+	float x = prev_x;
+	float y = prev_y;
+
+	// Do not create a new goal too close to the old one
+	while (eucl2(prev_x, prev_y, x, y) < p.world_size / 2.0f) {
+		x = static_cast<float>(rand() % (static_cast<uint>(p.world_size) -
+			static_cast<uint>(p.world_size / 2.0f))) - goal_region.z;
+		y = static_cast<float>(rand() % (static_cast<uint>(p.world_size) -
+			static_cast<uint>(p.world_size / 2.0f))) - goal_region.z;
+	}
+
+	// Log and relocate the goal region
+	goal_region.x = x;
+	goal_region.y = y;
+	if (p.log_data) {
+		fprintf(output_f, "goal %f %f\n", x, y);
+	}
+}
+
+void injectFailure()
+{
+	// Create failure here
+	failure = true;
+	float delta = static_cast<float>(rand() % static_cast<int>((PI / 2.0f) * 
+		1000.0f));
+	delta /= 1000.0f;
+	delta += (PI / 4.0f);
+	(rand() % 2 == 0) ? goal_heading_err = goal_heading + delta : 
+		goal_heading_err = goal_heading - delta;
+	goal_vector = make_float3(cosf(goal_heading_err), -sinf(goal_heading_err), 
+		p.vel_bound);
+}
+
+void clearFailure()
+{
+	if (failure) {
+		// Clear failure here
+		failure = false;
+		goal_heading_err = goal_heading;
+		goal_vector = make_float3(cosf(goal_heading), -sinf(goal_heading), 
+			p.vel_bound);
+	}
+}
+
 void updateExplored()
 {
 	// Variables to used in explored grid cell updates
@@ -1166,11 +1258,10 @@ void printDataHeader()
 {
 	if (p.log_data) {
 		// Step data header
-		fprintf(output_f, "step_num behavior behavior_data velocity ");
-		fprintf(output_f, "avg_heading heading_var centroid_x centroid_y ");
-		fprintf(output_f, "convex_hull_area connectivity explored_area ");
-		fprintf(output_f, "targets_explored targets_seen ");
-		fprintf(output_f, "command_trust\n");
+		fprintf(output_f, "step_num behavior behavior_data failure_data ");
+		fprintf(output_f, "velocity avg_heading heading_var centroid_x ");
+		fprintf(output_f, "centroid_y convex_hull_area connectivity ");
+		fprintf(output_f, "explored_area command_trust\n");
 	}
 }
 
@@ -1205,10 +1296,10 @@ float getBestHeading()
 void printDecisionSequence(vector<Decision> b_seq)
 {
 	// Print out behavior sequence and score
-	std::printf("Score: %4.2f\nBehavior Seq: ", 
+	std::printf("Score: %f\nBehavior Seq: ", 
 		b_seq[b_seq.size() - 1].score_end);
 	for (uint j = 0; j < b_seq.size(); j++) {
-		std::printf("(%d %4.2f %4.2f (%d-%d) %4.2f) ", b_seq[j].behavior, 
+		std::printf("(%d %f %f (%d-%d) %f) ", b_seq[j].behavior, 
 			b_seq[j].flock_dir, b_seq[j].velocity, b_seq[j].time_start, 
 			b_seq[j].time_end, b_seq[j].score_end);
 	}
@@ -1271,7 +1362,7 @@ void automateExplore()
 		if (s->step_num >= p.step_limit) {
 			std::printf("Goal reached:\n");
 			goal_reached = true;
-			std::printf("Heuristic: %4.2f\n", s->heuristic);
+			std::printf("Heuristic: %f\n", s->heuristic);
 			printDecisionSequence(b_seq);
 			// Update high score
 			if (last_dec.score_end > high_score) {
@@ -1291,10 +1382,10 @@ void automateExplore()
 				std::printf("loss of connectivity\n");
 			}
 			if (cond2) {
-				std::printf("low heuristic value (%4.2f)\n", s->heuristic);
+				std::printf("low heuristic value (%f)\n", s->heuristic);
 			}
 			if (cond3) {
-				std::printf("No progress on segment (%4.2f)\n", score_diff);
+				std::printf("No progress on segment (%f)\n", score_diff);
 			}
 
 			// Update segments remaining
@@ -1426,7 +1517,7 @@ void automateExplore()
 
 	// Print out computation time
 	std::printf("Best sequence algorithm completed in ");
-	std::printf("%4.2f seconds\n",
+	std::printf("%f seconds\n",
 		static_cast<float>(clock() - comp_time) / CLOCKS_PER_SEC, high_score);
 
 	// Print and log best decision sequence if one reached the goal; 
@@ -1437,7 +1528,7 @@ void automateExplore()
 		// Log this sequence to the world file if logging is on
 		if (p.log_data) {
 			for (uint i = 0; i < best_seq.size(); i++) {
-				fprintf(world_f, "d %d %4.2f %4.2f %d %4.2f\n",
+				fprintf(world_f, "d %d %f %f %d %f\n",
 					best_seq[i].behavior, best_seq[i].flock_dir, 
 					best_seq[i].velocity, best_seq[i].time_start, 
 					best_seq[i].score_start);
@@ -1495,6 +1586,11 @@ static void step(int value)
 			sequence.erase(sequence.begin(), sequence.begin() + 1);
 		}
 
+		// Inject failures here
+		if (step_num != 0 && step_num % p.failures == 0) {
+			injectFailure();
+		}
+
 		// Launch the main kernel to perform one simulation step
 		if (p.op_mode != 0) {
 			launchMainKernel(goal_vector, step_num, leaders, ap, p, 
@@ -1512,6 +1608,9 @@ static void step(int value)
 		processData(p.num_robots, p.world_size, positions, velocities, 
 			explored_grid, laplacian, ap, &data);
 
+		// Check if goal region reached
+		checkGoalReached();
+
 		// Update leader list (Very inefficient now, should compute at the same 
 		// time as convex hull)
 		for (uint i = 0; i < p.num_robots; i++) {
@@ -1528,13 +1627,11 @@ static void step(int value)
 
 		if (p.log_data) {
 			// Write data to the output log at the end of every step
-			fprintf(output_f, "%d %d %4.2f %4.2f %4.2f %4.2f %4.2f %4.2f ",
-				step_num, p.behavior, -goal_heading, p.vel_bound, 
-				data.heading_avg, data.heading_var, data.centroid.x, 
-				data.centroid.y);
-			fprintf(output_f, "%4.2f %4.2f %d %d %d %d\n", data.ch_area, 
-				data.connectivity, data.explored, data.targets_explored, 
-				data.targets_seen, command_trust);
+			fprintf(output_f, "%d %d %f %f %f %f %f %f %f %f %f %d %d\n",
+				step_num, p.behavior, -goal_heading, -goal_heading_err, 
+				p.vel_bound, data.heading_avg, data.heading_var, data.centroid.x, 
+				data.centroid.y, data.ch_area, data.connectivity, data.explored, 
+				command_trust);
 		}
 
 		// Increment the simulation step counter
@@ -1639,8 +1736,10 @@ int main(int argc, char** argv)
 		(checkCollision(x, y)) ? explored_grid[i] = -1 : explored_grid[i] = 0;
 	}
 
-	// Initialize goal heading to 0
+	// Initialize goal heading and goal region to 0
 	goal_heading = 0.0f;
+	goal_region = make_float4(0.0f, 0.0f, 15.0f, 15.0f);
+	failure = false;
 	
 	///// START MAIN LOOP /////
 	if (p.op_mode == 0) {

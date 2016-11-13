@@ -595,7 +595,7 @@ __global__ void main_kernel(float4* pos, float3* vel, int* mode,
 	// Synchronize threads before updating robot state variables
 	__syncthreads();
 
-	// Set the color based on current mode (leaders in red)
+	// Set the color based on current mode
 	Color color;
 	setColor(&(color.components), myMode, ap[i], i, p);
 	// Update velocity and mode once every update_period steps (see params.txt)
