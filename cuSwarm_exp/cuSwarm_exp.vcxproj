@@ -20,7 +20,8 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{EC8DA8A5-71A1-4008-8794-32965EF25EEB}</ProjectGuid>
-    <RootNamespace>cuSwarmSim</RootNamespace>
+    <RootNamespace>cuSwarm_exp</RootNamespace>
+    <ProjectName>cuSwarm_exp</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -183,14 +184,12 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="data_ops.cpp" />
-    <ClCompile Include="planning.cpp" />
     <ClCompile Include="run.cpp" />
     <ClCompile Include="utils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="data_ops.h" />
     <ClInclude Include="kernels.cuh" />
-    <ClInclude Include="planning.h" />
     <ClInclude Include="run.h" />
     <ClInclude Include="utils.h" />
   </ItemGroup>

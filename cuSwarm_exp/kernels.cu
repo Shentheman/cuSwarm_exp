@@ -130,7 +130,8 @@ void launchInitKernel(Parameters p, struct cudaGraphicsResource **vbo_resource)
 	cudaGraphicsUnmapResources(1, vbo_resource, 0);
 }
 
-void launchMainKernel(float3 gp, uint sn, int* leaders, bool* ap, Parameters p)
+void launchMainKernel(float3 gh, float2 gp, uint sn, int* leaders, bool* ap, 
+	Parameters p)
 {
 	// Copy leader and articulation point data to GPU
 	cudaMemcpy(d_leaders, leaders, p.num_robots * sizeof(int),
@@ -142,7 +143,8 @@ void launchMainKernel(float3 gp, uint sn, int* leaders, bool* ap, Parameters p)
 		d_positions,
 		d_velocities,
 		d_modes,
-		gp,
+		gh,
+		gp, 
 		d_rand_states,
 		d_ap, 
 		d_flow_pos,
@@ -167,8 +169,8 @@ void launchMainKernel(float3 gp, uint sn, int* leaders, bool* ap, Parameters p)
 	cudaDeviceSynchronize();
 }
 
-void launchMainKernel(float3 gp, uint sn, int* leaders, bool* ap, Parameters p, 
-	struct cudaGraphicsResource **vbo_resource)
+void launchMainKernel(float3 gh, float2 gp, uint sn, int* leaders, bool* ap, 
+	Parameters p, struct cudaGraphicsResource **vbo_resource)
 {
 	// Map OpenGL buffer object for writing from CUDA
 	cudaGraphicsMapResources(1, vbo_resource, 0);
@@ -176,7 +178,7 @@ void launchMainKernel(float3 gp, uint sn, int* leaders, bool* ap, Parameters p,
 	cudaGraphicsResourceGetMappedPointer((void **)&d_positions, &num_bytes,
 		*vbo_resource);
 
-	launchMainKernel(gp, sn, leaders, ap, p);
+	launchMainKernel(gh, gp, sn, leaders, ap, p);
 
 	// Unmap OpenGL buffer object
 	cudaGraphicsUnmapResources(1, vbo_resource, 0);
@@ -450,8 +452,8 @@ __global__ void side_kernel(float4* pos, int* mode, int* leaders,
 }
 
 __global__ void main_kernel(float4* pos, float3* vel, int* mode,
-	float3 goal_heading, curandState* rand_state, bool* ap, float2* flow_pos, 
-		float2* flow_dir, bool* occupancy, Parameters p, uint sn)
+	float3 goal_heading, float2 goal_point, curandState* rand_state, bool* ap, 
+	float2* flow_pos, float2* flow_dir, bool* occupancy, Parameters p, uint sn)
 {
 	// Index of this robot
 	uint i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -533,6 +535,9 @@ __global__ void main_kernel(float4* pos, float3* vel, int* mode,
 						case 2:
 							disperse(dist3, &repel, &cohere, s_ap[ti], p);
 							break;
+						case 3:
+							rendezvousToPoint(dist3, &repel, p);
+							break;
 						}
 					}
 				}
@@ -552,6 +557,13 @@ __global__ void main_kernel(float4* pos, float3* vel, int* mode,
 		case 1:
 			break;
 		case 2:
+			break;
+		case 3:
+			// Set align vector to point toward goal point
+			float align_angle = atan2f(goal_point.y - myPos.y,
+				goal_point.x - myPos.x);
+			align.x = cosf(align_angle);
+			align.y = sinf(align_angle);
 			break;
 		}
 
@@ -614,7 +626,7 @@ __device__ void rendezvous(float3 dist3, float2* min_bounds, float2* max_bounds,
 {
 	if (dist3.z <= p.range_r) {
 		// REPEL
-		// Repel from robots within closest range (max_a)
+		// Repel from robots within repel range
 		float weight = powf(p.range_r - dist3.z, 2.0f);
 		repel->x -= weight * dist3.x;
 		repel->y -= weight * dist3.y;
@@ -623,7 +635,7 @@ __device__ void rendezvous(float3 dist3, float2* min_bounds, float2* max_bounds,
 	{
 		// COHERE
 		// Robots cohere to the center of the rectangle that bounds neighbors
-		// Do not cohere to neighbors within max_a range
+		// Do not cohere to neighbors within repel range
 		min_bounds->x = fminf(min_bounds->x, dist3.x);
 		min_bounds->y = fminf(min_bounds->y, dist3.y);
 		max_bounds->x = fmaxf(max_bounds->x, dist3.x);
@@ -637,7 +649,7 @@ __device__ void flock(int myMode, float3 nVel, int nMode, float3 dist3,
 	// Main flocking section
 	if (dist3.z <= p.range_f) {
 		// REPEL
-		// Robots repel from neighbors within max_b range
+		// Robots repel from neighbors within flocking repel range
 		float weight = powf(p.range_f - dist3.z, 2.0f);
 		repel->x -= weight * dist3.x;
 		repel->y -= weight * dist3.y;
@@ -651,7 +663,7 @@ __device__ void flock(int myMode, float3 nVel, int nMode, float3 dist3,
 	}
 	if (dist3.z > p.range_r && dist3.z <= p.range) {
 		// COHERE
-		// Do not cohere to neighbors within max_b range
+		// Do not cohere to neighbors within repel range
 		float weight = powf(dist3.z - p.range_r, 2.0f);
 		//(is_ap) ? weight = 1000.0f : weight *= 1.0f;
 		cohere->x += weight * dist3.x;
@@ -666,17 +678,28 @@ __device__ void disperse(float3 dist3, float2* repel, float2* cohere, bool is_ap
 	// distance to the neighbor
 	if (dist3.z <= p.range_d) {
 		// REPEL
-		// Robots repel from neighbors within max_c range
+		// Robots repel from neighbors within disperse repel range
 		float weight = powf(p.range_d - dist3.z, 2.0f);
 		repel->x -= weight * dist3.x;
 		repel->y -= weight * dist3.y;
 	}
 	if (dist3.z <= p.range && dist3.z > p.range_d) {
 		// COHERE
-		// Do not cohere to robots within max_b range
+		// Do not cohere to robots within disperse repel range
 		float weight = powf(dist3.z - p.range_d, 3.0f);
 		cohere->x += weight * dist3.x;
 		cohere->y += weight * dist3.y;
+	}
+}
+
+__device__ void rendezvousToPoint(float3 dist3, float2* repel, Parameters p)
+{
+	if (dist3.z <= p.range_r) {
+		// REPEL
+		// Repel from robots within repel range
+		float weight = powf(p.range_r - dist3.z, 2.0f);
+		repel->x -= weight * dist3.x;
+		repel->y -= weight * dist3.y;
 	}
 }
 

@@ -7,16 +7,29 @@
 
 // System includes
 #include <sstream>
-#include <thread>
 #include <fstream>
 #include <ctime>
 #include <iomanip>
+#include <queue>
 
 // Project includes
 #include "kernels.cuh"
 #include "data_ops.h"
-#include "planning.h"
 #include "utils.h"
+
+/***********************************
+***** STRUCTURES AND TYPEDEFS ******
+***********************************/
+
+enum FailureType
+{
+	HEADING_DRIFT, SPREAD, MILLING, NONE
+};
+
+struct Failure
+{
+	FailureType type;
+};
 
 /*********************
 ***** VARIABLES ******
@@ -30,6 +43,7 @@ bool paused;							// Simulation paused state
 Parameters p;							// Parameters structure
 float3 goal_vector;						// Goal heading / speed (flocking only)
 float goal_heading, goal_heading_err;	// Goal heading and error goal heading
+float2 goal_point;						// Goal point (for rendezvous to point)
 int* explored_grid;						// Grid covering the whole environment, 
 										// showing how explored each cell is
 float4* positions;						// Robot positions (x, y, z, color)
@@ -48,22 +62,26 @@ int3* targets;							// List of targets in the environment
 bool* occupancy;						// Occupancy grid for the environment
 Data data;								// Data object (see data_ops.cpp for data 
 										// calculations)
-vector<Decision> sequence;				// Current behavior sequence
 
 float4 goal_region;						// Goal region
-bool failure;
 
-// Log file
-FILE* output_f, *world_f;				// Main log and world files
-std::stringstream output_fname;			// Name of the log file
+// Variables for injected failures
+Failure failure;						// Whether a failure is currently active
+queue<Failure> failures;				// Sequence of failures for a trial
+uint commands_since_failure = 0;		// Number of commands since failure
+uint commands_remove_failure = 0;		// Number of commands to remove failure
+
+// Variables for trust tracking
+int command_trust = 0;					// Current command to change goal (1) or 
+										// due to lack of trust (2);
+										// 0 indicates no current command
+float user_trust = 0.0f;				// Current user trust level
+bool trust_verified = true;				// If user has verified their trust level
 
 // GUI variables
 float mouse_start_x, mouse_start_y, mouse_last_x, mouse_last_y;
 float mouse_x, mouse_y;
 int mb = -1;							// Mouse variables
-int command_trust = 0;					// Current command to change goal (1) or 
-										// due to lack of trust (2);
-										// 0 indicates no current command
 
 float rotate_x0, rotate_y0;				// Variables for camera view transform
 float translate_x0, translate_y0, translate_z0;
@@ -73,6 +91,10 @@ uint last_frames = 0;
 
 GLuint vbo_swarm;						// Vertex buffer object and resource
 struct cudaGraphicsResource* cuda_vbo_resource;
+
+// Log file
+FILE* output_f;							// Main log files
+std::stringstream output_fname;			// Name of the log file
 
 /**************************************
 ***** FORWARD DECLARED FUNCTIONS ******
@@ -104,25 +126,20 @@ void resetCamera();
 
 // Helper functions
 void calculateFPS(int value);
-void clearUserPositionEstimate();
 void loadParametersFromFile(std::string filename);
 void processParam(std::vector<std::string> tokens);
-void generateWorld(char* filepath);
-void loadSavedMap(char* filepath);
+void generateWorld();
 void calculateOccupancyGrid();
 bool checkCollision(float x, float y);
 bool checkGoalReached();
 void generateGoal();
-void injectFailure();
+void generateFailures();
+void injectFailure(FailureType ft);
 void clearFailure();
+void promptTrust(int a);
 void updateExplored();
 void exitSimulation();
 void printDataHeader();
-
-// Automation functions
-float getBestHeading();
-void printDecisionSequence(vector<Decision> b_seq);
-void automateExplore();
 
 // Function to execute each step
 static void step(int value);

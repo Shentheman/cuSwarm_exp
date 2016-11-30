@@ -1,9 +1,9 @@
-# cuSwarmSim
+# cuSwarm_exp
 CUDA-based simulator of agent swarms
 
 DESCRIPTION
 
-cuSwarmSim is a basic simulator for swarms of agents or robots using the NVIDIA CUDA platform. Please note that this simulator is currently being used to conduct user studies as part of research in human-swarm interaction, and thus is not meant for public use, although you are free to download it and play around.
+cuSwarm_exp is a basic simulator for swarms of agents or robots using the NVIDIA CUDA platform. Please note that this simulator is currently being used to conduct user studies as part of research in human-swarm interaction, and thus is not meant for public use, although you are free to download it and play around.
 
 REQUIRED LIBRARIES
 

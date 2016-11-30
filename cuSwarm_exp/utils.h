@@ -44,7 +44,6 @@ struct Parameters
 	float cohere_weight;
 	bool confirm_quit;
 	float current;
-	uint failures;
 	uint hops;
 	uint leader_selection;
 	bool log_data;
@@ -59,7 +58,6 @@ struct Parameters
 	float noise;
 	uint num_obstacles;
 	uint num_robots;
-	uint op_mode;
 	uint point_size;
 	float repel_weight;
 	bool show_ap;

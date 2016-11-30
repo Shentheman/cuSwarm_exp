@@ -13,8 +13,6 @@ cohere_weight 1.0
 confirm_quit 0
 	# Strength of random currents in environment (0.0 = no currents)
 current 0.0
-	# Steps between injected failures
-failures 600
 	# Number of hops used in RCC leader selection mode
 hops 1
 	# Leader selection mode to be used by the swarm:
@@ -42,13 +40,6 @@ noise 0.0
 num_obstacles 0
 	# Number of robots in simulation (works best as power of 2)
 num_robots 32
-	# Operation mode of the simulator:
-	#     0 = automated (algorithm searches for best behavior sequence and outputs 
-	#          to world.txt, GUI not shown)
-	#     1 = playback (algorithm plays back last sequence, GUI shown but input 
-	#          not allowed)
-	#     2 = manual (user manually controls the swarm, GUI shown)
-op_mode 2
 	# Size of robots in GUI
 point_size 15
 	# Weight given to the align vector
@@ -66,14 +57,14 @@ show_leaders 1
 	# Show communication range
 show_range 0
 	# Highlight leaders
-highlight_leaders 0
+highlight_leaders 1
 	# Show non-leader robots
 show_non_leaders 1
 	# Size of the starting space (robot spawn and obstacle-free)
 start_size 10.0
 	# Number of steps before simulation automatically closes (60 steps/sec during) 
 	# GUI mode
-step_limit 36000
+step_limit 72000
 	# Number of targets in the environment
 targets 0
 	# Training mode
@@ -88,3 +79,9 @@ window_height 0
 window_width 0
 	# Size of simulation environment (meters)
 world_size 150
+
+# Disconnection
+# Robots getting stuck
+# Heading bias/drift
+# Higher heading variance
+# Bouncing off goal

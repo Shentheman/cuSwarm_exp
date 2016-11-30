@@ -45,10 +45,12 @@ void cuFree();
 
 // Kernel launches
 void launchInitKernel(Parameters p, struct cudaGraphicsResource **vbo_resource);
-void launchMainKernel(float3 gp, uint sn, int* leaders, bool* ap, Parameters p, 
+void launchMainKernel(float3 gh, float2 gp, uint sn, int* leaders, bool* ap, 
+	Parameters p, 
 struct cudaGraphicsResource **vbo_resource);
 void launchInitKernel(Parameters p);
-void launchMainKernel(float3 gp, uint sn, int* leaders, bool* ap, Parameters p);
+void launchMainKernel(float3 gh, float2 gp, uint sn, int* leaders, bool* ap, 
+	Parameters p);
 
 // CUDA host<->device copy functions
 void getData(uint n, float4* positions, float3* velocities, int* modes);
@@ -73,8 +75,8 @@ __global__ void side_kernel(float4* pos, int* mode, int* leaders,
 	uint* leader_countdown, int4* laplacian, uint sn);
 
 __global__ void main_kernel(float4* pos, float3* vel, int* mode, 
-	float3 goal_heading, curandState* rand_state, bool* ap, float2* flow_pos, 
-	float2* flor_dir, bool* occupancy, Parameters p, uint sn);
+	float3 goal_heading, float2 goal_point, curandState* rand_state, bool* ap, 
+	float2* flow_pos, float2* flor_dir, bool* occupancy, Parameters p, uint sn);
 
 __device__ void rendezvous(float3 dist3, float2* min_bounds, float2* max_bounds, 
 	float2* repel, bool is_ap, Parameters p);
@@ -84,6 +86,8 @@ __device__ void flock(int myMode, float3 nVel, int nMode, float3 dist3,
 
 __device__ void disperse(float3 dist3, float2* repel, float2* cohere, bool is_ap, 
 	Parameters p);
+
+__device__ void rendezvousToPoint(float3 dist3, float2* repel, Parameters p);
 
 __device__ void obstacleAvoidance(float4 myPos, float2* avoid, 
 	float* dist_to_obstacle, bool* occupancy, Parameters p);
