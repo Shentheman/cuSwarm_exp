@@ -61,3 +61,8 @@
 #*.PDF   diff=astextplain
 #*.rtf   diff=astextplain
 #*.RTF   diff=astextplain
+
+###############################################################################
+# Custom ignores (typically data files resulting from simulation runs)
+###############################################################################
+output.txt
