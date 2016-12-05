@@ -44,6 +44,7 @@ struct Parameters
 	float cohere_weight;
 	bool confirm_quit;
 	float current;
+	uint fail_interval;
 	uint hops;
 	uint leader_selection;
 	bool log_data;

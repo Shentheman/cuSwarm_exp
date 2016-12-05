@@ -806,6 +806,8 @@ void processParam(std::vector<std::string> tokens)
 		p.confirm_quit = (std::stoul(tokens[1]) != 0);
 	else if (tokens[0] == "current")
 		p.current = std::stof(tokens[1]);
+	else if (tokens[0] == "fail_interval")
+		p.fail_interval = std::stoul(tokens[1]);
 	else if (tokens[0] == "hops")
 		p.hops = std::stoul(tokens[1]);
 	else if (tokens[0] == "leader_selection")
@@ -1009,7 +1011,7 @@ void generateGoal()
 void generateFailures()
 {
 	// First, generate all of the failures
-	uint num_fails = static_cast<int>(p.step_limit / 1800.0f);
+	uint num_fails = static_cast<int>(p.step_limit / p.fail_interval);
 	vector<Failure> failures_temp;
 	for (uint i = 0; i < num_fails; i++) {
 		int c = i % 3;
@@ -1072,6 +1074,9 @@ void injectFailure(FailureType ft)
 	// Set a random number of commands needed before failure is removed
 	commands_remove_failure = rand() % 5;
 	printf(" (%d)\n", commands_remove_failure);
+
+	// Prompt for trust update in 3 seconds
+	glutTimerFunc(3000, promptTrust, 0);
 }
 
 void clearFailure()
@@ -1238,14 +1243,14 @@ static void step(int value)
 		}
 
 		// Inject failures here every 10 seconds
-		if ((step_num + 10) % 600 == 0) {
+		if ((step_num + 10) % p.fail_interval == 0) {
 			injectFailure(failures.front().type);
 			failures.pop();
 		}
 
 		// Launch the main kernel to perform one simulation step
 		launchMainKernel(goal_vector, goal_point, step_num, leaders, ap, p, 
-				&cuda_vbo_resource);
+			&cuda_vbo_resource);
 
 		// Retrieve data from GPU (kernels.cu)
 		getData(p.num_robots, positions, velocities, modes);

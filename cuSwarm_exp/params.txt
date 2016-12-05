@@ -13,6 +13,8 @@ cohere_weight 1.0
 confirm_quit 0
 	# Strength of random currents in environment (0.0 = no currents)
 current 0.0
+	# Step interval between failures
+fail_interval 3600
 	# Number of hops used in RCC leader selection mode
 hops 1
 	# Leader selection mode to be used by the swarm:

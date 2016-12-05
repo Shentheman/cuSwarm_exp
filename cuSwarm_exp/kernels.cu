@@ -657,7 +657,7 @@ __device__ void flock(int myMode, float3 nVel, int nMode, float3 dist3,
 	if (myMode != 0) {
 		// ALIGN
 		float weight;
-		(nMode == 0) ? weight = 1000.0f : weight = 1.0f;
+		(nMode == 0) ? weight = 10.0f : weight = 1.0f;
 		align->x += weight * nVel.x;
 		align->y += weight * nVel.y;
 	}
