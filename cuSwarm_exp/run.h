@@ -70,6 +70,7 @@ Failure failure;						// Whether a failure is currently active
 queue<Failure> failures;				// Sequence of failures for a trial
 uint commands_since_failure = 0;		// Number of commands since failure
 uint commands_remove_failure = 0;		// Number of commands to remove failure
+float heading_err_drift = 0.0f;			// Bias in heading commands during failure
 
 // Variables for trust tracking
 int command_trust = 0;					// Current command to change goal (1) or 

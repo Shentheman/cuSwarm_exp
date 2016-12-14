@@ -14,7 +14,7 @@ confirm_quit 0
 	# Strength of random currents in environment (0.0 = no currents)
 current 0.0
 	# Step interval between failures
-fail_interval 3600
+fail_interval 1800
 	# Number of hops used in RCC leader selection mode
 hops 1
 	# Leader selection mode to be used by the swarm:
@@ -74,16 +74,10 @@ training 1
 	# Robots update their motion once every update_period steps
 update_period 1
 	# Velocity bound of the robots in m/s (one cell = one meter)
-vel_bound 3.0
+vel_bound 4.0
 	# Initial window height of GUI (depricated)
 window_height 0
 	# Initial window width of GUI (depricated)
 window_width 0
 	# Size of simulation environment (meters)
 world_size 150
-
-# Disconnection
-# Robots getting stuck
-# Heading bias/drift
-# Higher heading variance
-# Bouncing off goal

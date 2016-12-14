@@ -169,12 +169,7 @@ void drawInterface(float window_width, float window_height)
 	glEnd();
 
 	// Set color to cyan for user inputs
-	if (command_trust == 1) {
-		glColor4f(0.0f, 1.0f, 1.0f, 1.0f);
-	}
-	else {
-		glColor4f(1.0f, 0.5f, 0.5f, 1.0f);
-	}
+	glColor4f(0.0f, 1.0f, 1.0f, 1.0f);
 	glLineWidth(2.0f);
 
 	// Convert user-drawn line from screen to world coordinates
@@ -395,10 +390,12 @@ void mouse(int button, int state, int x, int y)
 					}
 				}
 				
-				if (failure.type == NONE) {
+				if (failure.type == NONE || failure.type == HEADING_DRIFT) {
 					// Get the goal direction in radians
 					goal_heading = atan2f(static_cast<float>(y) - mouse_start_y,
 						static_cast<float>(x) - mouse_start_x);
+					// Add drift (will be non-zero in the event of heading failure
+					goal_heading += heading_err_drift;
 					// Transform this into a 2D unit vector (float3, but z not used)
 					goal_vector = make_float3(cosf(goal_heading),
 						-sinf(goal_heading), 0.0f);
@@ -1041,16 +1038,19 @@ void generateFailures()
 }
 
 void injectFailure(FailureType ft)
-{// Inject failure based on type
+{
+	// Inject failure based on type
 	switch (ft) {
 	case HEADING_DRIFT: {
-		printf("FAILURE: Heading drift ");
-		float delta = static_cast<float>(rand() % static_cast<int>((PI / 2.0f) *
-			1000.0f));
-		delta /= 1000.0f;
-		delta += (PI / 4.0f);
-		(rand() % 2 == 0) ? goal_heading_err = goal_heading + delta :
-			goal_heading_err = goal_heading - delta;
+		// Compute the drift in headings for this error
+		heading_err_drift = static_cast<float>(rand() % 
+			static_cast<int>((PI / 8.0f) * 1000.0f));
+		heading_err_drift /= 1000.0f;
+		heading_err_drift += (PI / 4.0f);
+		(rand() % 2 == 0) ? heading_err_drift *= -1.0f : heading_err_drift *= 1.0f;
+		printf("FAILURE: Heading drift %4.2f", heading_err_drift);
+		// Assign new heading
+		goal_heading_err = goal_heading + heading_err_drift;
 		goal_vector = make_float3(cosf(goal_heading_err), -sinf(goal_heading_err),
 			p.vel_bound);
 		break;
@@ -1083,6 +1083,7 @@ void clearFailure()
 {
 	switch (failure.type) {
 	case HEADING_DRIFT: {
+		heading_err_drift = 0.0f;
 		goal_heading_err = goal_heading;
 		goal_vector = make_float3(cosf(goal_heading), -sinf(goal_heading),
 			p.vel_bound);
