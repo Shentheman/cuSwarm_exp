@@ -983,6 +983,7 @@ bool checkGoalReached()
 
 void generateGoal()
 {
+	int z_int = static_cast<int>(goal_region.z);
 	// Generate new x and y coordinates for goal
 	float prev_x = goal_region.x;
 	float prev_y = goal_region.y;
@@ -990,11 +991,11 @@ void generateGoal()
 	float y = prev_y;
 
 	// Do not create a new goal too close to the old one
-	while (eucl2(prev_x, prev_y, x, y) < p.world_size / 2.0f) {
-		x = static_cast<float>(rand() % (static_cast<uint>(p.world_size) -
-			static_cast<uint>(p.world_size / 2.0f))) - goal_region.z;
-		y = static_cast<float>(rand() % (static_cast<uint>(p.world_size) -
-			static_cast<uint>(p.world_size / 2.0f))) - goal_region.z;
+	while (eucl2(prev_x, prev_y, x, y) < p.world_size / 3.0f) {
+		x = static_cast<float>(rand() % (p.world_size - (z_int * 2))) - 
+			((p.world_size / 2.0f) - goal_region.z);
+		y = static_cast<float>(rand() % (p.world_size - (z_int * 2))) - 
+			((p.world_size / 2.0f) - goal_region.z);
 	}
 
 	// Log and relocate the goal region
