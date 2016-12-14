@@ -81,7 +81,6 @@ bool trust_verified = true;				// If user has verified their trust level
 
 // GUI variables
 float mouse_start_x, mouse_start_y, mouse_last_x, mouse_last_y;
-float mouse_x, mouse_y;
 int mb = -1;							// Mouse variables
 
 float rotate_x0, rotate_y0;				// Variables for camera view transform

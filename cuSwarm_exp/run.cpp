@@ -436,10 +436,6 @@ void motion(int x, int y)
 		mouse_last_x = static_cast<float>(x);
 		mouse_last_y = static_cast<float>(y);
 	}
-
-	// Assign current mouse coordinates
-	mouse_x = static_cast<float>(x);
-	mouse_y = static_cast<float>(y);
 }
 
 void moveUp()
@@ -1116,6 +1112,10 @@ void clearFailure()
 
 void promptTrust(int a)
 {
+	// Clear user input that has not yet been sent
+	mouse_start_x = 0.0f; mouse_start_y = 0.0f; 
+	mouse_last_x = 0.0f; mouse_last_y = 0.0f;
+	// Pause and signal trust has not yet been verified
 	paused = true;
 	trust_verified = false;
 }
