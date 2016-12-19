@@ -14,7 +14,7 @@ confirm_quit 0
 	# Strength of random currents in environment (0.0 = no currents)
 current 0.0
 	# Step interval between failures
-fail_interval 300
+fail_interval 1800
 	# Number of hops used in RCC leader selection mode
 hops 1
 	# Leader selection mode to be used by the swarm:
@@ -26,14 +26,14 @@ log_data 1
 	# Different ranges used by the robot (max_d is maximum range), see behavior 
 	# kernels (rendezvous, flock, disperse) for more details
 range_r 2.5			# Rendezvous repel range
-range_f 3.5			# Flocking repel/cohere divide
+range_f 3.0			# Flocking repel/cohere divide
 range_d	5.0			# Disperse repel range
 range_o 2.1			# Obstacle avoidance range
 range_l 6.0			# RCC leader hop range
 range 6.0			# Maximum obstacle detection range
 	# Number of sightings a cell or target needs to reach before fully epxlored
 	# (sighting = within range of a robot during a step)
-max_explore 300
+max_explore 3600
 	# Max x or y dimension of an obstacle
 max_obstacle_size 25
 	# Percentage of robots to be used as noise (not affected by control laws)
@@ -41,7 +41,7 @@ noise 0.0
 	# Number of obstacles present in the environment
 num_obstacles 0
 	# Number of robots in simulation (works best as power of 2)
-num_robots 32
+num_robots 64
 	# Size of robots in GUI
 point_size 15
 	# Weight given to the align vector
@@ -59,14 +59,14 @@ show_leaders 1
 	# Show communication range
 show_range 0
 	# Highlight leaders
-highlight_leaders 1
+highlight_leaders 0
 	# Show non-leader robots
 show_non_leaders 1
 	# Size of the starting space (robot spawn and obstacle-free)
 start_size 10.0
 	# Number of steps before simulation automatically closes (60 steps/sec during) 
 	# GUI mode
-step_limit 72000
+step_limit 54000
 	# Number of targets in the environment
 targets 0
 	# Training mode

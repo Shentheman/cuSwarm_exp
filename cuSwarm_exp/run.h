@@ -135,7 +135,7 @@ bool checkGoalReached();
 void generateGoal();
 void generateFailures();
 void injectFailure(FailureType ft);
-void clearFailure();
+void clearFailure(bool success);
 void promptTrust(int a);
 void updateExplored();
 void exitSimulation();

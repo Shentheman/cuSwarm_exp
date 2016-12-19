@@ -643,7 +643,7 @@ __device__ void rendezvous(float3 dist3, float2* min_bounds, float2* max_bounds,
 	}
 }
 
-__device__ void flock(int myMode, float3 nVel, int nMode, float3 dist3, 
+__device__ void flock(int myMode, float3 nVel, int nMode, float3 dist3,
 	float2* repel, float2* align, float2* cohere, bool is_ap, Parameters p)
 {
 	// Main flocking section
@@ -661,11 +661,10 @@ __device__ void flock(int myMode, float3 nVel, int nMode, float3 dist3,
 		align->x += weight * nVel.x;
 		align->y += weight * nVel.y;
 	}
-	if (dist3.z > p.range_r && dist3.z <= p.range) {
+	if (dist3.z < p.range && dist3.z > p.range_f) {
 		// COHERE
 		// Do not cohere to neighbors within repel range
-		float weight = powf(dist3.z - p.range_r, 2.0f);
-		//(is_ap) ? weight = 1000.0f : weight *= 1.0f;
+		float weight = powf(dist3.z - p.range_f, 2.0f);
 		cohere->x += weight * dist3.x;
 		cohere->y += weight * dist3.y;
 	}

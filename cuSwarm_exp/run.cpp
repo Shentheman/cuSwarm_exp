@@ -374,10 +374,6 @@ void mouse(int button, int state, int x, int y)
 			else if (!paused) {
 				// Set behavior back to flocking
 				p.behavior = 1;
-				// If we are still milling, return align weight to 0
-				if (failure.type == MILLING) {
-					p.align_weight = 0.0f;
-				}
 				// Reset command_trust (because command is finished)
 				command_trust = 0;
 
@@ -386,7 +382,10 @@ void mouse(int button, int state, int x, int y)
 					commands_since_failure++;
 					if (commands_since_failure >= commands_remove_failure && 
 						data.connectivity > 0.0f) {
-						clearFailure();
+						clearFailure(true);
+					}
+					else if (commands_since_failure == 1) {
+						glutTimerFunc(2000, promptTrust, 0);
 					}
 				}
 				
@@ -511,7 +510,7 @@ void initGL(int argc, char **argv)
 	// GLEW initialization
 	glewInit();
 	if (!glewIsSupported("GL_VERSION_2_0")) {
-		fprintf(stderr, 
+		std::fprintf(stderr, 
 			"ERROR: Support for necessary OpenGL extensions missing.");
 		fflush(stderr);
 		exit(0);
@@ -998,7 +997,7 @@ void generateGoal()
 	goal_region.x = x;
 	goal_region.y = y;
 	if (p.log_data) {
-		fprintf(output_f, "goal %f %f\n", x, y);
+		std::fprintf(output_f, "goal %f %f\n", x, y);
 	}
 }
 
@@ -1036,6 +1035,11 @@ void generateFailures()
 
 void injectFailure(FailureType ft)
 {
+	// Clear existing failure (if applicable)
+	if (failure.type != NONE) {
+		clearFailure(false);
+	}
+
 	// Inject failure based on type
 	switch (ft) {
 	case HEADING_DRIFT: {
@@ -1044,39 +1048,45 @@ void injectFailure(FailureType ft)
 			static_cast<int>((PI / 8.0f) * 1000.0f));
 		heading_err_drift /= 1000.0f;
 		heading_err_drift += (PI / 4.0f);
-		(rand() % 2 == 0) ? heading_err_drift *= -1.0f : heading_err_drift *= 1.0f;
-		printf("FAILURE: Heading drift %4.2f", heading_err_drift);
+		(rand() % 2 == 0) ? heading_err_drift *= -1.0f : 
+			heading_err_drift *= 1.0f;
+		std::printf("FAILURE: Heading drift %f", heading_err_drift);
 		// Assign new heading
 		goal_heading_err = goal_heading + heading_err_drift;
-		goal_vector = make_float3(cosf(goal_heading_err), -sinf(goal_heading_err),
-			p.vel_bound);
+		goal_vector = make_float3(cosf(goal_heading_err), 
+			-sinf(goal_heading_err), p.vel_bound);
 		break;
 	}
 	case SPREAD: {
-		printf("FAILURE: Spread ");
+		std::printf("FAILURE: Spread ");
 		p.range_f = 5.0f;
-		p.repel_weight = 1.5f;
+		p.repel_weight = 1.7f;
 		break;
 	}
 	case MILLING: {
-		printf("FAILURE: Milling ");
-		p.align_weight = 0.0f;
+		std::printf("FAILURE: Milling ");
+		p.align_weight = 0.5f;
 		break;
 	}
 	}
 
+	// Set a random number of commands needed before failure is removed
+	commands_remove_failure = (rand() % 4) + 2;
+	std::printf(" (%d)\n", commands_remove_failure);
+
+	// Get failure data
+	float failure_data = 0.0f;
+	(ft == HEADING_DRIFT) ? failure_data = heading_err_drift : 
+		failure_data = 0.0f;
+	// Print out failure data to file
+	std::fprintf(output_f, "failure %d %f %d\n", static_cast<int>(ft), 
+		failure_data, commands_remove_failure);
+
 	// Set current active failure type for simulation
 	failure.type = ft;
-
-	// Set a random number of commands needed before failure is removed
-	commands_remove_failure = rand() % 5;
-	printf(" (%d)\n", commands_remove_failure);
-
-	// Prompt for trust update in 3 seconds
-	glutTimerFunc(3000, promptTrust, 0);
 }
 
-void clearFailure()
+void clearFailure(bool success)
 {
 	switch (failure.type) {
 	case HEADING_DRIFT: {
@@ -1104,7 +1114,14 @@ void clearFailure()
 	commands_since_failure = 0; 
 	commands_remove_failure = 0;
 
-	printf("Failure cleared!\n");
+	if (success) {
+		printf("Failure cleared!\n");
+		fprintf(output_f, "failure cleared\n");
+	}
+	else {
+		printf("Critical failure!\n");
+		fprintf(output_f, "failure expired\n");
+	}
 
 	// Prompt for trust update in 3 seconds
 	glutTimerFunc(3000, promptTrust, 0);
@@ -1213,10 +1230,14 @@ void printDataHeader()
 {
 	if (p.log_data) {
 		// Step data header
-		fprintf(output_f, "step_num behavior behavior_data failure_data ");
-		fprintf(output_f, "velocity avg_heading heading_var centroid_x ");
-		fprintf(output_f, "centroid_y convex_hull_area connectivity ");
-		fprintf(output_f, "explored_area command_trust\n");
+		std::fprintf(output_f, "step step_num behavior behavior_data ");
+		std::fprintf(output_f, "velocity avg_heading heading_var centroid_x ");
+		std::fprintf(output_f, "centroid_y convex_hull_area connectivity ");
+		std::fprintf(output_f, "explored_area trust\n");
+		// Goal data header
+		std::fprintf(output_f, "goal x_pos y_pos\n");
+		// Failure data header
+		std::fprintf(output_f, "failure type data commands_to_fix\n");
 	}
 }
 
@@ -1281,11 +1302,11 @@ static void step(int value)
 
 		if (p.log_data) {
 			// Write data to the output log at the end of every step
-			fprintf(output_f, "%d %d %f %f %f %f %f %f %f %f %f %d %d\n",
-				step_num, p.behavior, -goal_heading, -goal_heading_err, 
-				p.vel_bound, data.heading_avg, data.heading_var, data.centroid.x, 
-				data.centroid.y, data.ch_area, data.connectivity, data.explored, 
-				command_trust);
+			std::fprintf(output_f, "step %d %d %f %f %f %f %f ", step_num, 
+				p.behavior, -goal_heading, p.vel_bound, data.heading_avg, 
+				data.heading_var, data.centroid.x);
+			std::fprintf(output_f, "%f %f %f %d %f\n", data.centroid.y, 
+				data.ch_area, data.connectivity, data.explored, user_trust);
 		}
 
 		// Increment the simulation step counter
