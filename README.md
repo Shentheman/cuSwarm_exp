@@ -25,5 +25,3 @@ Data calculations used for logging and drawing certain GUI elements
 
 ---utils.cpp/utils.h---
 Utilities file
-
-Questions can be directed to Phillip Walker pmwalk@gmail.com

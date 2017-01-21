@@ -95,8 +95,8 @@ void drawInterface(float window_width, float window_height)
 		}
 		else {
 			// Green (fully explored)
-			glColor4f(0.2f * target_color, 0.8f * target_color,
-				0.2f * target_color, 1.0f);
+			glColor4f(0.25f * target_color, 0.8f * target_color,
+				0.25f * target_color, 1.0f);
 			// If first time reaching fully explored status, indicate so in data
 			// field and add to targets_explored count
 			if (targets[i].z == 1) {
@@ -116,38 +116,54 @@ void drawInterface(float window_width, float window_height)
 		glEnd();
 	}
 
-	// Draw goal region
-	glColor4f(0.8f, 0.0f, 0.0f, 0.6f);
-	drawEllipse(goal_region.x, goal_region.y, goal_region.z, goal_region.w, true);
-
 	// Set color to white for next GUI elements
 	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-
+	// Clear model and projection matricies to draw interface
 	glResetModelAndProjection();
+
+	// Draw time remaining and targets found labels/information
+	stringstream ss;
+	ss << "Time remaining:\n";
+	ss << static_cast<int>(static_cast<float>(p.step_limit - step_num) / 60.0f);
+	ss << " seconds";
+	drawText(-0.98f, -0.7f, (char*)ss.str().c_str(), 0.8f, 0.8f, 0.8f);
+	drawText(-0.98f, 0.9f, "Target information:", 0.8f, 0.8f, 0.8f);
+
+	// Draw visualization graph or display number of targets found depending
+	// on parameter setting
+	if (p.show_info_graph) {
+		// TODO: Show target information graph here
+	}
+	else {
+		ss.str("");
+		ss << data.targets_explored << " confirmed\n";
+		ss << data.targets_seen << " sighted";
+		drawText(-0.98f, 0.8f, (char*)ss.str().c_str(), 0.8f, 0.8f, 0.8f);
+	}
 
 	// Draw progress bar for time remaining
 	glLineWidth(1.0f);
-	float bar_y_end = -0.94f + (1.6f * (static_cast<float>(step_num) /
+	float bar_x_end = -0.98f + (0.48f * (static_cast<float>(step_num) /
 		static_cast<float>(p.step_limit)));
 	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	// Outline
 	glBegin(GL_POLYGON);
-	glVertex3f(-0.94f, -0.94f, 0.0f);
-	glVertex3f(-0.94f, 0.66f, 0.0f);
-	glVertex3f(-0.84f, 0.66f, 0.0f);
-	glVertex3f(-0.84f, -0.94f, 0.0f);
+	glVertex3f(-0.98f, -0.82f, 0.0f);
+	glVertex3f(-0.50f, -0.82f, 0.0f);
+	glVertex3f(-0.50f, -0.95f, 0.0f);
+	glVertex3f(-0.98f, -0.95f, 0.0f);
 	glEnd();
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	// Filling
 	glBegin(GL_POLYGON);
-	glVertex3f(-0.94f, -0.94f, 0.0f);
-	glVertex3f(-0.94f, bar_y_end, 0.0f);
-	glVertex3f(-0.84f, bar_y_end, 0.0f);
-	glVertex3f(-0.84f, -0.94f, 0.0f);
+	glVertex3f(-0.98f, -0.82f, 0.0f);
+	glVertex3f(bar_x_end, -0.82f, 0.0f);
+	glVertex3f(bar_x_end, -0.95f, 0.0f);
+	glVertex3f(-0.98f, -0.95f, 0.0f);
 	glEnd();
 
 	// Draw trust bar
-	bar_y_end = -0.14f + (0.8f * user_trust);
+	float bar_y_end = -0.14f + (0.8f * user_trust);
 	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	// Outline
 	glBegin(GL_POLYGON);
@@ -215,15 +231,19 @@ void drawEllipse(float cx, float cy, float w, float h, bool fill)
 	glEnd();
 }
 
-void drawText(float x, float y, const unsigned char *string, GLfloat r,
+void drawText(float x, float y, char *string, GLfloat r,
 	GLfloat g, GLfloat b)
 {
 	// Change to specified color
 	glColor4f(r, g, b, 0.75f);
 
 	// Draw text at the given point
-	glRasterPos2f(-134.0f + translate_x0, 70.0f + translate_y0);
-	glutBitmapString(GLUT_BITMAP_TIMES_ROMAN_24, string);
+	glTranslatef(x, y, 0.0f);
+	glScalef(0.00035f, 0.0005f, 1.0f);
+	glutStrokeString(GLUT_STROKE_ROMAN, (unsigned char*)string);
+
+	// Clear model and projection matricies to draw interface
+	glResetModelAndProjection();
 }
 
 void keyboard(unsigned char key, int x, int y)
@@ -376,29 +396,13 @@ void mouse(int button, int state, int x, int y)
 				p.behavior = 1;
 				// Reset command_trust (because command is finished)
 				command_trust = 0;
-
-				// Clear failure
-				if (failure.type != NONE) {
-					commands_since_failure++;
-					if (commands_since_failure >= commands_remove_failure && 
-						data.connectivity > 0.0f) {
-						clearFailure(true);
-					}
-					else if (commands_since_failure == 1) {
-						glutTimerFunc(2000, promptTrust, 0);
-					}
-				}
 				
-				if (failure.type == NONE || failure.type == HEADING_DRIFT) {
-					// Get the goal direction in radians
-					goal_heading = atan2f(static_cast<float>(y) - mouse_start_y,
-						static_cast<float>(x) - mouse_start_x);
-					// Add drift (will be non-zero in the event of heading failure
-					goal_heading += heading_err_drift;
-					// Transform this into a 2D unit vector (float3, but z not used)
-					goal_vector = make_float3(cosf(goal_heading),
-						-sinf(goal_heading), 0.0f);
-				}
+				// Get the goal direction in radians
+				goal_heading = atan2f(static_cast<float>(y)-mouse_start_y,
+					static_cast<float>(x)-mouse_start_x);
+				// Transform this into a 2D unit vector (float3, but z not used)
+				goal_vector = make_float3(cosf(goal_heading),
+					-sinf(goal_heading), 0.0f);
 
 				// Clear the user-drawn line data points
 				mouse_start_x = 0;
@@ -564,7 +568,7 @@ static void display(void)
 
 	// Set the environment background
 	(trust_verified) ? glClearColor(0.0f, 0.0f, 0.0f, 1.0f) :
-		glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
+		glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
 
 	// Draw interface elements
 	drawInterface(static_cast<float>(window_width),
@@ -725,7 +729,7 @@ void worldToScreen(float3 world, float3 *screen)
 void resetCamera()
 {
 	// Reset the camera to the start position
-	translate_x0 = 0.0f;
+	translate_x0 = -20.0f;
 	translate_y0 = 0.0f;
 	translate_z0 = 100.0f;
 	rotate_x0 = 0.0f;
@@ -798,8 +802,6 @@ void processParam(std::vector<std::string> tokens)
 		p.confirm_quit = (std::stoul(tokens[1]) != 0);
 	else if (tokens[0] == "current")
 		p.current = std::stof(tokens[1]);
-	else if (tokens[0] == "fail_interval")
-		p.fail_interval = std::stoul(tokens[1]);
 	else if (tokens[0] == "hops")
 		p.hops = std::stoul(tokens[1]);
 	else if (tokens[0] == "leader_selection")
@@ -839,6 +841,8 @@ void processParam(std::vector<std::string> tokens)
 	else if (tokens[0] == "show_convex_hull")
 		p.show_convex_hull = (std::stoul(tokens[1]) != 0);
 	else if (tokens[0] == "show_explored")
+		p.show_explored = (std::stoul(tokens[1]) != 0);
+	else if (tokens[0] == "show_info_graph")
 		p.show_explored = (std::stoul(tokens[1]) != 0);
 	else if (tokens[0] == "show_leaders")
 		p.show_leaders = (std::stoul(tokens[1]) != 0);
@@ -951,182 +955,6 @@ bool checkCollision(float x, float y)
 	return false;
 }
 
-bool checkGoalReached()
-{
-	uint rob_in_region = 0;
-	bool result;
-	// Count the number of robots within the goal region
-	for (uint i = 0; i < p.num_robots; i++) {
-		if (eucl2(positions[i].x, positions[i].y, goal_region.x, goal_region.y) <
-			goal_region.z) {
-			rob_in_region++;
-		}
-	}
-
-	// Goal is reached if over half the robots are within it
-	if (rob_in_region > static_cast<uint>(p.num_robots / 2.0f)) {
-		result = true;
-		data.goals_reached++;
-		generateGoal();
-	}
-	else {
-		result = false;
-	}
-
-	return result;
-}
-
-void generateGoal()
-{
-	int z_int = static_cast<int>(goal_region.z);
-	// Generate new x and y coordinates for goal
-	float prev_x = goal_region.x;
-	float prev_y = goal_region.y;
-	float x = prev_x;
-	float y = prev_y;
-
-	// Do not create a new goal too close to the old one
-	while (eucl2(prev_x, prev_y, x, y) < p.world_size / 3.0f) {
-		x = static_cast<float>(rand() % (p.world_size - (z_int * 2))) - 
-			((p.world_size / 2.0f) - goal_region.z);
-		y = static_cast<float>(rand() % (p.world_size - (z_int * 2))) - 
-			((p.world_size / 2.0f) - goal_region.z);
-	}
-
-	// Log and relocate the goal region
-	goal_region.x = x;
-	goal_region.y = y;
-	if (p.log_data) {
-		std::fprintf(output_f, "goal %f %f\n", x, y);
-	}
-}
-
-void generateFailures()
-{
-	// First, generate all of the failures
-	uint num_fails = static_cast<int>(p.step_limit / p.fail_interval);
-	vector<Failure> failures_temp;
-	for (uint i = 0; i < num_fails; i++) {
-		int c = i % 3;
-		Failure f;
-		switch (c) {
-		case 0:
-			f.type = HEADING_DRIFT;
-			break;
-		case 1:
-			f.type = SPREAD;
-			break;
-		case 2:
-			f.type = MILLING;
-			break;
-		}
-		failures_temp.push_back(f);
-	}
-
-	// Next, permute the list randomly
-	while (failures_temp.size() > 0) {
-		uint next_pos = rand() % failures_temp.size();
-		Failure f_temp;
-		f_temp.type = failures_temp[next_pos].type;
-		failures.push(f_temp);
-		failures_temp.erase(failures_temp.begin() + next_pos);
-	}
-}
-
-void injectFailure(FailureType ft)
-{
-	// Clear existing failure (if applicable)
-	if (failure.type != NONE) {
-		clearFailure(false);
-	}
-
-	// Inject failure based on type
-	switch (ft) {
-	case HEADING_DRIFT: {
-		// Compute the drift in headings for this error
-		heading_err_drift = static_cast<float>(rand() % 
-			static_cast<int>((PI / 8.0f) * 1000.0f));
-		heading_err_drift /= 1000.0f;
-		heading_err_drift += (PI / 4.0f);
-		(rand() % 2 == 0) ? heading_err_drift *= -1.0f : 
-			heading_err_drift *= 1.0f;
-		std::printf("FAILURE: Heading drift %f", heading_err_drift);
-		// Assign new heading
-		goal_heading_err = goal_heading + heading_err_drift;
-		goal_vector = make_float3(cosf(goal_heading_err), 
-			-sinf(goal_heading_err), p.vel_bound);
-		break;
-	}
-	case SPREAD: {
-		std::printf("FAILURE: Spread ");
-		p.range_f = 5.0f;
-		p.repel_weight = 1.7f;
-		break;
-	}
-	case MILLING: {
-		std::printf("FAILURE: Milling ");
-		p.align_weight = 0.5f;
-		break;
-	}
-	}
-
-	// Set a random number of commands needed before failure is removed
-	commands_remove_failure = (rand() % 4) + 2;
-	std::printf(" (%d)\n", commands_remove_failure);
-
-	// Get failure data
-	float failure_data = 0.0f;
-	(ft == HEADING_DRIFT) ? failure_data = heading_err_drift : 
-		failure_data = 0.0f;
-	// Print out failure data to file
-	std::fprintf(output_f, "failure %d %f %d\n", static_cast<int>(ft), 
-		failure_data, commands_remove_failure);
-
-	// Set current active failure type for simulation
-	failure.type = ft;
-}
-
-void clearFailure(bool success)
-{
-	switch (failure.type) {
-	case HEADING_DRIFT: {
-		heading_err_drift = 0.0f;
-		goal_heading_err = goal_heading;
-		goal_vector = make_float3(cosf(goal_heading), -sinf(goal_heading),
-			p.vel_bound);
-		break;
-	}
-	case SPREAD: {
-		p.range_f = 3.5f;
-		p.repel_weight = 1.2f;
-		break;
-	}
-	case MILLING: {
-		p.align_weight = 1.0f;
-		break;
-	}
-	}
-
-	// Reset current failure status
-	failure.type = NONE;
-
-	// Reset commands since and commands to remove failure
-	commands_since_failure = 0; 
-	commands_remove_failure = 0;
-
-	if (success) {
-		printf("Failure cleared!\n");
-		fprintf(output_f, "failure cleared\n");
-	}
-	else {
-		printf("Critical failure!\n");
-		fprintf(output_f, "failure expired\n");
-	}
-
-	// Prompt for trust update in 3 seconds
-	glutTimerFunc(3000, promptTrust, 0);
-}
-
 void promptTrust(int a)
 {
 	// Clear user input that has not yet been sent
@@ -1236,8 +1064,6 @@ void printDataHeader()
 		std::fprintf(output_f, "explored_area trust\n");
 		// Goal data header
 		std::fprintf(output_f, "goal x_pos y_pos\n");
-		// Failure data header
-		std::fprintf(output_f, "failure type data commands_to_fix\n");
 	}
 }
 
@@ -1258,17 +1084,11 @@ static void step(int value)
 			}
 			
 			// Process data of initial state
-			processData(p.num_robots, p.world_size, positions, velocities,
-				explored_grid, laplacian, ap, &data);
+			processData(positions, velocities, explored_grid, targets, laplacian, 
+				ap, &data, p);
 
 			// Indicates inital state has passed
 			initial_passed = true;
-		}
-
-		// Inject failures here every 10 seconds
-		if ((step_num + 10) % p.fail_interval == 0) {
-			injectFailure(failures.front().type);
-			failures.pop();
 		}
 
 		// Launch the main kernel to perform one simulation step
@@ -1280,11 +1100,8 @@ static void step(int value)
 		// Update explored grid
 		updateExplored();
 		// Get data variables (data_ops.h)
-		processData(p.num_robots, p.world_size, positions, velocities, 
-			explored_grid, laplacian, ap, &data);
-
-		// Check if goal region reached
-		checkGoalReached();
+		processData(positions, velocities, explored_grid, targets, laplacian, ap, 
+			&data, p);
 
 		// Update leader list (Very inefficient now, should compute at the same 
 		// time as convex hull)
@@ -1392,12 +1209,7 @@ int main(int argc, char** argv)
 
 	// Initialize goal heading, goal region, and goal point to 0
 	goal_heading = 0.0f;
-	goal_region = make_float4(0.0f, 0.0f, 15.0f, 15.0f);
 	goal_point = make_float2(0.0f, 0.0f);
-
-	// Initiate failures
-	failure.type = NONE;
-	generateFailures();
 	
 	///// START MAIN LOOP /////
 	glutMainLoop();

@@ -91,8 +91,8 @@ public:
 ************************************/
 
 // Data processing main function
-void processData(uint n, uint ws, float4* positions, float3* velocities, 
-	int* explored_grid, int4* laplacian, bool* ap, Data* data);
+void processData(float4* positions, float3* velocities, int* explored_grid, 
+	int3* targets, int4* laplacian, bool* ap, Data* data, Parameters p);
 
 // Convex hull functions
 void convexHull(float4* pos, vector<Point>* points, uint n);

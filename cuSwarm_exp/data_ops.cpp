@@ -94,14 +94,14 @@ void Graph::dfs()
 ///// Main Data Processing /////
 ////////////////////////////////
 
-void processData(uint n, uint ws, float4* positions, float3* velocities, 
-	int* explored_grid, int4* laplacian, bool* ap, Data* data)
+void processData(float4* positions, float3* velocities, int* explored_grid, 
+	int3* targets, int4* laplacian, bool* ap, Data* data, Parameters p)
 {
 	///// HEADING AVERAGE /////
-	float nf = static_cast<float>(n);
+	float nf = static_cast<float>(p.num_robots);
 	// Get the average velocity
 	float2 avg_vel = make_float2(0.0f, 0.0f);
-	for (uint i = 0; i < n; i++) {
+	for (uint i = 0; i < p.num_robots; i++) {
 		// Get heading for this robot
 		float h = atan2(velocities[i].y, velocities[i].x);
 		avg_vel.x += cos(h);
@@ -117,7 +117,7 @@ void processData(uint n, uint ws, float4* positions, float3* velocities,
 
 	///// HEADING VARIANCE /////
 	float var = 0.0f;
-	for (uint i = 0; i < n; i++) {
+	for (uint i = 0; i < p.num_robots; i++) {
 		float h = atan2(velocities[i].y, velocities[i].x);
 		float diff = abs(avg_h - h);
 		while (diff > PI) {
@@ -129,7 +129,7 @@ void processData(uint n, uint ws, float4* positions, float3* velocities,
 	data->heading_var = var;
 
 	///// CENTROID /////
-	for (uint i = 0; i < n; i++) {
+	for (uint i = 0; i < p.num_robots; i++) {
 		data->centroid.x += positions[i].x;
 		data->centroid.y += positions[i].y;
 	}
@@ -144,7 +144,7 @@ void processData(uint n, uint ws, float4* positions, float3* velocities,
 	data->bounds.z = FLT_MAX;
 	data->bounds.w = -FLT_MAX;
 
-	for (uint i = 0; i < n; i++) {
+	for (uint i = 0; i < p.num_robots; i++) {
 		// Check bounds of the swarm
 		data->bounds.x = min(data->bounds.x, positions[i].x);
 		data->bounds.y = max(data->bounds.y, positions[i].x);
@@ -156,22 +156,22 @@ void processData(uint n, uint ws, float4* positions, float3* velocities,
 	// Coordinates of convex hull vertices (stored in data object)
 	data->ch.clear();
 	// Compute convex hull of swarm
-	convexHull(positions, &(data->ch), n);
+	convexHull(positions, &(data->ch), p.num_robots);
 	// Get the area of the convex hull
 	data->ch_area = convexHullArea(data->ch);
 
 	///// EXPLORED AREA /////
 	int explored = 0;
-	for (uint i = 0; i < ws * ws; i++) {
+	for (uint i = 0; i < p.world_size * p.world_size; i++) {
 		explored += abs(explored_grid[i]);
 	}
 	data->explored = explored;
 	// Score is the explored area plus a bonus for each target fully explored
 	data->score = static_cast<float>(data->explored);
 
-	getLaplacian(n, laplacian);
-	articulationPoints(n, laplacian, ap, 1);
-	data->connectivity = connectivity(n, laplacian, 1);
+	getLaplacian(p.num_robots, laplacian);
+	articulationPoints(p.num_robots, laplacian, ap, 1);
+	data->connectivity = connectivity(p.num_robots, laplacian, 1);
 }
 
 /*********************************

@@ -44,7 +44,6 @@ struct Parameters
 	float cohere_weight;
 	bool confirm_quit;
 	float current;
-	uint fail_interval;
 	uint hops;
 	uint leader_selection;
 	bool log_data;
@@ -66,6 +65,7 @@ struct Parameters
 	bool show_connections;
 	bool show_convex_hull;
 	bool show_explored;
+	bool show_info_graph;
 	bool show_leaders;
 	bool show_range;
 	bool show_non_leaders;

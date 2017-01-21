@@ -17,20 +17,6 @@
 #include "data_ops.h"
 #include "utils.h"
 
-/***********************************
-***** STRUCTURES AND TYPEDEFS ******
-***********************************/
-
-enum FailureType
-{
-	HEADING_DRIFT, SPREAD, MILLING, NONE
-};
-
-struct Failure
-{
-	FailureType type;
-};
-
 /*********************
 ***** VARIABLES ******
 *********************/
@@ -53,7 +39,7 @@ int* leaders;							// List of current swarm leaders
 int* nearest_leaders;					// Nearest leader array
 uint* leader_countdowns;				// Leader countdown array
 int4* laplacian;						// Laplacian matrix of robot connectivity
-										// (max_a, max_b, max_c, max_d)
+										// (range, range_r, range_f, range_l)
 bool* ap;								// Articulation pts (min vertex cut set)
 float4* obstacles;						// List of obstacles in the environment
 										// (top_left_x, top_left_y, w, h)
@@ -62,15 +48,6 @@ int3* targets;							// List of targets in the environment
 bool* occupancy;						// Occupancy grid for the environment
 Data data;								// Data object (see data_ops.cpp for data 
 										// calculations)
-
-float4 goal_region;						// Goal region
-
-// Variables for injected failures
-Failure failure;						// Whether a failure is currently active
-queue<Failure> failures;				// Sequence of failures for a trial
-uint commands_since_failure = 0;		// Number of commands since failure
-uint commands_remove_failure = 0;		// Number of commands to remove failure
-float heading_err_drift = 0.0f;			// Bias in heading commands during failure
 
 // Variables for trust tracking
 int command_trust = 0;					// Current command to change goal (1) or 
@@ -103,8 +80,7 @@ std::stringstream output_fname;			// Name of the log file
 // User interface functions
 void drawInterface(float world_size, float window_width, float window_height);
 void drawEllipse(float cx, float cy, float w, float h, bool fill);
-void drawText(float x, float y, const unsigned char *string, GLfloat r, 
-	GLfloat g, GLfloat b);
+void drawText(float x, float y, char *string, GLfloat r, GLfloat g, GLfloat b);
 void keyboard(unsigned char key, int x, int y);
 void keyboardSpecial(int key, int x, int y);
 void mouse(int button, int state, int x, int y);
@@ -131,11 +107,6 @@ void processParam(std::vector<std::string> tokens);
 void generateWorld();
 void calculateOccupancyGrid();
 bool checkCollision(float x, float y);
-bool checkGoalReached();
-void generateGoal();
-void generateFailures();
-void injectFailure(FailureType ft);
-void clearFailure(bool success);
 void promptTrust(int a);
 void updateExplored();
 void exitSimulation();

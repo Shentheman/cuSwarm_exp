@@ -13,8 +13,6 @@ cohere_weight 1.0
 confirm_quit 0
 	# Strength of random currents in environment (0.0 = no currents)
 current 0.0
-	# Step interval between failures
-fail_interval 1800
 	# Number of hops used in RCC leader selection mode
 hops 1
 	# Leader selection mode to be used by the swarm:
@@ -33,27 +31,29 @@ range_l 6.0			# RCC leader hop range
 range 6.0			# Maximum obstacle detection range
 	# Number of sightings a cell or target needs to reach before fully epxlored
 	# (sighting = within range of a robot during a step)
-max_explore 3600
+max_explore 1200
 	# Max x or y dimension of an obstacle
 max_obstacle_size 25
 	# Percentage of robots to be used as noise (not affected by control laws)
 noise 0.0
 	# Number of obstacles present in the environment
-num_obstacles 0
+num_obstacles 10
 	# Number of robots in simulation (works best as power of 2)
-num_robots 64
+num_robots 32
 	# Size of robots in GUI
 point_size 15
 	# Weight given to the align vector
 repel_weight 1.2
 	# Show articulation points
-show_ap 0
+show_ap 1
 	# Show robot comm connections
-show_connections 0
+show_connections 1
 	# Show convex hull
 show_convex_hull 0
 	# Show explored area
-show_explored 0
+show_explored 1
+	# Show information graph
+show_info_graph 0
 	# Show leader robots
 show_leaders 1
 	# Show communication range
@@ -68,16 +68,18 @@ start_size 10.0
 	# GUI mode
 step_limit 54000
 	# Number of targets in the environment
-targets 0
+targets 100
 	# Training mode
 training 1
 	# Robots update their motion once every update_period steps
 update_period 1
 	# Velocity bound of the robots in m/s (one cell = one meter)
-vel_bound 4.0
+vel_bound 3.0
 	# Initial window height of GUI (depricated)
 window_height 0
 	# Initial window width of GUI (depricated)
 window_width 0
 	# Size of simulation environment (meters)
 world_size 150
+
+# Find parameters that increase cohesiveness and responsiveness
