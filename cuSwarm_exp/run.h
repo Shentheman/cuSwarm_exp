@@ -45,15 +45,14 @@ float4* obstacles;						// List of obstacles in the environment
 										// (top_left_x, top_left_y, w, h)
 int3* targets;							// List of targets in the environment
 										// (x, y, found[0 or 1])
+int2* targets_by_step;					// Cumulative number of targets seen (.x) and found (.y) 
+										// at each simulation step
 bool* occupancy;						// Occupancy grid for the environment
-Data data;								// Data object (see data_ops.cpp for data 
-										// calculations)
+Data data;								// Data object (see data_ops.cpp for data calculations)
 
 // Variables for trust tracking
-int command_trust = 0;					// Current command to change goal (1) or 
-										// due to lack of trust (2);
-										// 0 indicates no current command
-float user_trust = 0.0f;				// Current user trust level
+int command_trust = 0;					// Current command to change goal (1) or due to lack of
+										// trust (2); 0 indicates no current command
 bool trust_verified = true;				// If user has verified their trust level
 
 // GUI variables

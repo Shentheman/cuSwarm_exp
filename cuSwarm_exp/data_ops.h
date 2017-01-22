@@ -38,6 +38,7 @@ struct Data
 	int targets_seen;
 	int goals_reached;
 	float connectivity;
+	float user_trust;
 };
 
 /**********************
@@ -91,8 +92,7 @@ public:
 ************************************/
 
 // Data processing main function
-void processData(float4* positions, float3* velocities, int* explored_grid, 
-	int3* targets, int4* laplacian, bool* ap, Data* data, Parameters p);
+void processData(float4* positions, float3* velocities, int* explored_grid, int3* targets, int4* laplacian, bool* ap, Data* data, Parameters p);
 
 // Convex hull functions
 void convexHull(float4* pos, vector<Point>* points, uint n);

@@ -43,13 +43,17 @@ bool Graph::addEdge(int u, int v)
 
 vector<int> Graph::getArticulationPoints()
 {
-	if (done)
+	if (done) {
 		return articulation_points;
+	}
 	dfs();
 	done = true;
-	for (int u = 0; u < V; u++)
-		if (articulation_point[u])
+	for (int u = 0; u < V; u++) {
+		if (articulation_point[u]) {
 			articulation_points.push_back(u);
+		}
+	}
+		
 	return articulation_points;
 }
 
@@ -59,8 +63,7 @@ void Graph::dfsUtil(int u)
 	int num_child = 0;
 	disc_time[u] = low[u] = ++time;
 
-	for (vector <int>::iterator v = adjList[u].begin();
-		v != adjList[u].end(); v++)	{
+	for (vector <int>::iterator v = adjList[u].begin(); v != adjList[u].end(); v++)	{
 		if (!explored[*v])	{
 			num_child++;
 			parent[*v] = u;
@@ -73,32 +76,36 @@ void Graph::dfsUtil(int u)
 			//    one of its children has a back-link to its ancestor.
 			//    A child has a back-link to an ancestor of its parent when 
 			//    its low value is less than the discovery time of its parent
-			if (parent[u] == -1 && num_child > 1)
+			if (parent[u] == -1 && num_child > 1) {
 				articulation_point[u] = true;
-			else if (parent[u] != -1 && low[*v] >= disc_time[u])
+			}
+			else if (parent[u] != -1 && low[*v] >= disc_time[u]) {
 				articulation_point[u] = true;
+			}
 		}
-		else if (*v != parent[u])
+		else if (*v != parent[u]) {
 			low[u] = min(low[u], disc_time[*v]);
+		}
 	}
 }
 
 void Graph::dfs()
 {
-	for (int u = 0; u < V; u++)
-		if (!explored[u])
+	for (int u = 0; u < V; u++) {
+		if (!explored[u]) {
 			dfsUtil(u);
+		}
+	}
 }
 
 ////////////////////////////////
 ///// Main Data Processing /////
 ////////////////////////////////
 
-void processData(float4* positions, float3* velocities, int* explored_grid, 
-	int3* targets, int4* laplacian, bool* ap, Data* data, Parameters p)
+void processData(float4* positions, float3* velocities, int* explored_grid, int3* targets, int4* laplacian, bool* ap, Data* data, Parameters p)
 {
 	///// HEADING AVERAGE /////
-	float nf = static_cast<float>(p.num_robots);
+	float nf = (float)(p.num_robots);
 	// Get the average velocity
 	float2 avg_vel = make_float2(0.0f, 0.0f);
 	for (uint i = 0; i < p.num_robots; i++) {
@@ -121,7 +128,7 @@ void processData(float4* positions, float3* velocities, int* explored_grid,
 		float h = atan2(velocities[i].y, velocities[i].x);
 		float diff = abs(avg_h - h);
 		while (diff > PI) {
-			diff -= static_cast<float>(2.0 * PI);
+			diff -= (float)(2.0 * PI);
 		}
 		var += abs(diff);
 	}
@@ -167,7 +174,7 @@ void processData(float4* positions, float3* velocities, int* explored_grid,
 	}
 	data->explored = explored;
 	// Score is the explored area plus a bonus for each target fully explored
-	data->score = static_cast<float>(data->explored);
+	data->score = (float)(data->explored);
 
 	getLaplacian(p.num_robots, laplacian);
 	articulationPoints(p.num_robots, laplacian, ap, 1);
@@ -182,7 +189,7 @@ void processData(float4* positions, float3* velocities, int* explored_grid,
 // Note: the last point in the returned list is the same as the first one.
 void convexHull(float4* pos, vector<Point>* points, uint num)
 {
-	int n = static_cast<int>(num);
+	int n = (int)(num);
 	int k = 0;
 	vector<Point> P;
 	for (int i = 0; i < n; i++) {
@@ -241,8 +248,7 @@ float2 convexHullCentroid(vector<float4> points)
 			max_y = points[i].y;
 		}
 	}
-	float2 to_return = make_float2((min_x + max_x) / 2.0f, 
-		(min_y + max_y) / 2.0f);
+	float2 to_return = make_float2((min_x + max_x) / 2.0f, (min_y + max_y) / 2.0f);
 	return to_return;
 }
 
@@ -250,7 +256,7 @@ float2 convexHullCentroid(vector<float4> points)
 float convexHullArea(vector<Point> points)
 {
 	float area = 0.0f;
-	for (int a = 0; static_cast<uint>(a) < points.size(); a++) {
+	for (int a = 0; (uint)(a) < points.size(); a++) {
 		int b = ((a + 1) % points.size());
 		float temp = (points[a].x * points[b].y) - (points[b].x * points[a].y);
 		area += temp;
@@ -291,18 +297,18 @@ float connectivity(uint n, int4* laplacian, uint level)
 			// laplacian of communication graph (1 = max_a ... 4 = max_d).
 			switch (level) {
 			case 1:
-				A(i, j) = static_cast<float>(laplacian[(i * n) + j].x);
+				A(i, j) = (float)(laplacian[(i * n) + j].x);
 				break;
 			case 2:
-				A(i, j) = static_cast<float>(laplacian[(i * n) + j].y);
+				A(i, j) = (float)(laplacian[(i * n) + j].y);
 				break;
 			case 3:
-				A(i, j) = static_cast<float>(laplacian[(i * n) + j].z);
+				A(i, j) = (float)(laplacian[(i * n) + j].z);
 				break;
 			case 4:
 			default:
 				// Report max_d (maximum comm range) by default
-				A(i, j) = static_cast<float>(laplacian[(i * n) + j].w);
+				A(i, j) = (float)(laplacian[(i * n) + j].w);
 				break;
 			}
 			

@@ -37,25 +37,21 @@ void drawInterface(float window_width, float window_height)
 	if (p.show_explored) {
 		for (uint i = 0; i < p.world_size * p.world_size; i++) {
 			// Get the world coordinates for this iteration
-			float world_x = -world_size_2 +
-				static_cast<float>(floor(i / p.world_size));
-			float world_y = -world_size_2 + static_cast<float>(i % p.world_size);
+			float world_x = -world_size_2 + (float)(floor(i / p.world_size));
+			float world_y = -world_size_2 + (float)(i % p.world_size);
 
 			// Now draw the grid cell if explored
 			float explored_color = 0.0f;
 			if (explored_grid[i] != 0) {
-				explored_color = fabsf(static_cast<float>(explored_grid[i]) /
-					p.max_explore);
+				explored_color = fabsf((float)(explored_grid[i]) / p.max_explore);
 				// Color is based on obstacle/free space
 				if (explored_grid[i] > 0) {		// Free space
-					glColor4f(0.1f * explored_color, 0.3f * explored_color,
-						0.6f * explored_color, 0.5f);
+					glColor4f(0.1f * explored_color, 0.3f * explored_color, 0.6f * explored_color, 0.5f);
 				}
 				else {							// Obstacle
 					// Lower bar for showing an obstacle cell as fully explored
 					explored_color = min(1.0f, explored_color * 4.0f);
-					glColor4f(0.6f * explored_color, 0.2f * explored_color,
-						0.2f * explored_color, 1.0f);
+					glColor4f(0.6f * explored_color, 0.2f * explored_color, 0.2f * explored_color, 1.0f);
 				}
 				glBegin(GL_POLYGON);
 				glVertex3f(world_x, world_y, -0.2f);
@@ -71,21 +67,17 @@ void drawInterface(float window_width, float window_height)
 	for (uint i = 0; i < p.targets; i++) {
 
 		// Get the explored grid index that this target corresponds to
-		uint exp_ind = static_cast<uint>(((targets[i].x + ws_2) * p.world_size) + 
-			(targets[i].y + ws_2));
+		uint exp_ind = (uint)(((targets[i].x + ws_2) * p.world_size) + (targets[i].y + ws_2));
 
 		// Set the target color based on explored value
 		float target_color;
 		// Target must be seen at least once to show
-		(explored_grid[exp_ind] == 0) ? target_color = 0.0f : 
-			target_color = fabsf(0.25f + (0.75f * 
-			(static_cast<float>(explored_grid[exp_ind]) / p.max_explore)));
+		(explored_grid[exp_ind] == 0) ? target_color = 0.0f : target_color = fabsf(0.25f + (0.75f * ((float)(explored_grid[exp_ind]) / p.max_explore)));
 
 		// Change target color based on whether fully explored
 		if (target_color < 1.0f) {
 			// Purple (not fully explored)
-			glColor4f(0.6f * target_color, 0.0f * target_color,
-				0.6f * target_color, 1.0f);
+			glColor4f(0.6f * target_color, 0.0f * target_color, 0.6f * target_color, 1.0f);
 			// If first time target is seen, indicate so in target data field, 
 			// and add to targets_seen count
 			if (target_color > 0.0f && targets[i].z == 0) {
@@ -95,8 +87,7 @@ void drawInterface(float window_width, float window_height)
 		}
 		else {
 			// Green (fully explored)
-			glColor4f(0.25f * target_color, 0.8f * target_color,
-				0.25f * target_color, 1.0f);
+			glColor4f(0.25f * target_color, 0.8f * target_color, 0.25f * target_color, 1.0f);
 			// If first time reaching fully explored status, indicate so in data
 			// field and add to targets_explored count
 			if (targets[i].z == 1) {
@@ -106,8 +97,8 @@ void drawInterface(float window_width, float window_height)
 		}
 
 		// Draw target
-		float x = static_cast<float>(targets[i].x);
-		float y = static_cast<float>(targets[i].y);
+		float x = (float)(targets[i].x);
+		float y = (float)(targets[i].y);
 		glBegin(GL_POLYGON);
 		glVertex3f(x, y, -0.1f);
 		glVertex3f(x + 1.0f, y, -0.1f);
@@ -120,21 +111,55 @@ void drawInterface(float window_width, float window_height)
 	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 	// Clear model and projection matricies to draw interface
 	glResetModelAndProjection();
+	// Set fill mode for polygons
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
-	// Draw time remaining and targets found labels/information
+	// Draw time remining info
 	stringstream ss;
+	// Time remaining
 	ss << "Time remaining:\n";
-	ss << static_cast<int>(static_cast<float>(p.step_limit - step_num) / 60.0f);
+	ss << (int)((float)(p.step_limit - step_num) / 60.0f);
 	ss << " seconds";
 	drawText(-0.98f, -0.7f, (char*)ss.str().c_str(), 0.8f, 0.8f, 0.8f);
-	drawText(-0.98f, 0.9f, "Target information:", 0.8f, 0.8f, 0.8f);
+	
+	// Draw user trust info
+	drawText(0.715f, 0.9f, "Trust Level:", 0.8f, 0.8f, 0.8f);
+	ss.str("");
+	int user_trust_int = (int)(data.user_trust * 10.0f);
+	ss << user_trust_int;
+	float x_pos;
+	// Switch position of text value of trust level based on number of digits
+	if (user_trust_int < 0 && user_trust_int > -10) {
+		x_pos = 0.895f;
+	}
+	else if (user_trust_int == 10) {
+		x_pos = 0.9055f;
+	}
+	else if (user_trust_int == -10) {
+		x_pos = 0.871f;
+	}
+	else {
+		x_pos = 0.93f;
+	}
+	drawText(x_pos, 0.8f, (char*)ss.str().c_str(), 0.8f, 0.8f, 0.8f);
 
+	// Draw target info
+	drawText(-0.98f, 0.9f, "Target information:", 0.8f, 0.8f, 0.8f);
 	// Draw visualization graph or display number of targets found depending
 	// on parameter setting
 	if (p.show_info_graph) {
-		// TODO: Show target information graph here
+		// Draw running graph of targets found
+		glBegin(GL_POLYGON);
+		glVertex3f(-0.98f, 0.8f, 0.0f);
+		glVertex3f(-0.50f, 0.8f, 0.0f);
+		glVertex3f(-0.50f, 0.3f, 0.0f);
+		glVertex3f(-0.98f, 0.3f, 0.0f);
+		glEnd();
+		// Get width of bar for each step
+		float bar_width = 0.48f / (float)(p.step_limit);
 	}
 	else {
+		// Draw targets seen/found in text form
 		ss.str("");
 		ss << data.targets_explored << " confirmed\n";
 		ss << data.targets_seen << " sighted";
@@ -143,9 +168,8 @@ void drawInterface(float window_width, float window_height)
 
 	// Draw progress bar for time remaining
 	glLineWidth(1.0f);
-	float bar_x_end = -0.98f + (0.48f * (static_cast<float>(step_num) /
-		static_cast<float>(p.step_limit)));
-	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	float bar_x_end = -0.98f + (0.48f * ((float)(step_num) /
+		(float)(p.step_limit)));
 	// Outline
 	glBegin(GL_POLYGON);
 	glVertex3f(-0.98f, -0.82f, 0.0f);
@@ -163,25 +187,25 @@ void drawInterface(float window_width, float window_height)
 	glEnd();
 
 	// Draw trust bar
-	float bar_y_end = -0.14f + (0.8f * user_trust);
+	float bar_y_end = -0.12f + (0.83f * data.user_trust);
 	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	// Outline
 	glBegin(GL_POLYGON);
-	glVertex3f(0.94f, -0.94f, 0.0f);
-	glVertex3f(0.94f, 0.66f, 0.0f);
-	glVertex3f(0.84f, 0.66f, 0.0f);
-	glVertex3f(0.84f, -0.94f, 0.0f);
+	glVertex3f(0.96f, -0.95f, 0.0f);
+	glVertex3f(0.96f, 0.71f, 0.0f);
+	glVertex3f(0.84f, 0.71f, 0.0f);
+	glVertex3f(0.84f, -0.95f, 0.0f);
 	glEnd();
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	// Filling
 	// Set color of trust bar based on trust being positive or negative
-	(user_trust < 0.0f) ? glColor4f(0.8f, 0.0f, 0.0f, 1.0f) :
+	(data.user_trust < 0.0f) ? glColor4f(0.8f, 0.0f, 0.0f, 1.0f) :
 		glColor4f(0.0f, 0.8f, 0.0f, 1.0f);
 	glBegin(GL_POLYGON);
-	glVertex3f(0.94f, -0.14f, 0.0f);
-	glVertex3f(0.94f, bar_y_end, 0.0f);
+	glVertex3f(0.96f, -0.12f, 0.0f);
+	glVertex3f(0.96f, bar_y_end, 0.0f);
 	glVertex3f(0.84f, bar_y_end, 0.0f);
-	glVertex3f(0.84f, -0.14f, 0.0f);
+	glVertex3f(0.84f, -0.12f, 0.0f);
 	glEnd();
 
 	// Set color to cyan for user inputs
@@ -189,10 +213,8 @@ void drawInterface(float window_width, float window_height)
 	glLineWidth(2.0f);
 
 	// Convert user-drawn line from screen to world coordinates
-	float3 screen_start_point = make_float3(mouse_start_x, mouse_start_y, 
-		translate_z0);
-	float3 screen_last_point = make_float3(mouse_last_x, mouse_last_y, 
-		translate_z0);
+	float3 screen_start_point = make_float3(mouse_start_x, mouse_start_y, translate_z0);
+	float3 screen_last_point = make_float3(mouse_last_x, mouse_last_y, translate_z0);
 	float3 world_start_point = make_float3(0.0f, 0.0f, 0.0f);
 	float3 world_last_point = make_float3(0.0f, 0.0f, 0.0f);
 	screenToWorld(screen_start_point, &world_start_point);
@@ -207,7 +229,7 @@ void drawInterface(float window_width, float window_height)
 void drawEllipse(float cx, float cy, float w, float h, bool fill)
 {
 	// Variables for incremental lines
-	float theta = 2.0f * static_cast<float>(PI) / 100.0f;
+	float theta = 2.0f * (float)(PI) / 100.0f;
 	float c = cosf(theta);
 	float s = sinf(theta);
 	float t;
@@ -215,8 +237,7 @@ void drawEllipse(float cx, float cy, float w, float h, bool fill)
 	float y = 0.0f;
 
 	// Set to filled or wire frame depending on fill parameter
-	(fill) ? glPolygonMode(GL_FRONT_AND_BACK, GL_FILL) : 
-		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	(fill) ? glPolygonMode(GL_FRONT_AND_BACK, GL_FILL) : glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
 	// Draw the ellipse
 	glBegin(GL_POLYGON);
@@ -358,8 +379,8 @@ void mouse(int button, int state, int x, int y)
 			if (mb == 0) {
 				// Left mb means trusted command; right mb is untrusted
 				//(mb == 0) ? command_trust = 1 : command_trust = 2;
-				mouse_start_x = static_cast<float>(x);
-				mouse_start_y = static_cast<float>(y);
+				mouse_start_x = (float)(x);
+				mouse_start_y = (float)(y);
 				mouse_last_x = mouse_start_x;
 				mouse_last_y = mouse_start_y;
 			}
@@ -376,12 +397,12 @@ void mouse(int button, int state, int x, int y)
 			}
 		}
 		if (mb == 3) {		// Scroll wheel forward to increase trust
-			user_trust += 0.05f;
-			user_trust = min(user_trust, 1.0f);
+			data.user_trust += 0.05f;
+			data.user_trust = fminf(data.user_trust, 1.0f);
 		}
 		else if (mb == 4) {		// Scroll wheel backward to decrease trust
-			user_trust -= 0.05f;
-			user_trust = max(user_trust, -1.0f);
+			data.user_trust -= 0.05f;
+			data.user_trust = fmaxf(data.user_trust, -1.0f);
 		}
 	}
 	else if (state == GLUT_UP && mb == button) {	// If the button is released
@@ -398,11 +419,9 @@ void mouse(int button, int state, int x, int y)
 				command_trust = 0;
 				
 				// Get the goal direction in radians
-				goal_heading = atan2f(static_cast<float>(y)-mouse_start_y,
-					static_cast<float>(x)-mouse_start_x);
+				goal_heading = atan2f((float)(y)-mouse_start_y, (float)(x)-mouse_start_x);
 				// Transform this into a 2D unit vector (float3, but z not used)
-				goal_vector = make_float3(cosf(goal_heading),
-					-sinf(goal_heading), 0.0f);
+				goal_vector = make_float3(cosf(goal_heading), -sinf(goal_heading), 0.0f);
 
 				// Clear the user-drawn line data points
 				mouse_start_x = 0;
@@ -412,12 +431,12 @@ void mouse(int button, int state, int x, int y)
 			}
 		}
 		else if (mb == 5) { // Scroll wheel forward
-			user_trust += 0.05f;
-			user_trust = min(user_trust, 1.0f);
+			data.user_trust += 0.05f;
+			data.user_trust = fminf(data.user_trust, 1.0f);
 		}
 		else if (mb == 6) { // Scroll wheel backward
-			user_trust -= 0.05f;
-			user_trust = max(user_trust, -1.0f);
+			data.user_trust -= 0.05f;
+			data.user_trust = fmaxf(data.user_trust, -1.0f);
 		}
 
 		// If mouse_up event cause by scrolling while left mouse is down, reset 
@@ -436,8 +455,8 @@ void motion(int x, int y)
 	// Draw the user heading line if the primary button is down and simulation 
 	// is not paused
 	if ((mb == 0) && !paused) {
-		mouse_last_x = static_cast<float>(x);
-		mouse_last_y = static_cast<float>(y);
+		mouse_last_x = (float)(x);
+		mouse_last_y = (float)(y);
 	}
 }
 
@@ -492,13 +511,12 @@ void initGL(int argc, char **argv)
 #ifdef _WIN32
 	// Get the handle for the current window
 	HWND win_handle = FindWindow(0, "CUDA Swarm Simulation");
-	if (!win_handle)
-	{
+	if (!win_handle) {
 		std::printf("!!! Failed FindWindow\n");
 	}
+
 	// Maximize the window for full screen simulation operation
-	SetWindowLong(win_handle, GWL_STYLE, (GetWindowLong(win_handle, GWL_STYLE) | 
-		WS_MAXIMIZE));
+	SetWindowLong(win_handle, GWL_STYLE, (GetWindowLong(win_handle, GWL_STYLE) | WS_MAXIMIZE));
 	ShowWindowAsync(win_handle, SW_SHOWMAXIMIZED);
 #endif
 
@@ -514,8 +532,7 @@ void initGL(int argc, char **argv)
 	// GLEW initialization
 	glewInit();
 	if (!glewIsSupported("GL_VERSION_2_0")) {
-		std::fprintf(stderr, 
-			"ERROR: Support for necessary OpenGL extensions missing.");
+		std::fprintf(stderr, "ERROR: Support for necessary OpenGL extensions missing.");
 		fflush(stderr);
 		exit(0);
 	}
@@ -567,21 +584,19 @@ static void display(void)
 	glViewport(0, 0, window_width, window_height);
 
 	// Set the environment background
-	(trust_verified) ? glClearColor(0.0f, 0.0f, 0.0f, 1.0f) :
-		glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
+	(trust_verified) ? glClearColor(0.0f, 0.0f, 0.0f, 1.0f) : glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
 
 	// Draw interface elements
-	drawInterface(static_cast<float>(window_width),
-		static_cast<float>(window_height));
+	drawInterface((float)(window_width),
+		(float)(window_height));
 
 	// Projection
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	gluPerspective(75.0, (GLfloat)window_width / (GLfloat)window_height,
-		0.001, 500.0);
+	gluPerspective(75.0, (GLfloat)window_width / (GLfloat)window_height, 0.001, 500.0);
 
 	// Change point size based on distance from camera
-	glPointSize(static_cast<float>(p.point_size));
+	glPointSize((float)(p.point_size));
 	glEnable(GL_POINT_SMOOTH);
 	float quadratic[] = {0.05f, 0.0f, 0.001f};
 	glPointParameterfvARB(GL_POINT_DISTANCE_ATTENUATION_ARB, quadratic);
@@ -631,9 +646,7 @@ static void display(void)
 			glLineWidth(2.0f);
 			glBegin(GL_LINES);
 			glVertex3f(positions[i].x, positions[i].y, 0.0f);
-			glVertex3f(positions[i].x + ((100.0f * velocities[i].x) / 
-				p.vel_bound), positions[i].y + ((100.0f * velocities[i].y) / 
-				p.vel_bound), 0.1f);
+			glVertex3f(positions[i].x + ((100.0f * velocities[i].x) / p.vel_bound), positions[i].y + ((100.0f * velocities[i].y) / p.vel_bound), 0.1f);
 			glEnd();
 		}
 
@@ -644,10 +657,7 @@ static void display(void)
 		if (p.show_connections) {
 			for (uint j = i + 1; j < p.num_robots; j++) {
 				if (laplacian[(i * p.num_robots) + j].x == -1) {
-					if (((p.show_leaders && modes[i] == 0) ||
-						(p.show_non_leaders && modes[i] != 0)) &&
-						((p.show_leaders && modes[j] == 0) ||
-						(p.show_non_leaders && modes[j] != 0))) {
+					if (((p.show_leaders && modes[i] == 0) || (p.show_non_leaders && modes[i] != 0)) && ((p.show_leaders && modes[j] == 0) || (p.show_non_leaders && modes[j] != 0))) {
 						glBegin(GL_LINES);
 						glVertex3f(positions[i].x, positions[i].y, 0.0f);
 						glVertex3f(positions[j].x, positions[j].y, 0.0f);
@@ -688,16 +698,15 @@ void screenToWorld(float3 screen, float3 *world)
 	glGetIntegerv(GL_VIEWPORT, viewport);
 
 	// Get screen coordinates
-	x_s = static_cast<double>(screen.x);
-	y_s = viewport[3] - static_cast<double>(screen.y) - 10.0;
-	z_s = static_cast<double>(screen.z);
+	x_s = (double)(screen.x);
+	y_s = viewport[3] - (double)(screen.y) - 10.0;
+	z_s = (double)(screen.z);
 
 	// Get world coordinates from screen coordinates
-	gluUnProject(x_s, y_s, z_s, modelview, projection, viewport, 
-		&x_w, &y_w, &z_w);
-	world->x = static_cast<float>(x_w);
-	world->y = static_cast<float>(y_w);
-	world->z = static_cast<float>(z_w);
+	gluUnProject(x_s, y_s, z_s, modelview, projection, viewport, &x_w, &y_w, &z_w);
+	world->x = (float)(x_w);
+	world->y = (float)(y_w);
+	world->z = (float)(z_w);
 }
 
 void worldToScreen(float3 world, float3 *screen)
@@ -716,14 +725,14 @@ void worldToScreen(float3 world, float3 *screen)
 	glGetIntegerv(GL_VIEWPORT, viewport);
 
 	// Get world coordinates
-	x_w = static_cast<double>(world.x);
-	y_w = static_cast<double>(world.y);
-	z_w = static_cast<double>(world.z);
+	x_w = (double)(world.x);
+	y_w = (double)(world.y);
+	z_w = (double)(world.z);
 
 	gluProject(x_w, y_w, z_w, modelview, projection, viewport, &x_s, &y_s, &z_s);
-	screen->x = static_cast<float>(x_s);
-	screen->y = static_cast<float>(y_s);
-	screen->z = 0.0f; //static_cast<float>(z_s);
+	screen->x = (float)(x_s);
+	screen->y = (float)(y_s);
+	screen->z = 0.0f; //(float)(z_s);
 }
 
 void resetCamera()
@@ -774,8 +783,7 @@ void loadParametersFromFile(std::string filename)
 		std::vector<std::string> tokens;
 
 		// Place the parameter and value into the token array
-		copy(std::istream_iterator<std::string>(iss),
-			std::istream_iterator<std::string>(), back_inserter(tokens));
+		copy(std::istream_iterator<std::string>(iss), std::istream_iterator<std::string>(), back_inserter(tokens));
 
 		// Ensure valid line before processing parameter
 		if (tokens.size() == 2) {
@@ -843,7 +851,7 @@ void processParam(std::vector<std::string> tokens)
 	else if (tokens[0] == "show_explored")
 		p.show_explored = (std::stoul(tokens[1]) != 0);
 	else if (tokens[0] == "show_info_graph")
-		p.show_explored = (std::stoul(tokens[1]) != 0);
+		p.show_info_graph = (std::stoul(tokens[1]) != 0);
 	else if (tokens[0] == "show_leaders")
 		p.show_leaders = (std::stoul(tokens[1]) != 0);
 	else if (tokens[0] == "show_range")
@@ -883,13 +891,11 @@ void generateWorld()
 			float4 obstacle = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
 
 			// Create width and height for the obstacle
-			obstacle.z = static_cast<float>(rand() % p.max_obstacle_size);
-			obstacle.w = static_cast<float>(rand() % p.max_obstacle_size);
+			obstacle.z = (float)(rand() % p.max_obstacle_size);
+			obstacle.w = (float)(rand() % p.max_obstacle_size);
 			// Create x, y position for top left corner of rectangular obstacle
-			obstacle.x = rand() % (p.world_size - static_cast<uint>(obstacle.z)) -
-				(p.world_size / 2.0f);
-			obstacle.y = rand() % (p.world_size - static_cast<uint>(obstacle.w)) -
-				(p.world_size / 2.0f);
+			obstacle.x = rand() % (p.world_size - (uint)(obstacle.z)) - (p.world_size / 2.0f);
+			obstacle.y = rand() % (p.world_size - (uint)(obstacle.w)) - (p.world_size / 2.0f);
 
 			// Ensure obstacle does not cover the start or goal areas and that 
 			// it is not too thin
@@ -915,8 +921,8 @@ void generateWorld()
 			int3 target = make_int3(0, 0, 0);
 			float x = rand() % (p.world_size) - (p.world_size / 2.0f);
 			float y = rand() % (p.world_size) - (p.world_size / 2.0f);
-			target.x = static_cast<int>(x);
-			target.y = static_cast<int>(y);
+			target.x = (int)(x);
+			target.y = (int)(y);
 
 			// Ensure this target is not within an obstacle
 			if (!checkCollision(x, y)) {
@@ -932,12 +938,12 @@ void generateWorld()
 void calculateOccupancyGrid()
 {
 	// Iterate through each cell of the occupancy grid to calculate its value
-	float ws_10 = static_cast<float>(p.world_size) * 10.0f;
-	uint len = static_cast<uint>(ws_10 * ws_10);
+	float ws_10 = (float)(p.world_size) * 10.0f;
+	uint len = (uint)(ws_10 * ws_10);
 	for (uint i = 0; i < len; i++) {
 		// Get the x and y coordinates for this cell
-		float x = ((i % static_cast<int>(ws_10)) / 10.0f) - ws_2;
-		float y = (floorf(static_cast<float>(i) / ws_10) / 10.0f) - ws_2;
+		float x = ((i % (int)(ws_10)) / 10.0f) - ws_2;
+		float y = (floorf((float)(i) / ws_10) / 10.0f) - ws_2;
 		occupancy[i] = checkCollision(x, y);
 	}
 }
@@ -947,8 +953,7 @@ bool checkCollision(float x, float y)
 	for (uint i = 0; i < p.num_obstacles; i++) {
 		// Collision occurs if the point to check is within an obstacle or outside 
 		// the world boundaries
-		if (x >= obstacles[i].x && x < obstacles[i].x + obstacles[i].z &&
-			y > obstacles[i].y && y < obstacles[i].y + obstacles[i].w) {
+		if (x >= obstacles[i].x && x < obstacles[i].x + obstacles[i].z && y > obstacles[i].y && y < obstacles[i].y + obstacles[i].w) {
 			return true;
 		}
 	}
@@ -973,11 +978,10 @@ void updateExplored()
 	// Update explored grid values
 	for (uint i = 0; i < p.world_size * p.world_size; i++) {
 		// Skip cells that are fully explored
-		if (abs(explored_grid[i]) < static_cast<int>(p.max_explore)) {
+		if (abs(explored_grid[i]) < (int)(p.max_explore)) {
 			// Get the world coordinates for this iteration
-			float world_x = -world_size_2 + 
-				static_cast<float>(floor(i / p.world_size));
-			float world_y = -world_size_2 + static_cast<float>(i % p.world_size);
+			float world_x = -world_size_2 + (float)(floor(i / p.world_size));
+			float world_y = -world_size_2 + (float)(i % p.world_size);
 
 			// Only do the following if cell is within range of the swarm bounds
 			// and if not paused
@@ -987,8 +991,7 @@ void updateExplored()
 				(world_y < data.bounds.w + p.range) && !paused) {
 				// Check each robot to see if it is within range of this cell
 				for (uint n = 0; n < p.num_robots; n++) {
-					if (eucl2(world_x + 0.5f, world_y + 0.5f,
-						positions[n].x, positions[n].y) <= p.range) {
+					if (eucl2(world_x + 0.5f, world_y + 0.5f, positions[n].x, positions[n].y) <= p.range) {
 						// Increment/decrement based on whether cell is obstacle
 						if (explored_grid[i] >= 0) {
 							explored_grid[i]++;
@@ -1001,12 +1004,10 @@ void updateExplored()
 
 				// Restrict the absolute value of explored value to p.max_explore
 				if (explored_grid[i] > 0) {
-					explored_grid[i] = min(explored_grid[i],
-						static_cast<int>(p.max_explore));
+					explored_grid[i] = min(explored_grid[i], (int)(p.max_explore));
 				}
 				else {
-					explored_grid[i] = max(explored_grid[i],
-						static_cast<int>(p.max_explore) * -1);
+					explored_grid[i] = max(explored_grid[i], (int)(p.max_explore) * -1);
 				}
 			}
 		}
@@ -1084,32 +1085,28 @@ static void step(int value)
 			}
 			
 			// Process data of initial state
-			processData(positions, velocities, explored_grid, targets, laplacian, 
-				ap, &data, p);
+			processData(positions, velocities, explored_grid, targets, laplacian, ap, &data, p);
 
 			// Indicates inital state has passed
 			initial_passed = true;
 		}
 
 		// Launch the main kernel to perform one simulation step
-		launchMainKernel(goal_vector, goal_point, step_num, leaders, ap, p, 
-			&cuda_vbo_resource);
+		launchMainKernel(goal_vector, goal_point, step_num, leaders, ap, p, &cuda_vbo_resource);
 
 		// Retrieve data from GPU (kernels.cu)
 		getData(p.num_robots, positions, velocities, modes);
 		// Update explored grid
 		updateExplored();
 		// Get data variables (data_ops.h)
-		processData(positions, velocities, explored_grid, targets, laplacian, ap, 
-			&data, p);
+		processData(positions, velocities, explored_grid, targets, laplacian, ap, &data, p);
 
 		// Update leader list (Very inefficient now, should compute at the same 
 		// time as convex hull)
 		for (uint i = 0; i < p.num_robots; i++) {
 			bool is_in_ch = false;
 			for (uint j = 0; j < data.ch.size(); j++) {
-				if (positions[i].x == data.ch[j].x &&
-					positions[i].y == data.ch[j].y) {
+				if (positions[i].x == data.ch[j].x && positions[i].y == data.ch[j].y) {
 					is_in_ch = true;
 					break;
 				}
@@ -1119,13 +1116,12 @@ static void step(int value)
 
 		if (p.log_data) {
 			// Write data to the output log at the end of every step
-			std::fprintf(output_f, "step %d %d %f %f %f %f %f ", step_num, 
-				p.behavior, -goal_heading, p.vel_bound, data.heading_avg, 
-				data.heading_var, data.centroid.x);
-			std::fprintf(output_f, "%f %f %f %d %f\n", data.centroid.y, 
-				data.ch_area, data.connectivity, data.explored, user_trust);
+			std::fprintf(output_f, "step %d %d %f %f %f %f %f %f %f %f %d %f\n", step_num, p.behavior, -goal_heading, p.vel_bound, data.heading_avg, data.heading_var, data.centroid.x, data.centroid.y, data.ch_area, data.connectivity, data.explored, data.user_trust);
 		}
 
+		// Increment the targets counter
+		targets_by_step[step_num].x = data.targets_seen;
+		targets_by_step[step_num].y = data.targets_explored;
 		// Increment the simulation step counter
 		step_num++;
 	}
@@ -1138,7 +1134,7 @@ static void step(int value)
 int main(int argc, char** argv)
 {
 	// Reseed RNG
-	srand(static_cast<uint>(time(NULL)));
+	srand((uint)(time(NULL)));
 
 	///// PARAMETERS /////
 	// If not in playback mode, load the parameters from file, given as first 
@@ -1150,7 +1146,7 @@ int main(int argc, char** argv)
 	paused = true;
 	
 	// Half the world size
-	ws_2 = static_cast<float>(p.world_size) / 2.0f;
+	ws_2 = (float)(p.world_size) / 2.0f;
 	// Open new data file for this trial
 	output_fname << argv[2];
 
@@ -1158,6 +1154,7 @@ int main(int argc, char** argv)
 	explored_grid = (int*)malloc(p.world_size * p.world_size * sizeof(int));
 	ap = (bool*)malloc(p.num_robots * sizeof(bool));
 	targets = (int3*)malloc(p.targets * sizeof(int3));
+	targets_by_step = (int2*)malloc(p.step_limit * sizeof(int2));
 	occupancy = (bool*)malloc(p.world_size * 10 * p.world_size * 10 * 
 		sizeof(bool));
 	// Initialize pinned host memory for data arrays
@@ -1178,8 +1175,7 @@ int main(int argc, char** argv)
 	// Initialize OpenGL
 	initGL(argc, argv);
 	// Create vertex buffer object (VBO)
-	createVBO(&vbo_swarm, &cuda_vbo_resource,
-		cudaGraphicsMapFlagsWriteDiscard);
+	createVBO(&vbo_swarm, &cuda_vbo_resource, cudaGraphicsMapFlagsWriteDiscard);
 	// Set camera to default settings
 	resetCamera();
 
@@ -1199,9 +1195,8 @@ int main(int argc, char** argv)
 	// Create the explored grid
 	for (uint i = 0; i < p.world_size * p.world_size; i++) {
 		// Get the coordinates of the grid cell
-		float y = static_cast<float>(i % p.world_size) - ws_2;
-		float x = floorf(static_cast<float>(i) / 
-			static_cast<float>(p.world_size)) - ws_2;
+		float y = (float)(i % p.world_size) - ws_2;
+		float x = floorf((float)(i) / (float)(p.world_size)) - ws_2;
 
 		// Initialize cell to -1 if it is covered by an obstacle; 0 otherwise
 		(checkCollision(x, y)) ? explored_grid[i] = -1 : explored_grid[i] = 0;
