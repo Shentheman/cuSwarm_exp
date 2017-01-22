@@ -58,7 +58,7 @@ show_non_leaders 1
 	# Size of the starting space (robot spawn and obstacle-free)
 start_size 10.0
 	# Number of steps before simulation automatically closes (60 steps/sec during) GUI mode
-step_limit 54000
+step_limit 36000
 	# Number of targets in the environment
 targets 100
 	# Training mode

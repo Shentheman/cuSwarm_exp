@@ -145,8 +145,7 @@ void drawInterface(float window_width, float window_height)
 
 	// Draw target info
 	drawText(-0.98f, 0.9f, "Target information:", 0.8f, 0.8f, 0.8f);
-	// Draw visualization graph or display number of targets found depending
-	// on parameter setting
+	// Draw visualization graph or display number of targets seen and found depending on parameter setting
 	if (p.show_info_graph) {
 		// Draw running graph of targets found
 		glBegin(GL_POLYGON);
@@ -155,8 +154,39 @@ void drawInterface(float window_width, float window_height)
 		glVertex3f(-0.50f, 0.3f, 0.0f);
 		glVertex3f(-0.98f, 0.3f, 0.0f);
 		glEnd();
+
+		// Set to fill in bars of each step
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
 		// Get width of bar for each step
 		float bar_width = 0.48f / (float)(p.step_limit);
+		// Draw a bar for each step
+		for (uint i = 0; i < step_num; i++) {
+			float x_start = -0.98f + (i * bar_width);
+			float x_end = x_start + bar_width;
+			float y_start_found = 0.3f;
+			float y_end_found = 0.3f + (0.5f * ((float)targets_by_step[i].y / (float)p.targets));
+			float y_start_seen = y_end_found;
+			float y_end_seen = 0.3f + (0.5f * ((float)targets_by_step[i].x / (float)p.targets));
+			// Set color to purple and draw the targets seen
+			glColor4f(0.6f, 0.0f, 0.6f, 1.0f);
+			glBegin(GL_POLYGON);
+			glVertex3f(x_start, y_start_seen, 0.0f);
+			glVertex3f(x_end, y_start_seen, 0.0f);
+			glVertex3f(x_end, y_end_seen, 0.0f);
+			glVertex3f(x_start, y_end_seen, 0.0f);
+			glEnd();
+			// Set color to green and draw the targets found
+			glColor4f(0.25f, 0.8f, 0.25f, 1.0f);
+			glBegin(GL_POLYGON);
+			glVertex3f(x_start, y_start_found, 0.1f);
+			glVertex3f(x_end, y_start_found, 0.1f);
+			glVertex3f(x_end, y_end_found, 0.1f);
+			glVertex3f(x_start, y_end_found, 0.1f);
+			glEnd();
+			drawText(-0.98f, 0.2f, "Targets seen", 0.6f, 0.0f, 0.6f);
+			drawText(-0.98f, 0.1f, "Targets found", 0.25f, 0.8f, 0.25f);
+		}
 	}
 	else {
 		// Draw targets seen/found in text form
@@ -165,6 +195,11 @@ void drawInterface(float window_width, float window_height)
 		ss << data.targets_seen << " sighted";
 		drawText(-0.98f, 0.8f, (char*)ss.str().c_str(), 0.8f, 0.8f, 0.8f);
 	}
+
+	// Set to fill in bars of each step
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	// Set color to gray
+	glColor4f(1.0f, 1.0f, 1.0f, 0.75f);
 
 	// Draw progress bar for time remaining
 	glLineWidth(1.0f);
