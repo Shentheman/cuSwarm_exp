@@ -44,9 +44,7 @@ bool* ap;								// Articulation pts (min vertex cut set)
 float4* obstacles;						// List of obstacles in the environment
 										// (top_left_x, top_left_y, w, h)
 int3* targets;							// List of targets in the environment
-										// (x, y, found[0 or 1])
-int2* targets_by_step;					// Cumulative number of targets seen (.x) and found (.y) 
-										// at each simulation step
+										// (x, y, unseen(0) seen(1) or found(2))
 bool* occupancy;						// Occupancy grid for the environment
 Data data;								// Data object (see data_ops.cpp for data calculations)
 
@@ -54,6 +52,11 @@ Data data;								// Data object (see data_ops.cpp for data calculations)
 int command_trust = 0;					// Current command to change goal (1) or due to lack of
 										// trust (2); 0 indicates no current command
 bool trust_verified = true;				// If user has verified their trust level
+
+// Datas for drawing information graphs
+int* targets_by_second;					// Targets found during each second
+float* heading_var_by_second;			// Heading variance at each second
+float* area_by_second;					// Swarm area covered at each second
 
 // GUI variables
 float mouse_start_x, mouse_start_y, mouse_last_x, mouse_last_y;

@@ -34,6 +34,7 @@ struct Data
 	vector<Point> ch;
 	float ch_area;
 	int explored;
+	int explored_this_step;
 	int targets_explored;
 	int targets_seen;
 	int goals_reached;

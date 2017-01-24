@@ -8,8 +8,10 @@ void drawInterface(float window_width, float window_height)
 {
 	// Draw edge only polygons (wire frame)
 	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-	glLineWidth(2.0f);
+	glLineWidth(3.0f);
+
+	// Color world boundaries based on whether the simulation is paused
+	(paused) ? glColor4f(1.0f, 0.0f, 0.0f, 1.0f) : glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 
 	// Draw world boundaries
 	float world_size_2 = p.world_size / 2.0f;
@@ -69,29 +71,31 @@ void drawInterface(float window_width, float window_height)
 		// Get the explored grid index that this target corresponds to
 		uint exp_ind = (uint)(((targets[i].x + ws_2) * p.world_size) + (targets[i].y + ws_2));
 
-		// Set the target color based on explored value
-		float target_color;
+		// Saturate the target color based on explored value
+		float saturation;
 		// Target must be seen at least once to show
-		(explored_grid[exp_ind] == 0) ? target_color = 0.0f : target_color = fabsf(0.25f + (0.75f * ((float)(explored_grid[exp_ind]) / p.max_explore)));
+		(explored_grid[exp_ind] == 0) ? saturation = 0.0f : saturation = fabsf(0.25f + (0.75f * ((float)(explored_grid[exp_ind]) / p.max_explore)));
 
 		// Change target color based on whether fully explored
-		if (target_color < 1.0f) {
+		if (saturation < 1.0f) {
 			// Purple (not fully explored)
-			glColor4f(0.6f * target_color, 0.0f * target_color, 0.6f * target_color, 1.0f);
+			glColor4f(0.6f * saturation, 0.1f * saturation, 0.6f * saturation, 1.0f);
 			// If first time target is seen, indicate so in target data field, 
 			// and add to targets_seen count
-			if (target_color > 0.0f && targets[i].z == 0) {
+			if (saturation > 0.0f && targets[i].z == 0) {
 				targets[i].z = 1;
 				data.targets_seen++;
 			}
 		}
 		else {
 			// Green (fully explored)
-			glColor4f(0.25f * target_color, 0.8f * target_color, 0.25f * target_color, 1.0f);
+			glColor4f(0.1f * saturation, 0.8f * saturation, 0.1f * saturation, 1.0f);
 			// If first time reaching fully explored status, indicate so in data
 			// field and add to targets_explored count
 			if (targets[i].z == 1) {
 				targets[i].z = 2;
+				int second = (int)((float)step_num / 60.0f);
+				targets_by_second[second]++;
 				data.targets_explored++;
 			}
 		}
@@ -145,7 +149,7 @@ void drawInterface(float window_width, float window_height)
 
 	// Draw target info
 	drawText(-0.98f, 0.9f, "Target information:", 0.8f, 0.8f, 0.8f);
-	// Draw visualization graph or display number of targets seen and found depending on parameter setting
+	// Draw either text or visualization of performance (targets found) and swarm state properties (variance and area covered) based on parameter set
 	if (p.show_info_graph) {
 		// Draw running graph of targets found
 		glBegin(GL_POLYGON);
@@ -155,38 +159,71 @@ void drawInterface(float window_width, float window_height)
 		glVertex3f(-0.98f, 0.3f, 0.0f);
 		glEnd();
 
-		// Set to fill in bars of each step
-		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		// Get width of one second on the graph
+		float width = 0.48f / 60.0f;
+		// Get the number of seconds passed in simulation
+		uint seconds = (uint)((float)step_num / 60.0f);
 
-		// Get width of bar for each step
-		float bar_width = 0.48f / (float)(p.step_limit);
-		// Draw a bar for each step
-		for (uint i = 0; i < step_num; i++) {
-			float x_start = -0.98f + (i * bar_width);
-			float x_end = x_start + bar_width;
-			float y_start_found = 0.3f;
-			float y_end_found = 0.3f + (0.5f * ((float)targets_by_step[i].y / (float)p.targets));
-			float y_start_seen = y_end_found;
-			float y_end_seen = 0.3f + (0.5f * ((float)targets_by_step[i].x / (float)p.targets));
-			// Set color to purple and draw the targets seen
-			glColor4f(0.6f, 0.0f, 0.6f, 1.0f);
-			glBegin(GL_POLYGON);
-			glVertex3f(x_start, y_start_seen, 0.0f);
-			glVertex3f(x_end, y_start_seen, 0.0f);
-			glVertex3f(x_end, y_end_seen, 0.0f);
-			glVertex3f(x_start, y_end_seen, 0.0f);
-			glEnd();
-			// Set color to green and draw the targets found
-			glColor4f(0.25f, 0.8f, 0.25f, 1.0f);
-			glBegin(GL_POLYGON);
-			glVertex3f(x_start, y_start_found, 0.1f);
-			glVertex3f(x_end, y_start_found, 0.1f);
-			glVertex3f(x_end, y_end_found, 0.1f);
-			glVertex3f(x_start, y_end_found, 0.1f);
-			glEnd();
-			drawText(-0.98f, 0.2f, "Targets seen", 0.6f, 0.0f, 0.6f);
-			drawText(-0.98f, 0.1f, "Targets found", 0.25f, 0.8f, 0.25f);
+		// Draw a line graph of the number of targets, heading variance, and area covered
+		if (step_num > 0) {
+			// Because the graph only shows the last 60 seconds, i is initialized to max(seconds - 60, 0)
+			// We also separately keep track of i starting value for determining x coordinate
+			uint i = 1, start;
+			if (seconds > 60) {
+				i = seconds - 60;
+			}
+			start = i;
+			for (i; i < seconds; i++) {
+				// x coordinate of graph point (same for all variables)
+				float x_start = -0.98f + ((i - start - 1) * width);
+				float x_end = x_start + width;
+
+				// y coordinates for target point
+				float y_start_target = 0.3f;
+				float y_end_target = 0.3f + (0.5f * ((float)targets_by_second[i] / 10.0f));
+
+				// y coordinate for heading variance (max of 60)
+				float y_start_heading = 0.3f + (0.5f * fminf(heading_var_by_second[i - 1] / 60.0f, 1.0f));
+				float y_end_heading = 0.3f + (0.5f * fminf(heading_var_by_second[i] / 60.0f, 1.0f));
+
+				// y coordinate for swarm area
+				float y_start_area = 0.3f + (0.5f * fminf(area_by_second[i - 1] / 1500.0f, 1.0f));
+				float y_end_area = 0.3f + (0.5f * fminf(area_by_second[i] / 1500.0f, 1.0f));
+
+				// Set color to dark green and draw the targets seen
+				glColor4f(0.1f, 0.6f, 0.1f, 1.0f);
+				glBegin(GL_LINES);
+				glVertex3f(x_start, y_start_target, 0.0f);	// Don't use x_start here because we
+				glVertex3f(x_start, y_end_target, 0.0f);		// just want a vertical line with
+				glEnd();									// height = to targets that second
+
+				// Set color to orange and draw the heading variance
+				glColor4f(0.8f, 0.3f, 0.1f, 1.0f);
+				glBegin(GL_LINES);
+				glVertex3f(x_start, y_start_heading, 0.0f);
+				glVertex3f(x_end, y_end_heading, 0.0f);
+				glEnd();
+
+				// Set color to yellow and draw the targets seen
+				glColor4f(0.7f, 0.7f, 0.0f, 1.0f);
+				glBegin(GL_LINES);
+				glVertex3f(x_start, y_start_area, 0.0f);
+				glVertex3f(x_end, y_end_area, 0.0f);
+				glEnd();
+			}
 		}
+
+		// Traw textual information of targets
+		ss.str("");
+		ss << "Targets found: " << data.targets_explored;
+		drawText(-0.98f, 0.2f, (char*)ss.str().c_str(), 0.1f, 0.8f, 0.1f);
+		ss.str("");
+		printf("%i\n", seconds);
+		ss << "Heading variance: " << (int)(heading_var_by_second[seconds] * 10);
+		drawText(-0.98f, 0.1f, (char*)ss.str().c_str(), 0.8f, 0.3f, 0.1f);
+		ss.str("");
+		ss << "Swarm size: " << (int)area_by_second[seconds];
+		drawText(-0.98f, 0.0f, (char*)ss.str().c_str(), 0.7f, 0.7f, 0.0f);
 	}
 	else {
 		// Draw targets seen/found in text form
@@ -618,9 +655,6 @@ static void display(void)
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glViewport(0, 0, window_width, window_height);
 
-	// Set the environment background
-	(trust_verified) ? glClearColor(0.0f, 0.0f, 0.0f, 1.0f) : glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
-
 	// Draw interface elements
 	drawInterface((float)(window_width),
 		(float)(window_height));
@@ -658,8 +692,9 @@ static void display(void)
 	glDepthMask(GL_TRUE);
 
 	// Transparency
-	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	//glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+	glEnable(GL_BLEND);
 
 	// Draw agents from vbo
 	glBindBuffer(GL_ARRAY_BUFFER, vbo_swarm);
@@ -1010,6 +1045,9 @@ void updateExplored()
 	// Variables to used in explored grid cell updates
 	float world_size_2 = p.world_size / 2.0f;
 
+	// Clear the value for data.explored_this_step
+	data.explored_this_step = 0;
+
 	// Update explored grid values
 	for (uint i = 0; i < p.world_size * p.world_size; i++) {
 		// Skip cells that are fully explored
@@ -1034,6 +1072,9 @@ void updateExplored()
 						else {
 							explored_grid[i]--;
 						}
+
+						// Update the area explored this step
+						data.explored_this_step++;
 					}
 				}
 
@@ -1118,6 +1159,9 @@ static void step(int value)
 				fopen_s(&output_f, output_fname.str().c_str(), "w");
 				printDataHeader();
 			}
+
+			// Start timer function to ask for trust feedback every 30s
+			glutTimerFunc(30000, promptTrust, 0);
 			
 			// Process data of initial state
 			processData(positions, velocities, explored_grid, targets, laplacian, ap, &data, p);
@@ -1155,8 +1199,12 @@ static void step(int value)
 		}
 
 		// Increment the targets counter
-		targets_by_step[step_num].x = data.targets_seen;
-		targets_by_step[step_num].y = data.targets_explored;
+		if (step_num % 60 == 0 && step_num != 0) {
+			int ind = (int)((float)step_num / 60.0f);
+			heading_var_by_second[ind] = data.heading_var;
+			area_by_second[ind] = data.ch_area;
+		}
+		
 		// Increment the simulation step counter
 		step_num++;
 	}
@@ -1189,7 +1237,12 @@ int main(int argc, char** argv)
 	explored_grid = (int*)malloc(p.world_size * p.world_size * sizeof(int));
 	ap = (bool*)malloc(p.num_robots * sizeof(bool));
 	targets = (int3*)malloc(p.targets * sizeof(int3));
-	targets_by_step = (int2*)malloc(p.step_limit * sizeof(int2));
+	targets_by_second = (int*)malloc((int)((float)p.step_limit / 60.0f) * sizeof(int));
+	memset(targets_by_second, 0, (int)((float)p.step_limit / 60.0f) * sizeof(int));
+	heading_var_by_second = (float*)malloc((int)((float)p.step_limit / 60.0f) * sizeof(float));
+	memset(heading_var_by_second, 0, (int)((float)p.step_limit / 60.0f) * sizeof(float));
+	area_by_second = (float*)malloc((int)((float)p.step_limit / 60.0f) * sizeof(float));
+	memset(area_by_second, 0, (int)((float)p.step_limit / 60.0f) * sizeof(float));
 	occupancy = (bool*)malloc(p.world_size * 10 * p.world_size * 10 * 
 		sizeof(bool));
 	// Initialize pinned host memory for data arrays
