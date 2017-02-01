@@ -178,7 +178,7 @@ void processData(float4* positions, float3* velocities, int* explored_grid, int3
 
 	getLaplacian(p.num_robots, laplacian);
 	articulationPoints(p.num_robots, laplacian, ap, 1);
-	data->connectivity = 0.0f;// connectivity(p.num_robots, laplacian, 1);
+	data->connectivity = connectivity(p.num_robots, laplacian, 1);
 }
 
 /*********************************
