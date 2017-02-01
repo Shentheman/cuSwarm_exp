@@ -39,7 +39,7 @@ struct Data
 	int targets_seen;
 	int goals_reached;
 	float connectivity;
-	float user_trust;
+	int user_trust;
 };
 
 /**********************

@@ -45,6 +45,8 @@ float4* obstacles;						// List of obstacles in the environment
 										// (top_left_x, top_left_y, w, h)
 int3* targets;							// List of targets in the environment
 										// (x, y, unseen(0) seen(1) or found(2))
+uint2* failures;							// Simulation step points for start/end of failures
+uint minutes;							// Number of simulation minutes
 bool* occupancy;						// Occupancy grid for the environment
 Data data;								// Data object (see data_ops.cpp for data calculations)
 

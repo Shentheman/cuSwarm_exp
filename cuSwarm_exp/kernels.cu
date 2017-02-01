@@ -254,8 +254,7 @@ __global__ void side_kernel(float4* pos, int* mode, int* leaders, curandState* r
 
 	// Do not perform any leader calculation if a noise robot, or in a non-update 
 	// step
-	if (mode[i] != -1 &&
-		((sn + i) % p.update_period == 0 || sn == 0)) {
+	if (mode[i] != -1) {
 
 		// Perform either RCC or CH leader assignment, depending on parameter
 		if (p.leader_selection == 0) {
@@ -277,7 +276,7 @@ __global__ void side_kernel(float4* pos, int* mode, int* leaders, curandState* r
 				if (mode[i] > 0) {
 					new_mode = 0;
 					new_nearest_leader = i;
-					// Assign as a leader for 3 seconds
+					// Assign as a leader for 5 seconds
 					leader_countdown[i] = 360;
 				}
 			}
@@ -445,6 +444,7 @@ __global__ void main_kernel(float4* pos, float3* vel, int* mode, float3 goal_hea
 					// Calculate the distance between the two robots on all axes
 					float dist_x = s_pos[ti].x - myPos.x;
 					float dist_y = s_pos[ti].y - myPos.y;
+
 					// Calculate the Euclidean distance between the two robots
 					float dist = euclidean(make_float2(dist_x, dist_y));
 
@@ -538,10 +538,9 @@ __global__ void main_kernel(float4* pos, float3* vel, int* mode, float3 goal_hea
 	// Set the color based on current mode
 	Color color;
 	setColor(&(color.components), myMode, ap[i], i, p);
-	// Update velocity and mode once every update_period steps (see params.txt)
-	if ((sn + i) % p.update_period == 0 || sn == 0) {
-		vel[i] = make_float3(goal.x, goal.y, mySpeed);
-	}
+	// Update velocity and mode
+	vel[i] = make_float3(goal.x, goal.y, mySpeed);
+
 	// Update position
 	pos[i] = make_float4(myPos.x + vel[i].x, myPos.y + vel[i].y, 0.0f, color.c);
 
@@ -613,7 +612,7 @@ __device__ void disperse(float3 dist3, float2* repel, float2* cohere, bool is_ap
 	if (dist3.z <= p.range && dist3.z > p.range_d) {
 		// COHERE
 		// Do not cohere to robots within disperse repel range
-		float weight = powf(dist3.z - p.range_d, 3.0f);
+		float weight = 0.0f;// powf(dist3.z - p.range_d, 3.0f);
 		cohere->x += weight * dist3.x;
 		cohere->y += weight * dist3.y;
 	}

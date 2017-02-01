@@ -120,6 +120,7 @@ void drawInterface(float window_width, float window_height)
 
 	// Draw time remining info
 	stringstream ss;
+	ss.precision(3);
 	// Time remaining
 	ss << "Time remaining:\n";
 	ss << (int)((float)(p.step_limit - step_num) / 60.0f);
@@ -127,19 +128,18 @@ void drawInterface(float window_width, float window_height)
 	drawText(-0.98f, -0.7f, (char*)ss.str().c_str(), 0.8f, 0.8f, 0.8f);
 	
 	// Draw user trust info
-	drawText(0.715f, 0.9f, "Trust Level:", 0.8f, 0.8f, 0.8f);
+	drawText(0.735f, 0.9f, "Trust Level:", 0.8f, 0.8f, 0.8f);
 	ss.str("");
-	int user_trust_int = (int)(data.user_trust * 10.0f);
-	ss << user_trust_int;
+	ss << data.user_trust;
 	float x_pos;
 	// Switch position of text value of trust level based on number of digits
-	if (user_trust_int < 0 && user_trust_int > -10) {
+	if (data.user_trust < 0 && data.user_trust > -10) {
 		x_pos = 0.895f;
 	}
-	else if (user_trust_int == 10) {
+	else if (data.user_trust == 10) {
 		x_pos = 0.9055f;
 	}
-	else if (user_trust_int == -10) {
+	else if (data.user_trust == -10) {
 		x_pos = 0.871f;
 	}
 	else {
@@ -147,10 +147,12 @@ void drawInterface(float window_width, float window_height)
 	}
 	drawText(x_pos, 0.8f, (char*)ss.str().c_str(), 0.8f, 0.8f, 0.8f);
 
-	// Draw target info
+	// Draw target label
 	drawText(-0.98f, 0.9f, "Target information:", 0.8f, 0.8f, 0.8f);
+
 	// Draw either text or visualization of performance (targets found) and swarm state properties (variance and area covered) based on parameter set
 	if (p.show_info_graph) {
+
 		// Draw running graph of targets found
 		glBegin(GL_POLYGON);
 		glVertex3f(-0.98f, 0.8f, 0.0f);
@@ -162,29 +164,27 @@ void drawInterface(float window_width, float window_height)
 		// Get width of one second on the graph
 		float width = 0.48f / 60.0f;
 		// Get the number of seconds passed in simulation
-		uint seconds = (uint)((float)step_num / 60.0f);
+		int seconds = (int)((float)step_num / 60.0f);
+		// Variable to keep track of targets found in the last minute
+		int targets_last_minute = 0;
 
 		// Draw a line graph of the number of targets, heading variance, and area covered
 		if (step_num > 0) {
 			// Because the graph only shows the last 60 seconds, i is initialized to max(seconds - 60, 0)
 			// We also separately keep track of i starting value for determining x coordinate
-			uint i = 1, start;
-			if (seconds > 60) {
-				i = seconds - 60;
-			}
-			start = i;
+			int i = max(seconds - 60, 1);
+			int start = i;
 			for (i; i < seconds; i++) {
+				// Add to targets found last minute
+				targets_last_minute += targets_by_second[i - 1];
+
 				// x coordinate of graph point (same for all variables)
-				float x_start = -0.98f + ((i - start - 1) * width);
+				float x_start = -0.98f + ((i - start) * width);
 				float x_end = x_start + width;
 
 				// y coordinates for target point
 				float y_start_target = 0.3f;
-				float y_end_target = 0.3f + (0.5f * ((float)targets_by_second[i] / 10.0f));
-
-				// y coordinate for heading variance (max of 60)
-				float y_start_heading = 0.3f + (0.5f * fminf(heading_var_by_second[i - 1] / 60.0f, 1.0f));
-				float y_end_heading = 0.3f + (0.5f * fminf(heading_var_by_second[i] / 60.0f, 1.0f));
+				float y_end_target = 0.3f + (0.5f * ((float)targets_by_second[i - 1] / 10.0f));
 
 				// y coordinate for swarm area
 				float y_start_area = 0.3f + (0.5f * fminf(area_by_second[i - 1] / 1500.0f, 1.0f));
@@ -194,15 +194,8 @@ void drawInterface(float window_width, float window_height)
 				glColor4f(0.1f, 0.6f, 0.1f, 1.0f);
 				glBegin(GL_LINES);
 				glVertex3f(x_start, y_start_target, 0.0f);	// Don't use x_start here because we
-				glVertex3f(x_start, y_end_target, 0.0f);		// just want a vertical line with
+				glVertex3f(x_start, y_end_target, 0.0f);	// just want a vertical line with
 				glEnd();									// height = to targets that second
-
-				// Set color to orange and draw the heading variance
-				glColor4f(0.8f, 0.3f, 0.1f, 1.0f);
-				glBegin(GL_LINES);
-				glVertex3f(x_start, y_start_heading, 0.0f);
-				glVertex3f(x_end, y_end_heading, 0.0f);
-				glEnd();
 
 				// Set color to yellow and draw the targets seen
 				glColor4f(0.7f, 0.7f, 0.0f, 1.0f);
@@ -215,21 +208,16 @@ void drawInterface(float window_width, float window_height)
 
 		// Traw textual information of targets
 		ss.str("");
-		ss << "Targets found: " << data.targets_explored;
+		ss << "Targets last 60s: " << targets_last_minute;
 		drawText(-0.98f, 0.2f, (char*)ss.str().c_str(), 0.1f, 0.8f, 0.1f);
 		ss.str("");
-		printf("%i\n", seconds);
-		ss << "Heading variance: " << (int)(heading_var_by_second[seconds] * 10);
-		drawText(-0.98f, 0.1f, (char*)ss.str().c_str(), 0.8f, 0.3f, 0.1f);
-		ss.str("");
-		ss << "Swarm size: " << (int)area_by_second[seconds];
-		drawText(-0.98f, 0.0f, (char*)ss.str().c_str(), 0.7f, 0.7f, 0.0f);
+		ss << "Current swarm area: " << (int)area_by_second[seconds];
+		drawText(-0.98f, 0.1f, (char*)ss.str().c_str(), 0.7f, 0.7f, 0.0f);
 	}
 	else {
 		// Draw targets seen/found in text form
 		ss.str("");
-		ss << data.targets_explored << " confirmed\n";
-		ss << data.targets_seen << " sighted";
+		ss << "Targets found: " << data.targets_explored;
 		drawText(-0.98f, 0.8f, (char*)ss.str().c_str(), 0.8f, 0.8f, 0.8f);
 	}
 
@@ -259,7 +247,7 @@ void drawInterface(float window_width, float window_height)
 	glEnd();
 
 	// Draw trust bar
-	float bar_y_end = -0.12f + (0.83f * data.user_trust);
+	float bar_y_end = -0.12f + (0.83f * (data.user_trust / 10.0f));
 	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	// Outline
 	glBegin(GL_POLYGON);
@@ -271,7 +259,7 @@ void drawInterface(float window_width, float window_height)
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	// Filling
 	// Set color of trust bar based on trust being positive or negative
-	(data.user_trust < 0.0f) ? glColor4f(0.8f, 0.0f, 0.0f, 1.0f) :
+	(data.user_trust < 0) ? glColor4f(0.8f, 0.0f, 0.0f, 1.0f) :
 		glColor4f(0.0f, 0.8f, 0.0f, 1.0f);
 	glBegin(GL_POLYGON);
 	glVertex3f(0.96f, -0.12f, 0.0f);
@@ -324,15 +312,14 @@ void drawEllipse(float cx, float cy, float w, float h, bool fill)
 	glEnd();
 }
 
-void drawText(float x, float y, char *string, GLfloat r,
-	GLfloat g, GLfloat b)
+void drawText(float x, float y, char *string, GLfloat r, GLfloat g, GLfloat b)
 {
 	// Change to specified color
 	glColor4f(r, g, b, 0.75f);
 
 	// Draw text at the given point
 	glTranslatef(x, y, 0.0f);
-	glScalef(0.00035f, 0.0005f, 1.0f);
+	glScalef(0.0003f, 0.00045f, 1.0f);
 	glutStrokeString(GLUT_STROKE_ROMAN, (unsigned char*)string);
 
 	// Clear model and projection matricies to draw interface
@@ -466,15 +453,18 @@ void mouse(int button, int state, int x, int y)
 				}
 				goal_point.x /= p.num_robots;
 				goal_point.y /= p.num_robots;
+
+				// Log rendezvous command
+				fprintf(output_f, "rendezvous\n");
 			}
 		}
 		if (mb == 3) {		// Scroll wheel forward to increase trust
-			data.user_trust += 0.05f;
-			data.user_trust = fminf(data.user_trust, 1.0f);
+			data.user_trust += 1;
+			data.user_trust = min(data.user_trust, 10);
 		}
 		else if (mb == 4) {		// Scroll wheel backward to decrease trust
-			data.user_trust -= 0.05f;
-			data.user_trust = fmaxf(data.user_trust, -1.0f);
+			data.user_trust -= 1;
+			data.user_trust = max(data.user_trust, -10);
 		}
 	}
 	else if (state == GLUT_UP && mb == button) {	// If the button is released
@@ -490,10 +480,15 @@ void mouse(int button, int state, int x, int y)
 				// Reset command_trust (because command is finished)
 				command_trust = 0;
 				
+				// Get the magnitude (length) of user-drawn vector
+				float magnitude = eucl2(mouse_start_x, mouse_start_y, (float)x, (float)y);
 				// Get the goal direction in radians
 				goal_heading = atan2f((float)(y)-mouse_start_y, (float)(x)-mouse_start_x);
 				// Transform this into a 2D unit vector (float3, but z not used)
 				goal_vector = make_float3(cosf(goal_heading), -sinf(goal_heading), 0.0f);
+
+				// Log user command
+				fprintf(output_f, "heading %f %f\n", goal_heading, magnitude);
 
 				// Clear the user-drawn line data points
 				mouse_start_x = 0;
@@ -503,12 +498,12 @@ void mouse(int button, int state, int x, int y)
 			}
 		}
 		else if (mb == 5) { // Scroll wheel forward
-			data.user_trust += 0.05f;
-			data.user_trust = fminf(data.user_trust, 1.0f);
+			data.user_trust += 1;
+			data.user_trust = min(data.user_trust, 10);
 		}
 		else if (mb == 6) { // Scroll wheel backward
-			data.user_trust -= 0.05f;
-			data.user_trust = fmaxf(data.user_trust, -1.0f);
+			data.user_trust -= 1;
+			data.user_trust = max(data.user_trust, -10);
 		}
 
 		// If mouse_up event cause by scrolling while left mouse is down, reset 
@@ -709,18 +704,21 @@ static void display(void)
 	// Draw robot data
 	for (uint i = 0; i < p.num_robots; i++) {
 
+		// Set color and width of orientation lines
+		glColor4f(0.6f, 0.6f, 0.6f, 0.8f);
+		glLineWidth(2.0f);
+
 		// Orientation lines
 		if ((p.show_leaders && modes[i] == 0) || 
 			(p.show_non_leaders && modes[i] != 0)) {
-			glColor4f(1.0f, 1.0f, 1.0f, 0.5f);
-			glLineWidth(2.0f);
 			glBegin(GL_LINES);
 			glVertex3f(positions[i].x, positions[i].y, 0.0f);
 			glVertex3f(positions[i].x + ((100.0f * velocities[i].x) / p.vel_bound), positions[i].y + ((100.0f * velocities[i].y) / p.vel_bound), 0.1f);
 			glEnd();
 		}
 
-		glColor4f(1.0f, 1.0f, 1.0f, 0.1f);
+		// Set color and width for communication connections
+		glColor4f(0.6f, 0.6f, 0.0f, 0.4f);
 		glLineWidth(1.0f);
 
 		// Communication connections
@@ -912,6 +910,8 @@ void processParam(std::vector<std::string> tokens)
 		p.point_size = std::stoul(tokens[1]);
 	else if (tokens[0] == "repel_weight")
 		p.repel_weight = std::stof(tokens[1]);
+	else if (tokens[0] == "add_failures")
+		p.add_failures = (std::stoul(tokens[1]) != 0);
 	else if (tokens[0] == "show_ap")
 		p.show_ap = (std::stoul(tokens[1]) != 0);
 	else if (tokens[0] == "show_connections")
@@ -930,6 +930,8 @@ void processParam(std::vector<std::string> tokens)
 		p.highlight_leaders = (std::stoul(tokens[1]) != 0);
 	else if (tokens[0] == "show_non_leaders")
 		p.show_non_leaders = (std::stoul(tokens[1]) != 0);
+	else if (tokens[0] == "query_trust")
+		p.query_trust = (std::stoul(tokens[1]) != 0);
 	else if (tokens[0] == "start_size")
 		p.start_size = std::stof(tokens[1]);
 	else if (tokens[0] == "step_limit")
@@ -938,8 +940,6 @@ void processParam(std::vector<std::string> tokens)
 		p.targets = std::stoul(tokens[1]);
 	else if (tokens[0] == "training")
 		p.training = (std::stoul(tokens[1]) != 0);
-	else if (tokens[0] == "update_period")
-		p.update_period = std::stoul(tokens[1]);
 	else if (tokens[0] == "vel_bound")
 		p.vel_bound = std::stof(tokens[1]);
 	else if (tokens[0] == "window_height")
@@ -1135,12 +1135,8 @@ void printDataHeader()
 {
 	if (p.log_data) {
 		// Step data header
-		std::fprintf(output_f, "step step_num behavior behavior_data ");
-		std::fprintf(output_f, "velocity avg_heading heading_var centroid_x ");
-		std::fprintf(output_f, "centroid_y convex_hull_area connectivity ");
-		std::fprintf(output_f, "explored_area trust\n");
-		// Goal data header
-		std::fprintf(output_f, "goal x_pos y_pos\n");
+		std::fprintf(output_f, "step step_num behavior behavior_data align_weight velocity avg_heading heading_var centroid_x centroid_y convex_hull_area connectivity explored_area targets_seen targets_found trust\n");
+		std::fprintf(output_f, "heading direction magnitude\n");
 	}
 }
 
@@ -1159,9 +1155,6 @@ static void step(int value)
 				fopen_s(&output_f, output_fname.str().c_str(), "w");
 				printDataHeader();
 			}
-
-			// Start timer function to ask for trust feedback every 30s
-			glutTimerFunc(30000, promptTrust, 0);
 			
 			// Process data of initial state
 			processData(positions, velocities, explored_grid, targets, laplacian, ap, &data, p);
@@ -1169,6 +1162,24 @@ static void step(int value)
 			// Indicates inital state has passed
 			initial_passed = true;
 		}
+
+		// Determine if simulation should now query user trust
+		if (step_num % 1800 == 0 && step_num != 0 && p.query_trust) {
+			promptTrust(0);
+		}
+
+		// Lower alignment weight to add failure if applicable
+		if (p.add_failures) {
+			bool is_failure = false;
+			for (uint i = 0; i < minutes; i++) {
+				if (step_num >= failures[i].x && step_num < failures[i].y) {
+					is_failure = true;
+					break;
+				}
+			}
+			(is_failure) ? p.align_weight = 0.75f : p.align_weight = 1.0f;
+		}
+		printf("%f\n", p.align_weight);
 
 		// Launch the main kernel to perform one simulation step
 		launchMainKernel(goal_vector, goal_point, step_num, leaders, ap, p, &cuda_vbo_resource);
@@ -1195,7 +1206,7 @@ static void step(int value)
 
 		if (p.log_data) {
 			// Write data to the output log at the end of every step
-			std::fprintf(output_f, "step %d %d %f %f %f %f %f %f %f %f %d %f\n", step_num, p.behavior, -goal_heading, p.vel_bound, data.heading_avg, data.heading_var, data.centroid.x, data.centroid.y, data.ch_area, data.connectivity, data.explored, data.user_trust);
+			std::fprintf(output_f, "step %d %d %f %f %f %f %f %f %f %f %f %d %d %d %d\n", step_num, p.behavior, -goal_heading, p.align_weight, p.vel_bound, data.heading_avg, data.heading_var, data.centroid.x, data.centroid.y, data.ch_area, data.connectivity, data.explored, data.targets_seen, data.targets_explored, data.user_trust);
 		}
 
 		// Increment the targets counter
@@ -1245,6 +1256,7 @@ int main(int argc, char** argv)
 	memset(area_by_second, 0, (int)((float)p.step_limit / 60.0f) * sizeof(float));
 	occupancy = (bool*)malloc(p.world_size * 10 * p.world_size * 10 * 
 		sizeof(bool));
+	failures = (uint2*)malloc(5 * sizeof(uint2));
 	// Initialize pinned host memory for data arrays
 	cudaHostAlloc(&positions, p.num_robots * sizeof(float4), 0);
 	cudaHostAlloc(&velocities, p.num_robots * sizeof(float3), 0);
@@ -1254,8 +1266,18 @@ int main(int argc, char** argv)
 	cudaHostAlloc(&leader_countdowns, p.num_robots * sizeof(uint), 0);
 	cudaHostAlloc(&laplacian, p.num_robots * p.num_robots * sizeof(int4), 0);
 	cudaHostAlloc(&obstacles, p.num_obstacles * sizeof(float4), 0);
+
 	// Fill the leader list with -1 initially
 	fill(leaders, leaders + p.num_robots, -1);
+
+	// Generate failure points within the middle 20s of each minute of simulation 
+	minutes = (uint)((float)p.step_limit / 3600.0f);
+	for (uint i = 0; i < minutes; i++) {
+		uint start = 3600 * i + 1800 + (rand() % 1200 - 600);
+		uint2 failure = make_uint2(start, start + 600);
+		failures[i] = failure;
+	}
+
 	// GPU memory allocation
 	cudaAllocate(p);
 

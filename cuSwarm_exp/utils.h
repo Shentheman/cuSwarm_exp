@@ -60,6 +60,7 @@ struct Parameters
 	uint num_robots;
 	uint point_size;
 	float repel_weight;
+	bool add_failures;
 	bool show_ap;
 	bool highlight_leaders;
 	bool show_connections;
@@ -69,11 +70,11 @@ struct Parameters
 	bool show_leaders;
 	bool show_range;
 	bool show_non_leaders;
+	bool query_trust;
 	float start_size;
 	uint step_limit;
 	bool training;
 	uint targets;
-	uint update_period;
 	float vel_bound;
 	uint window_height;
 	uint window_width;
