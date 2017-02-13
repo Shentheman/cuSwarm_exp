@@ -1177,7 +1177,7 @@ static void step(int value)
 					break;
 				}
 			}
-			(is_failure) ? p.align_weight = 0.75f : p.align_weight = 1.0f;
+			(is_failure) ? p.align_weight = 0.6f : p.align_weight = 1.0f;
 		}
 		printf("%f\n", p.align_weight);
 

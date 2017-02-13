@@ -30,7 +30,7 @@ max_obstacle_size 25
 	# Percentage of robots to be used as noise (not affected by control laws)
 noise 0.0
 	# Number of obstacles present in the environment
-num_obstacles 10
+num_obstacles 20
 	# Number of robots in simulation (works best as power of 2)
 num_robots 32
 	# Size of robots in GUI
@@ -48,7 +48,7 @@ show_convex_hull 0
 	# Show explored area
 show_explored 1
 	# Show information graph
-show_info_graph 0
+show_info_graph 1
 	# Show leader robots
 show_leaders 1
 	# Show communication range
