@@ -11,6 +11,7 @@
 #include <ctime>
 #include <iomanip>
 #include <queue>
+#include <iterator>
 
 // Project includes
 #include "kernels.cuh"

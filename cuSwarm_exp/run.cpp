@@ -821,7 +821,8 @@ void calculateFPS(int value)
 {
 	// Convert frames per second into string for window header
 	char fps_text[256];
-	sprintf_s(fps_text, "CUDA Swarm Simulation (%d FPS)", frames);
+	//sprintf_s(fps_text, "CUDA Swarm Simulation (%d FPS)", frames);
+	sprintf(fps_text, "CUDA Swarm Simulation (%d FPS)", frames);
 	glutSetWindowTitle(fps_text);
 
 	// Reset the frames counter
@@ -1152,7 +1153,8 @@ static void step(int value)
 		if (!initial_passed) {
 			// Print the data column headers
 			if (p.log_data) {
-				fopen_s(&output_f, output_fname.str().c_str(), "w");
+				//fopen_s(&output_f, output_fname.str().c_str(), "w");
+				output_f = fopen(output_fname.str().c_str(), "w");
 				printDataHeader();
 			}
 			

@@ -8,6 +8,10 @@
 // System includes
 #include <algorithm>
 #include <iostream>
+#include <float.h>
+#include <cstring>
+#include <stdio.h>
+
 
 // Cuda includes
 #include <cuda.h>
@@ -15,11 +19,11 @@
 #include <curand.h>
 #include <curand_kernel.h>
 #include <vector_types.h>
-#include "device_launch_parameters.h"
+//#include "device_launch_parameters.h"
 
 // OpenGL includes
-#include <gl/glew.h>
-#include <gl/freeglut.h>
+#include <GL/glew.h>
+#include <GL/freeglut.h>
 #include <cuda_gl_interop.h>
 
 // Project includes
