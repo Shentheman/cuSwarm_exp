@@ -6,7 +6,7 @@
 
 // External library includes
 #include <Eigen/Dense>
-
+#include <Eigen/Eigenvalues>
 // Project includes
 #include "kernels.cuh"
 

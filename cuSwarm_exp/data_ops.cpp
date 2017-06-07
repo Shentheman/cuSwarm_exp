@@ -287,7 +287,7 @@ vector<Point> float4toPointArray(float4* points, uint n) {
 }
 
 float connectivity(uint n, int4* laplacian, uint level)
-{
+{	
 	// Laplacian matrix in Eigen form
 	Eigen::MatrixXf A(n, n);
 	// Populate Eigen matrix
@@ -315,8 +315,32 @@ float connectivity(uint n, int4* laplacian, uint level)
 		}
 	}
 
+	// std::cout<<A<<std::endl;
+
+	// I. use regular EigenSolver to compute the eigen values
+	// Eigen::EigenSolver<Eigen::MatrixXf> es;
+	// es.compute(A, /* computeEigenvectors = */ false);
+	// std::cout<<es.eigenvalues().transpose()<<std::endl;
+	// TODO: need to sort it
+	// std::cout<<es.eigenvalues()[1]<<std::endl;
+	// std::cout<<es.eigenvalues()[1].real()<<std::endl;
+	// std::cout<<"-----------------"<<std::endl;
+
+	
+	// II. use the EigenSolver just for self adjoint matrix to compute the eigen values
+	// Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> es;
+	// es.compute(A, /* computeEigenvectors = */ true);
+	// No need to sort it if SelfAdjointEigenSolver
+	// std::cout<<es.eigenvalues()[1]<<std::endl;
+	// std::cout<<"-----------------"<<std::endl;
+
 	// Get eigenvalues of laplacian
-	Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> es(A, true);
+	Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> es(A, false);
+	// std::cout<<es.eigenvalues().transpose()<<std::endl;
+	// Note: true option seems not available.
+	// 	It might raise "invalid option parameter" error.
+	// 	https://eigen.tuxfamily.org/dox/SelfAdjointEigenSolver_8h_source.html
+	// 	Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> es(A, true);
 
 	// Return second-smallest eigenvalue
 	return es.eigenvalues()[1];
