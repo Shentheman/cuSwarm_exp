@@ -35,8 +35,8 @@
 
 union Color
 {
-	float c;
-	uchar4 components;
+  float c;
+  uchar4 components;
 };
 
 /**************************************

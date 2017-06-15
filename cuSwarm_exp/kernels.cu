@@ -220,6 +220,8 @@ __global__ void init_kernel(float4* pos, float3* vel, int* mode, curandState* ra
 	float theta = curand_uniform(&local_state) * 2.0f * PI;
 	float unit_r = curand_uniform(&local_state);
 	float sqrt_unit_r = sqrtf(unit_r);
+  /*10,0, 0.801, 2.88*/
+  printf ("Robot %d Initial pos = %f, %f, %f\n", i, p.start_size, sqrt_unit_r, theta);
 	float x_pos = p.start_size * sqrt_unit_r * cosf(theta);
 	float y_pos = p.start_size * sqrt_unit_r * sinf(theta);
 
