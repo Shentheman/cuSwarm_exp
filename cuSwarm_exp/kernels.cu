@@ -205,14 +205,16 @@ __global__ void init_kernel(float4* pos, float3* vel, int* mode, curandState* ra
 	curandState local_state = rand_state[i];
 
 	// Initialize mode
+  // Initially, there are no leaders
 	mode[i] = p.hops + 1;
 	// Make the first noise % robots have a mode of -1 (noise mode)
 	if (i < (int)(p.noise * n_f)) {
-		mode[i] = -1;
+		mode[i] = MODE_NOISE;
 	}
 
-	// Initialize nearest_leader and leader_countdown arrays for RCC leader 
-	// selection
+	// Initialize nearest_leader and leader_countdown arrays 
+  // for RCC leader selection
+  // Initially, there are no leaders
 	nearest_leader[i] = -1;
 	leader_countdown[i] = i;
 
@@ -254,34 +256,56 @@ __global__ void side_kernel(float4* pos, int* mode, int* leaders, curandState* r
 	// Index of this robot
 	uint i = blockIdx.x * blockDim.x + threadIdx.x;
 
-	// Do not perform any leader calculation if a noise robot, or in a non-update 
-	// step
-	if (mode[i] != -1) {
-
+	// Do not perform any leader calculation if a noise robot, 
+  // or in a non-update step
+	if (mode[i] != MODE_NOISE) {
 		// Perform either RCC or CH leader assignment, depending on parameter
+
+    /// I. Random Competition based Clustering (RCC) leader selection
 		if (p.leader_selection == 0) {
 
 			// Holds the new mode and nearest leader during computation
 			int new_mode = mode[i];
 			int new_nearest_leader = nearest_leader[i];
 
-			// If the leader countdown for this robot has expired, switch leader 
-			// state and reset the timer;
+			// If the leader countdown for this robot has expired,
+      // switch leader state and reset the timer;
 			if (leader_countdown[i] == 0) {
 				// Switch to a leader if not already; else switch to non-leader
-				if (mode[i] == 0) {
-					new_mode = 99;
+
+        /// Wait and check whether other robots claim leadership
+				if (mode[i] == MODE_LEADER) {
+          // Assign it as non-leader for 1 second
+					new_mode = MODE_NON_LEADER_MAX;
 					new_nearest_leader = -1;
-					// Assign as non-leader for 1 second
 					leader_countdown[i] = 60;
-				}
-				if (mode[i] > 0) {
-					new_mode = 0;
+				} 
+        // (1) If when the timer ends, the robot i has still not been assigned 
+        //     a leader, which means that none of other robots 
+        //     have claimed as leaders, then this robot i will claim to be 
+        //     the leader. 
+        else if (mode[i] > MODE_LEADER) {
+          // Assign it as a leader for 5 seconds
+					new_mode = MODE_LEADER;
 					new_nearest_leader = i;
-					// Assign as a leader for 5 seconds
 					leader_countdown[i] = 360;
 				}
 			}
+      // (2) If before the timer ends, the robot i was assigned a leader,
+      //     then let robot i follow this leader and reset the timer.
+      //
+      //     i.e. before the timer ends, one robot A != i, 
+      //     claims to be a leader,
+      //     then A's mode becomes 0,
+      //     A's neighbors' modes becomes 1,
+      //     A's neighbors' neighbors' modes becomes 2, 
+      //     ......
+      //     the last neighbor's mode becomes p.hops-1.
+      //
+      //     Now the robot i's mode >= p.hops which means that 
+      //     robot i does not have any leaders now,
+      //     because all the other leaders are too far away from robot i.
+      //     So now we can finally assign A as the leader of this robot i.
 			else {
 				// Iterate through all neighbor robots
 				for (int n = 0; n < p.num_robots; n++) {
@@ -318,6 +342,7 @@ __global__ void side_kernel(float4* pos, int* mode, int* leaders, curandState* r
 			// Decrease countdown timer
 			leader_countdown[i]--;
 		}
+    /// II. Convex Hull leader assignment
 		else if (p.leader_selection == 1) {
 			// Look at the index of this robot in the leader list to determine if 
 			// this robot should be a leader
@@ -417,13 +442,14 @@ __global__ void main_kernel(float4* pos, float3* vel, int* mode, float3 goal_hea
 	float2 goal = make_float2(0.0f, 0.0f);
 
 	// Ignore behavior operations if this robot is noise
-	if (myMode != -1) {
+	if (myMode != MODE_NOISE) {
 		// If we are flocking and a leader, set the alignment vector towards 
 		// the goal point
-		if (p.behavior == 1 && myMode == 0) {
+		if (p.behavior == BEHAVIOR_FLOCKING && myMode == MODE_LEADER) {
 			align.x = goal_heading.x;
 			align.y = goal_heading.y;
 		}
+    /// Followers will only follow the leaders 100% without having a align vector
 
 		// Iterate through blocks to use shared memory within a block
 		for (uint tile = 0; tile < gridDim.x; tile++) {
@@ -480,23 +506,25 @@ __global__ void main_kernel(float4* pos, float3* vel, int* mode, float3 goal_hea
 		// Perform obstacle avoidance computation for this robot
 		obstacleAvoidance(myPos, &avoid, &dist_to_obstacle, occupancy, p);
 
+    // We can use avoid vector as the detector of obstacles!!!!!!!!!!
+
 		// Finish necessary summary computations for each behavior
 		switch (p.behavior) {
-		case 0:
-			// Finish computation of parallel circumcenter algorithm
-			cohere.x = ((min_bounds.x + max_bounds.x) / 2.0f);
-			cohere.y = ((min_bounds.y + max_bounds.y) / 2.0f);
-			break;
-		case 1:
-			break;
-		case 2:
-			break;
-		case 3:
-			// Set align vector to point toward goal point
-			float align_angle = atan2f(goal_point.y - myPos.y, goal_point.x - myPos.x);
-			align.x = cosf(align_angle);
-			align.y = sinf(align_angle);
-			break;
+      case 0:
+        // Finish computation of parallel circumcenter algorithm
+        cohere.x = ((min_bounds.x + max_bounds.x) / 2.0f);
+        cohere.y = ((min_bounds.y + max_bounds.y) / 2.0f);
+        break;
+      case 1:
+        break;
+      case 2:
+        break;
+      case 3:
+        // Set align vector to point toward goal point
+        float align_angle = atan2f(goal_point.y - myPos.y, goal_point.x - myPos.x);
+        align.x = cosf(align_angle);
+        align.y = sinf(align_angle);
+        break;
 		}
 
 		// If velocity is affected by random flows, calculate flow effect here
@@ -523,7 +551,7 @@ __global__ void main_kernel(float4* pos, float3* vel, int* mode, float3 goal_hea
 		goal.x = repel.x + align.x + cohere.x + avoid.x + flow.x;
 		goal.y = repel.y + align.y + cohere.y + avoid.y + flow.y;
 	}
-	else if (myMode == -1) { // Noise robots
+	else if (myMode == MODE_NOISE) { // Noise robots
 		// Apply error from the normal distribution to the velocity
 		goal.x = curand_normal(&local_state);
 		goal.y = curand_normal(&local_state);

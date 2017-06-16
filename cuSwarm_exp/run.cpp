@@ -1238,6 +1238,11 @@ static void step(int value)
 
     goal_vector.x = 10.0f;
     goal_vector.y = 0.0f;
+    //check what is mode and leaders
+    for (int i = 0; i < p.num_robots; i++) {
+      std::cout<<"ID="<<i<<", leaders=" << leaders[i] << ", mode="<<modes[i]<<std::endl;
+    }
+
     launchMainKernel(goal_vector, goal_point, step_num, leaders, ap, p, &cuda_vbo_resource);
 
     // Retrieve data from GPU (kernels.cu)

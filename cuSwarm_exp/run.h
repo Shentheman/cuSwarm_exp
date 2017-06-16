@@ -18,20 +18,6 @@
 #include "data_ops.h"
 #include "utils.h"
 
-// enum for the GLUT 'button' variable
-#define GLUT_NULL_BUTTON -1
-//#define GLUT_LEFT_BUTTON 0 // Already defined in glutMouseFunc
-//#define GLUT_MIDDLE_BUTTON 1 // Already defined in glutMouseFunc
-//#define GLUT_RIGHT_BUTTON 2 // Already defined in glutMouseFunc
-#define GLUT_WHEEL_UP_PRESSED 3
-#define GLUT_WHEEL_DOWN_PRESSED 4
-#define GLUT_WHEEL_UP_RELEASED 5
-#define GLUT_WHEEL_DOWN_RELEASED 6
-#define BEHAVIOR_RENDEZVOUS 0
-#define BEHAVIOR_FLOCKING 1
-#define BEHAVIOR_DISPERSION 2
-#define BEHAVIOR_RENDEZVOUS_TO_POINT 3
-
 
 
 
