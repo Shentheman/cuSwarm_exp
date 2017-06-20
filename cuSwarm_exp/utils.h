@@ -30,24 +30,58 @@
 #endif
 
 // enum for the GLUT 'button' variable
+#ifndef GLUT_NULL_BUTTON
 #define GLUT_NULL_BUTTON -1
+#endif
 //#define GLUT_LEFT_BUTTON 0 // Already defined in glutMouseFunc
 //#define GLUT_MIDDLE_BUTTON 1 // Already defined in glutMouseFunc
 //#define GLUT_RIGHT_BUTTON 2 // Already defined in glutMouseFunc
+#ifndef GLUT_WHEEL_UP_PRESSED
 #define GLUT_WHEEL_UP_PRESSED 3
+#endif
+#ifndef GLUT_WHEEL_DOWN_PRESSED
 #define GLUT_WHEEL_DOWN_PRESSED 4
+#endif
+#ifndef GLUT_WHEEL_UP_RELEASED
 #define GLUT_WHEEL_UP_RELEASED 5
+#endif
+#ifndef GLUT_WHEEL_DOWN_RELEASED
 #define GLUT_WHEEL_DOWN_RELEASED 6
+#endif
 
+#ifndef BEHAVIOR_RENDEZVOUS
 #define BEHAVIOR_RENDEZVOUS 0
+#endif
+#ifndef BEHAVIOR_FLOCKING
 #define BEHAVIOR_FLOCKING 1
+#endif
+#ifndef BEHAVIOR_DISPERSION
 #define BEHAVIOR_DISPERSION 2
+#endif
+#ifndef BEHAVIOR_RENDEZVOUS_TO_POINT
 #define BEHAVIOR_RENDEZVOUS_TO_POINT 3
+#endif
 
+#ifndef MODE_NOISE
 #define MODE_NOISE -1
+#endif
+#ifndef MODE_LEADER
 #define MODE_LEADER 0
+#endif
+#ifndef MODE_NON_LEADER_MAX
 #define MODE_NON_LEADER_MAX 99
+#endif
 
+#ifndef LAPLACIAN_CONNECTED
+#define LAPLACIAN_CONNECTED -1
+#endif
+#ifndef LAPLACIAN_DISCONNECTED
+#define LAPLACIAN_DISCONNECTED 0
+#endif
+
+#ifndef LEADER_NON_EXIST
+#define LEADER_NON_EXIST -1
+#endif
 
 /***********************************
 ***** STRUCTURES AND TYPEDEFS ******

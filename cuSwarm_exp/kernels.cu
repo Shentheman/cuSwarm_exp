@@ -13,6 +13,8 @@ int* d_nearest_leader;
 uint* d_leader_countdown;
 int4* d_laplacian;
 bool* d_ap;
+/// The positions of all the obstacles
+float4* d_positions_obs;
 
 // Device pointers for environment variables
 bool* d_occupancy;
@@ -52,6 +54,12 @@ void cudaAllocate(Parameters p)
 	// Allocate space on device for random state variables
 	cudaMalloc(&d_rand_states, p.num_robots * sizeof(curandState));
 
+  /// For each robot, we will have NUM_ANGLE_RAY_TRACE possible obstacles
+  /// we need to use double pointer
+  /// https://stackoverflow.com/questions/7989039/use-of-cudamalloc-why-the-double-pointer
+	cudaMalloc(&d_positions_obs, p.num_robots*NUM_ANGLE_RAY_TRACE*sizeof(float4));
+
+
 	// Set kernel launch parameters
 	grid_dim = (uint)(ceilf((float)(p.num_robots) / BLOCK_SIZE));
 	block = dim3(min(p.num_robots, BLOCK_SIZE), 1, 1);
@@ -79,6 +87,8 @@ void cuFree()
 	cudaFree(d_flow_dir);
 	cudaFree(d_rand_states);
 
+	cudaFree(d_positions_obs);
+
 	// Delete streams for simultaneous kernel launches
 	cudaStreamDestroy(streams[0]);
 	cudaStreamDestroy(streams[1]);
@@ -89,7 +99,9 @@ void cuFree()
 void launchInitKernel(Parameters p)
 {
 	// Run initialization kernel to load initial simulation state
-	init_kernel <<<grid, block>>>(d_positions, d_velocities, d_modes, d_rand_states, (ulong)(time(NULL)), d_flow_pos, d_flow_dir, d_nearest_leader, d_leader_countdown, p);
+	init_kernel <<<grid, block>>>(d_positions, d_velocities, d_modes, 
+      d_rand_states, (ulong)(time(NULL)), d_flow_pos, d_flow_dir, 
+      d_nearest_leader, d_leader_countdown, p, d_positions_obs);
 }
 
 void launchInitKernel(Parameters p, struct cudaGraphicsResource **vbo_resource)
@@ -113,12 +125,26 @@ void launchMainKernel(float3 gh, float2 gp, uint sn, int* leaders, bool* ap,
 	cudaMemcpy(d_leaders, leaders, p.num_robots * sizeof(int),
 		cudaMemcpyHostToDevice);
 	cudaMemcpy(d_ap, ap, p.num_robots * sizeof(bool), cudaMemcpyHostToDevice);
+  
+  /// Now we are still in host, not on device
+  /// So we cannot access d_positions_obs
+  /*printf("SIze = %d\n", sizeof(&d_positions_obs));*/
+  /*for (int j = 0; j < int(p.num_robots*NUM_ANGLE_RAY_TRACE); j++) {*/
+    /*printf("array[%d]=%f, ", j, &d_positions_obs[j].x);*/
+  /*}*/
+  /*printf("\n");*/
+
 
 	// Launch the main and side kernels
-	main_kernel <<<grid, block, 0, streams[0]>>>(d_positions, d_velocities, d_modes, gh, gp,  d_rand_states, d_ap, d_flow_pos, d_flow_dir, d_occupancy, p, sn);
+	main_kernel <<<grid, block, 0, streams[0]>>>(d_positions, d_velocities, 
+      d_modes, gh, gp,  d_rand_states, d_ap, d_flow_pos, d_flow_dir, 
+      d_occupancy, p, sn, 
+      d_positions_obs);
 
 	// Run side kernel for extra computations outside the control loop
-	side_kernel <<<grid, block, 0, streams[1]>>>(d_positions, d_modes, d_leaders, d_rand_states, p, d_nearest_leader, d_leader_countdown, d_laplacian, sn);
+	side_kernel <<<grid, block, 0, streams[1]>>>(d_positions, d_modes, 
+      d_leaders, d_rand_states, p, d_nearest_leader, d_leader_countdown, 
+      d_laplacian, sn);
 
 	// Synchronize kernels on device
 	cudaDeviceSynchronize();
@@ -130,7 +156,8 @@ void launchMainKernel(float3 gh, float2 gp, uint sn, int* leaders, bool* ap,
 	// Map OpenGL buffer object for writing from CUDA
 	cudaGraphicsMapResources(1, vbo_resource, 0);
 	size_t num_bytes;
-	cudaGraphicsResourceGetMappedPointer((void **)&d_positions, &num_bytes, *vbo_resource);
+	cudaGraphicsResourceGetMappedPointer((void **)&d_positions, 
+      &num_bytes, *vbo_resource);
 
 	launchMainKernel(gh, gp, sn, leaders, ap, p);
 
@@ -191,10 +218,26 @@ void setOccupancy(Parameters p, bool* occupancy)
 ***** CUDA FUNCTIONS ******
 **************************/
 
-__global__ void init_kernel(float4* pos, float3* vel, int* mode, curandState* rand_state, ulong seed, float2* flow_pos, float2* flow_dir, int* nearest_leader, uint* leader_countdown, Parameters p)
-{
+__global__ void init_kernel(float4* pos, float3* vel, int* mode, 
+    curandState* rand_state, ulong seed, float2* flow_pos, float2* flow_dir, 
+    int* nearest_leader, uint* leader_countdown, Parameters p,
+    float4* pos_obs) {
+
 	// Index of this robot
 	uint i = blockIdx.x * blockDim.x + threadIdx.x;
+
+  for (int j = 0; j < NUM_ANGLE_RAY_TRACE; j ++) {
+    int tmp = i*NUM_ANGLE_RAY_TRACE+j;
+    /*pos_obs[tmp] = make_float4(float(i),0.0f,0.0f,0.0f);*/
+    /*pos_obs[tmp] = make_float4(0.0f,0.0f,0.0f,0.0f);*/
+    pos_obs[tmp] = NULL_POSITION_OBSTACLE;
+    /*printf("i=%d, j=%d, NUM_ANGLE_RAY_TRACE=%d, tmp=%d\n",i,j,NUM_ANGLE_RAY_TRACE,tmp);*/
+  } 
+  for (int j = 0; j < NUM_ANGLE_RAY_TRACE; j ++) {
+    int tmp = i*NUM_ANGLE_RAY_TRACE+j;
+    printf("array[%d]=%f",tmp, pos_obs[tmp].x);
+  }
+  __syncthreads();
 
 	// Frequently-used parameters
 	float n_f = (float)(p.num_robots);
@@ -215,7 +258,7 @@ __global__ void init_kernel(float4* pos, float3* vel, int* mode, curandState* ra
 	// Initialize nearest_leader and leader_countdown arrays 
   // for RCC leader selection
   // Initially, there are no leaders
-	nearest_leader[i] = -1;
+	nearest_leader[i] = LEADER_NON_EXIST;
 	leader_countdown[i] = i;
 
 	// Randomly place this robot within the starting circle
@@ -223,7 +266,7 @@ __global__ void init_kernel(float4* pos, float3* vel, int* mode, curandState* ra
 	float unit_r = curand_uniform(&local_state);
 	float sqrt_unit_r = sqrtf(unit_r);
   /*10,0, 0.801, 2.88*/
-  printf ("Robot %d Initial pos = %f, %f, %f\n", i, p.start_size, sqrt_unit_r, theta);
+  /*printf ("Robot %d Initial pos = %f, %f, %f\n", i, p.start_size, sqrt_unit_r, theta);*/
 	float x_pos = p.start_size * sqrt_unit_r * cosf(theta);
 	float y_pos = p.start_size * sqrt_unit_r * sinf(theta);
 
@@ -277,7 +320,7 @@ __global__ void side_kernel(float4* pos, int* mode, int* leaders, curandState* r
 				if (mode[i] == MODE_LEADER) {
           // Assign it as non-leader for 1 second
 					new_mode = MODE_NON_LEADER_MAX;
-					new_nearest_leader = -1;
+					new_nearest_leader = LEADER_NON_EXIST;
 					leader_countdown[i] = 60;
 				} 
         // (1) If when the timer ends, the robot i has still not been assigned 
@@ -369,39 +412,39 @@ __global__ void side_kernel(float4* pos, int* mode, int* leaders, curandState* r
 			// at the four different ranges, -1 means connected, 0 disconnected
 			if (dist < p.range) {
 				degree_a++;
-				laplacian[(i * p.num_robots) + j].x = -1;
-				laplacian[(j * p.num_robots) + i].x = -1;
+				laplacian[(i * p.num_robots) + j].x = LAPLACIAN_CONNECTED;
+				laplacian[(j * p.num_robots) + i].x = LAPLACIAN_CONNECTED;
 			}
 			else {
-				laplacian[(i * p.num_robots) + j].x = 0;
-				laplacian[(j * p.num_robots) + i].x = 0;
+				laplacian[(i * p.num_robots) + j].x = LAPLACIAN_DISCONNECTED;
+				laplacian[(j * p.num_robots) + i].x = LAPLACIAN_DISCONNECTED;
 			}
 			if (dist < p.range_r) {
 				degree_b++;
-				laplacian[(i * p.num_robots) + j].y = -1;
-				laplacian[(j * p.num_robots) + i].y = -1;
+				laplacian[(i * p.num_robots) + j].y = LAPLACIAN_CONNECTED;
+				laplacian[(j * p.num_robots) + i].y = LAPLACIAN_CONNECTED;
 			}
 			else {
-				laplacian[(i * p.num_robots) + j].y = 0;
-				laplacian[(j * p.num_robots) + i].y = 0;
+				laplacian[(i * p.num_robots) + j].y = LAPLACIAN_DISCONNECTED;
+				laplacian[(j * p.num_robots) + i].y = LAPLACIAN_DISCONNECTED;
 			}
 			if (dist < p.range_f) {
 				degree_c++;
-				laplacian[(i * p.num_robots) + j].z = -1;
-				laplacian[(j * p.num_robots) + i].z = -1;
+				laplacian[(i * p.num_robots) + j].z = LAPLACIAN_CONNECTED;
+				laplacian[(j * p.num_robots) + i].z = LAPLACIAN_CONNECTED;
 			}
 			else {
-				laplacian[(i * p.num_robots) + j].z = 0;
-				laplacian[(j * p.num_robots) + i].z = 0;
+				laplacian[(i * p.num_robots) + j].z = LAPLACIAN_DISCONNECTED;
+				laplacian[(j * p.num_robots) + i].z = LAPLACIAN_DISCONNECTED;
 			}
 			if (dist < p.range_l) {
 				degree_d++;
-				laplacian[(i * p.num_robots) + j].w = -1;
-				laplacian[(j * p.num_robots) + i].w = -1;
+				laplacian[(i * p.num_robots) + j].w = LAPLACIAN_CONNECTED;
+				laplacian[(j * p.num_robots) + i].w = LAPLACIAN_CONNECTED;
 			}
 			else {
-				laplacian[(i * p.num_robots) + j].w = 0;
-				laplacian[(j * p.num_robots) + i].w = 0;
+				laplacian[(i * p.num_robots) + j].w = LAPLACIAN_DISCONNECTED;
+				laplacian[(j * p.num_robots) + i].w = LAPLACIAN_DISCONNECTED;
 			}
 		}
 	}
@@ -412,8 +455,12 @@ __global__ void side_kernel(float4* pos, int* mode, int* leaders, curandState* r
 	laplacian[(i * p.num_robots) + i].w = degree_d;
 }
 
-__global__ void main_kernel(float4* pos, float3* vel, int* mode, float3 goal_heading, float2 goal_point, curandState* rand_state, bool* ap, float2* flow_pos, float2* flow_dir, bool* occupancy, Parameters p, uint sn)
-{
+__global__ void main_kernel(float4* pos, float3* vel, int* mode, 
+  float3 goal_heading, float2 goal_point, curandState* rand_state, 
+  bool* ap, float2* flow_pos, float2* flow_dir, bool* occupancy, 
+  Parameters p, uint sn,
+  float4* pos_obs) {
+
 	// Index of this robot
 	uint i = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -422,7 +469,19 @@ __global__ void main_kernel(float4* pos, float3* vel, int* mode, float3 goal_hea
 	__shared__ int s_mode[BLOCK_SIZE];
 	__shared__ bool s_ap[BLOCK_SIZE];
 
-	__syncthreads();
+  /// TODO: Too many to print from all the members, so they never got printed
+  /*for (int j = 0; j < int(p.num_robots*NUM_ANGLE_RAY_TRACE); j++) {*/
+    /*printf("  i=%d~array[%d]=%f  ",i, j, pos_obs[j].x);*/
+    /*printf("\n");*/
+  /*}*/
+
+  /// print out in a distributed way
+  /*for (int j = 0; j < NUM_ANGLE_RAY_TRACE; j ++) {*/
+    /*int tmp = i*NUM_ANGLE_RAY_TRACE+j;*/
+    /*printf("array[%d]=%f",tmp, pos_obs[tmp].x);*/
+  /*}*/
+
+  __syncthreads();
 
 	// Variables for this robot's data
 	float4 myPos = pos[i];
@@ -503,10 +562,27 @@ __global__ void main_kernel(float4* pos, float3* vel, int* mode, float3 goal_hea
 			}
 		}
 
+    /// XXX: We can save the positions of all the obstacles 
+    /// detected by this robot member
 		// Perform obstacle avoidance computation for this robot
-		obstacleAvoidance(myPos, &avoid, &dist_to_obstacle, occupancy, p);
+		obstacleAvoidance(myPos, &avoid, &dist_to_obstacle, occupancy, p, 
+        pos_obs, i);
 
-    // We can use avoid vector as the detector of obstacles!!!!!!!!!!
+
+    /*make pos_obs shared within all the members*/
+    __syncthreads();
+    int counter = 0;
+    for (float angle = 0; angle < 2.0f * PI; angle += RAY_TRACE_INTERVAL) {
+      int tmp = i*NUM_ANGLE_RAY_TRACE+counter;
+      counter ++;
+      if (pos_obs[tmp].w!=-1.0f) {
+        printf("tmp=%d, angle=%f, RAY_TRACE_INTERVAL=%f\n",tmp,angle,RAY_TRACE_INTERVAL);
+        assert(angle<2.0f*PI);
+        printf(">>>>>>>>>>>>>>>Robot=%d ~ angle=%f ~ pos=(%f,%f) ~ obstacle\n",
+            i, angle, pos_obs[tmp].x, pos_obs[tmp].y);
+      }
+    }
+
 
 		// Finish necessary summary computations for each behavior
 		switch (p.behavior) {
@@ -660,16 +736,20 @@ __device__ void rendezvousToPoint(float3 dist3, float2* repel, Parameters p)
 }
 
 __device__ void obstacleAvoidance(float4 myPos, float2* avoid, 
-	float* dist_to_obstacle, bool* occupancy, Parameters p)
-{
+	float* dist_to_obstacle, bool* occupancy, Parameters p, 
+  float4* pos_obs, uint robot_index) {
+
+  /// Checks the collision of one robot member with the obstacles in the map 
+  /// and the borders of the world.
+  /// But it does not check the collision of the member with other robot members.
+
 	*(dist_to_obstacle) = FLT_MAX;
-	int count = 0;
-	for (float i = 0; i < 2.0f * PI; i += PI / 45.0f) {
+  int counter = 0;
+	for (float i = 0; i < 2.0f * PI; i += RAY_TRACE_INTERVAL) {
 		float cos = cosf(i);
 		float sin = sinf(i);
 		// Ray trace along this angle up to the robot's avoidance range
 		for (float r = 0.0f; r < p.range_o; r += 1.0f) {
-			count++;
 			float x_check = myPos.x + r * cos;
 			float y_check = myPos.y + r * sin;
 			// If this point contains an obstacle, add the corresponding vector 
@@ -684,6 +764,14 @@ __device__ void obstacleAvoidance(float4 myPos, float2* avoid,
 				// Update the obstacle avoidance vector
 				avoid->x += weight * -r * cos;
 				avoid->y += weight * -r * sin;
+
+        ///
+        int tmp = robot_index*NUM_ANGLE_RAY_TRACE+counter;
+        counter ++;
+
+        pos_obs[tmp] = make_float4(x_check,y_check,0.0f,0.0f);
+        printf("array[%d]=%f",tmp, pos_obs[tmp].x);
+
 				break;
 			}
 		}

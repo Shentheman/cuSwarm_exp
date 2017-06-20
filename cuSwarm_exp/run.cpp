@@ -95,7 +95,10 @@ void drawInterface(float window_width, float window_height)
     // Saturate the target color based on explored value
     float saturation;
     // Target must be seen at least once to show
-    (explored_grid[exp_ind] == 0) ? saturation = 0.0f : saturation = fabsf(0.25f + (0.75f * ((float)(explored_grid[exp_ind]) / p.max_explore)));
+    (explored_grid[exp_ind] == 0) ? saturation = 0.0f : 
+      saturation = fabsf(0.25f + (0.75f * 
+            ((float)(explored_grid[exp_ind]) / p.max_explore)
+            ));
 
     //Shen: For debug, draw the entire map
     saturation = 1.0f;
@@ -513,16 +516,16 @@ void mouse(int button, int state, int x, int y)
         // Transform this into a 2D unit vector (float3, but z not used)
         goal_vector = make_float3(cosf(goal_heading), -sinf(goal_heading), 0.0f);
 
-        // (752,653) => (1339,536)
-        std::cout<<"("<<mouse_start_x<<", "<<mouse_start_y<<") => ";
-        std::cout<<"("<<(float)x<<", "<<(float)y<<")"<<std::endl;
-        // magnitude = 635.542
-        std::cout<<"magnitude = "<<magnitude<<std::endl;
-        // goal_heading = -0.19674
-        std::cout<<"goal_heading = "<<goal_heading<<std::endl;
-        // goal_vector = (0.980,0.195,0)
-        std::cout<<"goal_vector = ("<<goal_vector.x<<", "<<goal_vector.y<<", "
-          <<goal_vector.z<<")"<<std::endl;
+        //// (752,653) => (1339,536)
+        //std::cout<<"("<<mouse_start_x<<", "<<mouse_start_y<<") => ";
+        //std::cout<<"("<<(float)x<<", "<<(float)y<<")"<<std::endl;
+        //// magnitude = 635.542
+        //std::cout<<"magnitude = "<<magnitude<<std::endl;
+        //// goal_heading = -0.19674
+        //std::cout<<"goal_heading = "<<goal_heading<<std::endl;
+        //// goal_vector = (0.980,0.195,0)
+        //std::cout<<"goal_vector = ("<<goal_vector.x<<", "<<goal_vector.y<<", "
+          //<<goal_vector.z<<")"<<std::endl;
 
         // Log user command
         fprintf(output_f, "heading %f %f\n", goal_heading, magnitude);
@@ -748,8 +751,8 @@ static void display(void)
     glLineWidth(2.0f);
 
     // Orientation lines
-    if ((p.show_leaders && modes[i] == 0) || 
-      (p.show_non_leaders && modes[i] != 0)) {
+    if ((p.show_leaders && modes[i] == MODE_LEADER) || 
+      (p.show_non_leaders && modes[i] != MODE_LEADER)) {
       glBegin(GL_LINES);
       glVertex3f(positions[i].x, positions[i].y, 0.0f);
       glVertex3f(positions[i].x + ((100.0f * velocities[i].x) / p.vel_bound), positions[i].y + ((100.0f * velocities[i].y) / p.vel_bound), 0.1f);
@@ -763,8 +766,11 @@ static void display(void)
     // Communication connections
     if (p.show_connections) {
       for (uint j = i + 1; j < p.num_robots; j++) {
-        if (laplacian[(i * p.num_robots) + j].x == -1) {
-          if (((p.show_leaders && modes[i] == 0) || (p.show_non_leaders && modes[i] != 0)) && ((p.show_leaders && modes[j] == 0) || (p.show_non_leaders && modes[j] != 0))) {
+        if (laplacian[(i * p.num_robots) + j].x == LAPLACIAN_CONNECTED) {
+          if (((p.show_leaders && modes[i] == MODE_LEADER) 
+                || (p.show_non_leaders && modes[i] != MODE_LEADER)) 
+              && ((p.show_leaders && modes[j] == MODE_LEADER) 
+                || (p.show_non_leaders && modes[j] != MODE_LEADER))) {
             glBegin(GL_LINES);
             glVertex3f(positions[i].x, positions[i].y, 0.0f);
             glVertex3f(positions[j].x, positions[j].y, 0.0f);
@@ -1063,7 +1069,8 @@ bool checkCollision(float x, float y)
   for (uint i = 0; i < p.num_obstacles; i++) {
     // Collision occurs if the point to check is within an obstacle or outside 
     // the world boundaries
-    if (x >= obstacles[i].x && x < obstacles[i].x + obstacles[i].z && y > obstacles[i].y && y < obstacles[i].y + obstacles[i].w) {
+    if (x >= obstacles[i].x && x < obstacles[i].x + obstacles[i].z 
+        && y > obstacles[i].y && y < obstacles[i].y + obstacles[i].w) {
       return true;
     }
   }
@@ -1232,16 +1239,16 @@ static void step(int value)
     //p = parameters
     //cuda_vbo_resource = VBO
 
-    std::cout<<"goal_vector = ("<<goal_vector.x<<", "<<goal_vector.y<<", "
-      <<goal_vector.z<<")"<<std::endl;
-    std::cout<<"goal_point = ("<<goal_point.x<<", "<<goal_point.y<<")"<<std::endl;
+    //std::cout<<"goal_vector = ("<<goal_vector.x<<", "<<goal_vector.y<<", "
+      //<<goal_vector.z<<")"<<std::endl;
+    //std::cout<<"goal_point = ("<<goal_point.x<<", "<<goal_point.y<<")"<<std::endl;
 
     goal_vector.x = 10.0f;
     goal_vector.y = 0.0f;
     //check what is mode and leaders
-    for (int i = 0; i < p.num_robots; i++) {
-      std::cout<<"ID="<<i<<", leaders=" << leaders[i] << ", mode="<<modes[i]<<std::endl;
-    }
+    //for (int i = 0; i < p.num_robots; i++) {
+      //std::cout<<"ID="<<i<<", leaders=" << leaders[i] << ", mode="<<modes[i]<<std::endl;
+    //}
 
     launchMainKernel(goal_vector, goal_point, step_num, leaders, ap, p, &cuda_vbo_resource);
 
@@ -1249,6 +1256,11 @@ static void step(int value)
     getData(p.num_robots, positions, velocities, modes);
     // Update explored grid
     updateExplored();
+
+    /// Here we can use explored to keep track and make the next plan!!!!!!!!!!!!!!!!!
+    //if average robot position is close to obstaacle
+    //then change direction
+
     // Get data variables (data_ops.h)
     processData(positions, velocities, explored_grid, targets, laplacian, ap, &data, p);
 
@@ -1329,7 +1341,7 @@ int main(int argc, char** argv)
   cudaHostAlloc(&obstacles, p.num_obstacles * sizeof(float4), 0);
 
   // Fill the leader list with -1 initially
-  fill(leaders, leaders + p.num_robots, -1);
+  fill(leaders, leaders + p.num_robots, LEADER_NON_EXIST);
 
   // Generate failure points within the middle 20s of each minute of simulation 
   minutes = (uint)((float)p.step_limit / 3600.0f);
