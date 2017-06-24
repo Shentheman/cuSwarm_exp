@@ -57,6 +57,8 @@ show_range 0
 highlight_leaders 0
     # Show non-leader robots
 show_non_leaders 1
+    # Highlight pioneers which are the robots which encounter obstacles
+highlight_pioneers 0
     # Should the simulation query user trust
 query_trust 0
     # Size of the starting space (robot spawn and obstacle-free)

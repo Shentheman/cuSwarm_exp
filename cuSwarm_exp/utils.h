@@ -117,6 +117,7 @@ struct Parameters
   bool add_failures;
   bool show_ap;
   bool highlight_leaders;
+  bool highlight_pioneers;
   bool show_connections;
   bool show_convex_hull;
   bool show_explored;

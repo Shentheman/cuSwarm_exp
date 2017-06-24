@@ -336,7 +336,7 @@ float connectivity(uint n, int4* laplacian, uint level)
 
   // Get eigenvalues of laplacian
   Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> es(A);
-  std::cout<<es.eigenvalues().transpose()<<std::endl;
+  //std::cout<<es.eigenvalues().transpose()<<std::endl;
   // Note: true option seems not available.
   //  It might raise "invalid option parameter" error.
   //  https://eigen.tuxfamily.org/dox/SelfAdjointEigenSolver_8h_source.html

@@ -12,6 +12,7 @@
 #include <iomanip>
 #include <queue>
 #include <iterator>
+#include <set>
 
 // Project includes
 #include "kernels.cuh"
@@ -25,61 +26,94 @@
 ***** VARIABLES ******
 *********************/
 
-// Simulation variables
-float ws_2;               // Half the length of the world edge
-ulong step_num = 0;           // Step counter
-bool initial_passed = false;      // Indicates if initial state has passed
-bool paused;              // Simulation paused state
-Parameters p;             // Parameters structure
-float3 goal_vector;           // Goal heading / speed (flocking only)
-float goal_heading, goal_heading_err; // Goal heading and error goal heading
-float2 goal_point;            // Goal point (for rendezvous to point)
-int* explored_grid;           // Grid covering the whole environment, 
-                    // showing how explored each cell is
-float4* positions;            // Robot positions (x, y, z, color)
-float3* velocities;           // Robot velocities (x, y, z)
-int* modes;               // Robot modes
-int* leaders;             // List of current swarm leaders
-int* nearest_leaders;         // Nearest leader array
-uint* leader_countdowns;        // Leader countdown array
-int4* laplacian;            // Laplacian matrix of robot connectivity
-                    // (range, range_r, range_f, range_l)
-bool* ap;               // Articulation pts (min vertex cut set)
-float4* obstacles;            // List of obstacles in the environment
-                    // (top_left_x, top_left_y, w, h)
-int3* targets;              // List of targets in the environment
-                    // (x, y, unseen(0) seen(1) or found(2))
-uint2* failures;              // Simulation step points for start/end of failures
-uint minutes;             // Number of simulation minutes
-bool* occupancy;            // Occupancy grid for the environment
-Data data;                // Data object (see data_ops.cpp for data calculations)
+// 1. Simulation variables
+// Half the length of the world edge
+float ws_2;               
+// Step counter
+ulong step_num = 0;           
+// Indicates if initial state has passed
+bool initial_passed = false;      
+// Simulation paused state
+bool paused;              
+// Parameters structure
+Parameters p;             
+// Goal heading / speed (flocking only)
+float3 goal_vector;           
+// Goal heading and error goal heading
+float goal_heading, goal_heading_err; 
+// Goal point (for rendezvous to point)
+float2 goal_point;            
+// Grid covering the whole environment, showing how explored each cell is
+int* explored_grid;           
+                    
+// 2. Robot positions (x, y, z, color)
+float4* positions;            
+/// the positions of all the obstacles
+float4* positions_obs;
+// Robot velocities (x, y, z)
+float3* velocities;           
+// Robot modes
+int* modes;               
+// List of current swarm leaders
+int* leaders;             
+// Nearest leader array
+int* nearest_leaders;         
+// Leader countdown array
+uint* leader_countdowns;        
+// Laplacian matrix of robot connectivity (range, range_r, range_f, range_l)
+int4* laplacian;            
+// Articulation pts (min vertex cut set)
+bool* ap;               
+// List of obstacles in the environment (top_left_x, top_left_y, w, h)
+float4* obstacles;            
+// List of targets in the environment (x, y, unseen(0) seen(1) or found(2))
+int3* targets;              
+// Simulation step points for start/end of failures
+uint2* failures;              
+// Number of simulation minutes
+uint minutes;             
+// Occupancy grid for the environment
+bool* occupancy;            
+// Data object (see data_ops.cpp for data calculations)
+Data data;                
 
-// Variables for trust tracking
-int command_trust = 0;          // Current command to change goal (1) or due to lack of
-                    // trust (2); 0 indicates no current command
-bool trust_verified = true;       // If user has verified their trust level
+// 3. Variables for trust tracking
+// Current command to change goal (1) or due to lack of
+// trust (2); 0 indicates no current command
+int command_trust = 0;          
+// If user has verified their trust level
+bool trust_verified = true;       
 
-// Datas for drawing information graphs
-int* targets_by_second;         // Targets found during each second
-float* heading_var_by_second;     // Heading variance at each second
-float* area_by_second;          // Swarm area covered at each second
+// 4. Datas for drawing information graphs
+// Targets found during each second
+int* targets_by_second;         
+// Heading variance at each second
+float* heading_var_by_second;     
+// Swarm area covered at each second
+float* area_by_second;          
 
-// GUI variables
+// 5. GUI variables
+// Mouse variables
 float mouse_start_x, mouse_start_y, mouse_last_x, mouse_last_y;
-int mb = -1;              // Mouse variables
-
-float rotate_x0, rotate_y0;       // Variables for camera view transform
+int mb = -1;              
+// Variables for camera view transform
+float rotate_x0, rotate_y0;       
 float translate_x0, translate_y0, translate_z0;
-
-uint frames = 0;            // Frames counter for FPS calculation
+// Frames counter for FPS calculation
+uint frames = 0;            
 uint last_frames = 0;
+// Vertex buffer object and resource
+GLuint vbo_swarm;           
+struct cudaGraphicsResource* cuda_vbo_resource_swarm;
+GLuint vbo_grid;           
+struct cudaGraphicsResource* cuda_vbo_resource_grid;
 
-GLuint vbo_swarm;           // Vertex buffer object and resource
-struct cudaGraphicsResource* cuda_vbo_resource;
 
-// Log file
-FILE* output_f;             // Main log files
-std::stringstream output_fname;     // Name of the log file
+// 6. Log file
+// Main log files
+FILE* output_f;             
+// Name of the log file
+std::stringstream output_fname;     
 
 /**************************************
 ***** FORWARD DECLARED FUNCTIONS ******

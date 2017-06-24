@@ -59,7 +59,6 @@ void cudaAllocate(Parameters p)
   /// https://stackoverflow.com/questions/7989039/use-of-cudamalloc-why-the-double-pointer
 	cudaMalloc(&d_positions_obs, p.num_robots*NUM_ANGLE_RAY_TRACE*sizeof(float4));
 
-
 	// Set kernel launch parameters
 	grid_dim = (uint)(ceilf((float)(p.num_robots) / BLOCK_SIZE));
 	block = dim3(min(p.num_robots, BLOCK_SIZE), 1, 1);
@@ -101,21 +100,23 @@ void launchInitKernel(Parameters p)
 	// Run initialization kernel to load initial simulation state
 	init_kernel <<<grid, block>>>(d_positions, d_velocities, d_modes, 
       d_rand_states, (ulong)(time(NULL)), d_flow_pos, d_flow_dir, 
-      d_nearest_leader, d_leader_countdown, p, d_positions_obs);
+      d_nearest_leader, d_leader_countdown, p, 
+			d_positions_obs);
 }
 
-void launchInitKernel(Parameters p, struct cudaGraphicsResource **vbo_resource)
+void launchInitKernel(Parameters p, struct cudaGraphicsResource **vbo_resource_swarm)
 {
 	// Map OpenGL buffer object for writing from CUDA
-	cudaGraphicsMapResources(1, vbo_resource, 0);
+	cudaGraphicsMapResources(1, vbo_resource_swarm, 0);
 	size_t num_bytes;
-	cudaGraphicsResourceGetMappedPointer((void **)&d_positions, &num_bytes, *vbo_resource);
+	cudaGraphicsResourceGetMappedPointer((void **)&d_positions, 
+            &num_bytes, *vbo_resource_swarm);
 
 	// Run initialization kernel to load initial simulation state
 	launchInitKernel(p);
 
 	// Unmap OpenGL buffer object
-	cudaGraphicsUnmapResources(1, vbo_resource, 0);
+	cudaGraphicsUnmapResources(1, vbo_resource_swarm, 0);
 }
 
 void launchMainKernel(float3 gh, float2 gp, uint sn, int* leaders, bool* ap, 
@@ -151,30 +152,35 @@ void launchMainKernel(float3 gh, float2 gp, uint sn, int* leaders, bool* ap,
 }
 
 void launchMainKernel(float3 gh, float2 gp, uint sn, int* leaders, bool* ap, 
-	Parameters p, struct cudaGraphicsResource **vbo_resource)
+	Parameters p, struct cudaGraphicsResource **vbo_resource_swarm)
 {
 	// Map OpenGL buffer object for writing from CUDA
-	cudaGraphicsMapResources(1, vbo_resource, 0);
+	cudaGraphicsMapResources(1, vbo_resource_swarm, 0);
 	size_t num_bytes;
 	cudaGraphicsResourceGetMappedPointer((void **)&d_positions, 
-      &num_bytes, *vbo_resource);
+      &num_bytes, *vbo_resource_swarm);
 
 	launchMainKernel(gh, gp, sn, leaders, ap, p);
 
 	// Unmap OpenGL buffer object
-	cudaGraphicsUnmapResources(1, vbo_resource, 0);
+	cudaGraphicsUnmapResources(1, vbo_resource_swarm, 0);
 }
 
-void getData(uint n, float4* positions, float3* velocities, int* modes)
+void getData(uint n, float4* positions, float3* velocities, int* modes,
+    float4* positions_obs)
 {
 	// Copy simulation data from device to host arrays
 	cudaMemcpy(positions, d_positions, n * sizeof(float4), cudaMemcpyDeviceToHost);
 	cudaMemcpy(velocities, d_velocities, n * sizeof(float3), cudaMemcpyDeviceToHost);
 	cudaMemcpy(modes, d_modes, n * sizeof(int), cudaMemcpyDeviceToHost);
+
+  /// the positions of all the obstacles
+	cudaMemcpy(positions_obs, d_positions_obs, 
+      n*NUM_ANGLE_RAY_TRACE*sizeof(float4), cudaMemcpyDeviceToHost);
 }
 
 void getData(uint n, float4* positions, float3* velocities, int* modes, 
-	int* nearest_leader, uint* leader_countdown)
+	int* nearest_leader, uint* leader_countdown, float4* positions_obs)
 {
 	// Copy simulation data from device to host arrays
 	cudaMemcpy(positions, d_positions, n * sizeof(float4), cudaMemcpyDeviceToHost);
@@ -182,6 +188,10 @@ void getData(uint n, float4* positions, float3* velocities, int* modes,
 	cudaMemcpy(modes, d_modes, n * sizeof(int), cudaMemcpyDeviceToHost);
 	cudaMemcpy(nearest_leader, d_nearest_leader, n * sizeof(int), cudaMemcpyDeviceToHost);
 	cudaMemcpy(leader_countdown, d_leader_countdown, n * sizeof(uint), cudaMemcpyDeviceToHost);
+
+  /// the positions of all the obstacles
+	cudaMemcpy(positions_obs, d_positions_obs, 
+      n*NUM_ANGLE_RAY_TRACE*sizeof(float4), cudaMemcpyDeviceToHost);
 }
 
 void getLaplacian(uint n, int4* laplacian)
@@ -235,7 +245,7 @@ __global__ void init_kernel(float4* pos, float3* vel, int* mode,
   } 
   for (int j = 0; j < NUM_ANGLE_RAY_TRACE; j ++) {
     int tmp = i*NUM_ANGLE_RAY_TRACE+j;
-    printf("array[%d]=%f",tmp, pos_obs[tmp].x);
+    /*printf("array[%d]=%f",tmp, pos_obs[tmp].x);*/
   }
   __syncthreads();
 
@@ -254,7 +264,7 @@ __global__ void init_kernel(float4* pos, float3* vel, int* mode,
 	if (i < (int)(p.noise * n_f)) {
 		mode[i] = MODE_NOISE;
 	}
-
+	
 	// Initialize nearest_leader and leader_countdown arrays 
   // for RCC leader selection
   // Initially, there are no leaders
@@ -272,7 +282,9 @@ __global__ void init_kernel(float4* pos, float3* vel, int* mode,
 
 	// Set the initial color
 	Color color;
-	setColor(&(color.components), 1, false, i, p);
+	/// whether this robot member encounters obstacles
+	bool is_obs_encountered = false;
+	setColor(&(color.components), 1, false, i, p, is_obs_encountered);
 
 	// Set speed manually from params.txt
 	float speed = p.vel_bound / 60.0f;
@@ -294,7 +306,9 @@ __global__ void init_kernel(float4* pos, float3* vel, int* mode,
 	}
 }
 
-__global__ void side_kernel(float4* pos, int* mode, int* leaders, curandState* rand_state, Parameters p, int* nearest_leader, uint* leader_countdown, int4* laplacian, uint sn)
+__global__ void side_kernel(float4* pos, int* mode, int* leaders, 
+        curandState* rand_state, Parameters p, int* nearest_leader, 
+        uint* leader_countdown, int4* laplacian, uint sn)
 {
 	// Index of this robot
 	uint i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -489,6 +503,8 @@ __global__ void main_kernel(float4* pos, float3* vel, int* mode,
 	float mySpeed = p.vel_bound / 60.0f;
 	float dist_to_obstacle = p.range_o;
 	curandState local_state = rand_state[i];
+	/// whether this robot member encounters obstalces
+	bool is_obs_encountered = false;
 
 	// Computation variable initializations
 	float2 min_bounds = make_float2(0.0f, 0.0f);
@@ -566,23 +582,7 @@ __global__ void main_kernel(float4* pos, float3* vel, int* mode,
     /// detected by this robot member
 		// Perform obstacle avoidance computation for this robot
 		obstacleAvoidance(myPos, &avoid, &dist_to_obstacle, occupancy, p, 
-        pos_obs, i);
-
-
-    /*make pos_obs shared within all the members*/
-    __syncthreads();
-    int counter = 0;
-    for (float angle = 0; angle < 2.0f * PI; angle += RAY_TRACE_INTERVAL) {
-      int tmp = i*NUM_ANGLE_RAY_TRACE+counter;
-      counter ++;
-      if (pos_obs[tmp].w!=-1.0f) {
-        printf("tmp=%d, angle=%f, RAY_TRACE_INTERVAL=%f\n",tmp,angle,RAY_TRACE_INTERVAL);
-        assert(angle<2.0f*PI);
-        printf(">>>>>>>>>>>>>>>Robot=%d ~ angle=%f ~ pos=(%f,%f) ~ obstacle\n",
-            i, angle, pos_obs[tmp].x, pos_obs[tmp].y);
-      }
-    }
-
+        pos_obs, i, is_obs_encountered);
 
 		// Finish necessary summary computations for each behavior
 		switch (p.behavior) {
@@ -643,15 +643,40 @@ __global__ void main_kernel(float4* pos, float3* vel, int* mode,
 
 	// Set the color based on current mode
 	Color color;
-	setColor(&(color.components), myMode, ap[i], i, p);
+	setColor(&(color.components), myMode, ap[i], i, p, is_obs_encountered);
 	// Update velocity and mode
 	vel[i] = make_float3(goal.x, goal.y, mySpeed);
 
 	// Update position
 	pos[i] = make_float4(myPos.x + vel[i].x, myPos.y + vel[i].y, 0.0f, color.c);
 
+	////https://stackoverflow.com/questions/21005845/how-to-get-float-bytes
+	////https://stackoverflow.com/questions/920511/how-to-visualize-bytes-with-c-c
+
+	/*char colorBytes[sizeof(float)];*/
+	/*memcpy(colorBytes, &color.c, sizeof(float));*/
+	/*printf ("color = [%02x, %02x, %02x, %02x] (%d,%d,%d)\n", */
+					/*colorBytes[0], colorBytes[1], colorBytes[2], colorBytes[3],*/
+					/*color.components.x, color.components.y, color.components.z,*/
+					/*color.components.w);*/
+
 	// Update random state for CUDA RNG
 	rand_state[i] = local_state;
+
+
+  /// print obstacle positions if there are any
+  /*int counter = 0;*/
+  /*for (float angle = 0; angle < 2.0f * PI; angle += RAY_TRACE_INTERVAL) {*/
+    /*int tmp = i*NUM_ANGLE_RAY_TRACE+counter;*/
+    /*counter ++;*/
+    /*if (pos_obs[tmp].w!=-1.0f) {*/
+      /*printf("tmp=%d, angle=%f, RAY_TRACE_INTERVAL=%f\n",tmp,angle,RAY_TRACE_INTERVAL);*/
+      /*assert(angle<2.0f*PI);*/
+      /*printf(">>>>>>>>>>>>>>>Robot=%d ~ angle=%f ~ pos=(%f,%f) ~ obstacle\n",*/
+          /*i, angle, pos_obs[tmp].x, pos_obs[tmp].y);*/
+    /*}*/
+  /*}*/
+
 }
 
 __device__ void rendezvous(float3 dist3, float2* min_bounds, float2* max_bounds, 
@@ -677,8 +702,8 @@ __device__ void rendezvous(float3 dist3, float2* min_bounds, float2* max_bounds,
 }
 
 __device__ void flock(int myMode, float3 nVel, int nMode, float3 dist3,
-	float2* repel, float2* align, float2* cohere, bool is_ap, Parameters p)
-{
+	float2* repel, float2* align, float2* cohere, bool is_ap, Parameters p) {
+
 	// Main flocking section
 	if (dist3.z <= p.range_f) {
 		// REPEL
@@ -704,8 +729,8 @@ __device__ void flock(int myMode, float3 nVel, int nMode, float3 dist3,
 }
 
 __device__ void disperse(float3 dist3, float2* repel, float2* cohere, bool is_ap, 
-	Parameters p)
-{
+	Parameters p) {
+
 	// Determine whether we should repel or cohere based on the 
 	// distance to the neighbor
 	if (dist3.z <= p.range_d) {
@@ -724,8 +749,8 @@ __device__ void disperse(float3 dist3, float2* repel, float2* cohere, bool is_ap
 	}
 }
 
-__device__ void rendezvousToPoint(float3 dist3, float2* repel, Parameters p)
-{
+__device__ void rendezvousToPoint(float3 dist3, float2* repel, Parameters p) {
+
 	if (dist3.z <= p.range_r) {
 		// REPEL
 		// Repel from robots within repel range
@@ -737,7 +762,7 @@ __device__ void rendezvousToPoint(float3 dist3, float2* repel, Parameters p)
 
 __device__ void obstacleAvoidance(float4 myPos, float2* avoid, 
 	float* dist_to_obstacle, bool* occupancy, Parameters p, 
-  float4* pos_obs, uint robot_index) {
+  float4* pos_obs, uint robot_index, bool &is_obs_encountered) {
 
   /// Checks the collision of one robot member with the obstacles in the map 
   /// and the borders of the world.
@@ -765,13 +790,12 @@ __device__ void obstacleAvoidance(float4 myPos, float2* avoid,
 				avoid->x += weight * -r * cos;
 				avoid->y += weight * -r * sin;
 
-        ///
         int tmp = robot_index*NUM_ANGLE_RAY_TRACE+counter;
         counter ++;
 
         pos_obs[tmp] = make_float4(x_check,y_check,0.0f,0.0f);
-        printf("array[%d]=%f",tmp, pos_obs[tmp].x);
-
+        /*printf("array[%d]=%f",tmp, pos_obs[tmp].x);*/
+				is_obs_encountered = true;
 				break;
 			}
 		}
@@ -797,19 +821,37 @@ __device__ bool checkOccupancy(float x, float y, bool* occupancy, Parameters p)
 }
 
 __device__ void setColor(uchar4* color, int mode, bool is_ap, uint i, 
-	Parameters p)
-{
-	if (mode == 0 && p.show_leaders) {
+	Parameters p, bool is_obs_encountered) {
+
+	/*draw non-leaders in (255,255,255)*/
+	/*draw leaders in (255,0,0)*/
+	/*draw articulation points in (0,200,0)*/
+	/*draw noise robots in (100,100,100)*/
+
+	/// uchar is an integer between 0 to 255
+	/// https://stackoverflow.com/questions/75191/what-is-an-unsigned-charhttps://stackoverflow.com/questions/75191/what-is-an-unsigned-char
+	/// Here uchar4 is a tuple of 4 integers in that range
+	/// uchar4* is an array of uchar4
+
+  /// ap = articulation points
+
+	if (mode == MODE_LEADER && p.show_leaders) {
 		if (p.highlight_leaders) {
-			(is_ap && p.show_ap) ? *color = make_uchar4(0, 200, 0, 255) : *color = make_uchar4(255, 0, 0, 255);
+			(is_ap && p.show_ap) ? 
+                *color = make_uchar4(0, 200, 0, 255) : 
+                *color = make_uchar4(255, 0, 0, 255);
 		}
 		else {
-			(is_ap && p.show_ap) ? *color = make_uchar4(0, 200, 0, 255) : *color = make_uchar4(255, 255, 255, 255);
+			(is_ap && p.show_ap) ? 
+                *color = make_uchar4(0, 200, 0, 255) : 
+                *color = make_uchar4(255, 255, 255, 255);
 		}
 	}
-	else if (mode != 0 && p.show_non_leaders) {
-		if (mode > 0) {
-			(is_ap && p.show_ap) ? *color = make_uchar4(0, 200, 0, 255) : *color = make_uchar4(255, 255, 255, 255);
+	else if (mode != MODE_LEADER && p.show_non_leaders) {
+		if (mode > MODE_LEADER) {
+			(is_ap && p.show_ap) ? 
+                *color = make_uchar4(0, 200, 0, 255) : 
+                *color = make_uchar4(255, 255, 255, 255);
 		}
 		else {
 			*color = make_uchar4(100, 100, 100, 255);
@@ -817,6 +859,11 @@ __device__ void setColor(uchar4* color, int mode, bool is_ap, uint i,
 	}
 	else {
 		*color = make_uchar4(0, 0, 0, 0);
+	}
+
+	/// draw extra color for obstacle encounted robots
+	if (p.highlight_pioneers == true && is_obs_encountered == true) {
+		*color = make_uchar4(255, 255, 0, 255);
 	}
 }
 

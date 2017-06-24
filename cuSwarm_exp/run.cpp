@@ -86,6 +86,19 @@ void drawInterface(float window_width, float window_height)
     }
   }
 
+  //x = int \in [-75, 74]
+  //y = int \in [-75, 74]
+  for (uint i = 0; i < p.world_size * p.world_size; i++) {
+    float world_x = -world_size_2 + (float)(floor(i / p.world_size));
+    float world_y = -world_size_2 + (float)(i % p.world_size);
+    //std::cout<<"("<<world_x<<", "<<world_y<<")"<<std::endl;
+  }
+  //if (eucl2(world_x + 0.5f, world_y + 0.5f, 
+        //positions[n].x, positions[n].y) <= p.range) {
+ 
+  //!!!!!!!!!!!!!1
+
+ 
   // Draw targets on the GUI
   for (uint i = 0; i < p.targets; i++) {
 
@@ -177,7 +190,9 @@ void drawInterface(float window_width, float window_height)
   // Draw target label
   drawText(-0.98f, 0.9f, "Target information:", 0.8f, 0.8f, 0.8f);
 
-  // Draw either text or visualization of performance (targets found) and swarm state properties (variance and area covered) based on parameter set
+  // Draw either text or visualization of performance (targets found) 
+  // and swarm state properties (variance and area covered) 
+  // based on parameter set
   if (p.show_info_graph) {
 
     // Draw running graph of targets found
@@ -195,10 +210,13 @@ void drawInterface(float window_width, float window_height)
     // Variable to keep track of targets found in the last minute
     int targets_last_minute = 0;
 
-    // Draw a line graph of the number of targets, heading variance, and area covered
+    // Draw a line graph of the number of targets, 
+    // heading variance, and area covered
     if (step_num > 0) {
-      // Because the graph only shows the last 60 seconds, i is initialized to max(seconds - 60, 0)
-      // We also separately keep track of i starting value for determining x coordinate
+      // Because the graph only shows the last 60 seconds, 
+      // i is initialized to max(seconds - 60, 0)
+      // We also separately keep track of i starting value 
+      // for determining x coordinate
       int i = max(seconds - 60, 1);
       int start = i;
       for (i; i < seconds; i++) {
@@ -211,18 +229,23 @@ void drawInterface(float window_width, float window_height)
 
         // y coordinates for target point
         float y_start_target = 0.3f;
-        float y_end_target = 0.3f + (0.5f * ((float)targets_by_second[i - 1] / 10.0f));
+        float y_end_target = 0.3f + 
+          (0.5f * ((float)targets_by_second[i - 1] / 10.0f));
 
         // y coordinate for swarm area
-        float y_start_area = 0.3f + (0.5f * fminf(area_by_second[i - 1] / 1500.0f, 1.0f));
-        float y_end_area = 0.3f + (0.5f * fminf(area_by_second[i] / 1500.0f, 1.0f));
+        float y_start_area = 0.3f + 
+          (0.5f * fminf(area_by_second[i - 1] / 1500.0f, 1.0f));
+        float y_end_area = 0.3f + 
+          (0.5f * fminf(area_by_second[i] / 1500.0f, 1.0f));
 
         // Set color to dark green and draw the targets seen
         glColor4f(0.1f, 0.6f, 0.1f, 1.0f);
         glBegin(GL_LINES);
-        glVertex3f(x_start, y_start_target, 0.0f);  // Don't use x_start here because we
-        glVertex3f(x_start, y_end_target, 0.0f);  // just want a vertical line with
-        glEnd();                  // height = to targets that second
+        // Don't use x_start here because we just want a vertical line with
+        // height = to targets that second
+        glVertex3f(x_start, y_start_target, 0.0f);
+        glVertex3f(x_start, y_end_target, 0.0f);
+        glEnd();
 
         // Set color to yellow and draw the targets seen
         glColor4f(0.7f, 0.7f, 0.0f, 1.0f);
@@ -380,7 +403,9 @@ void keyboard(unsigned char key, int x, int y)
     }
     break;
   }
-  case 'z': { // The following three ('z', 'x', 'c', are for current experiment training only, and will be removed later
+  case 'z': { 
+    // The following three ('z', 'x', 'c', are for current experiment training 
+    // only, and will be removed later
     if (p.training) {
       p.range_r = 1.5f;
       p.range_f = 2.5f;
@@ -623,7 +648,8 @@ void initGL(int argc, char **argv)
   }
 
   // Maximize the window for full screen simulation operation
-  SetWindowLong(win_handle, GWL_STYLE, (GetWindowLong(win_handle, GWL_STYLE) | WS_MAXIMIZE));
+  SetWindowLong(win_handle, GWL_STYLE, 
+      (GetWindowLong(win_handle, GWL_STYLE) | WS_MAXIMIZE));
   ShowWindowAsync(win_handle, SW_SHOWMAXIMIZED);
 #endif
 
@@ -672,8 +698,8 @@ void deleteVBO(GLuint *vbo, struct cudaGraphicsResource *vbo_res)
   *vbo = 0;
 }
 
-static void display(void)
-{
+static void display(void) {
+
   // Quit if not automated and last step reached; else take a sulation step
   if (step_num > p.step_limit) {
     exitSimulation();
@@ -697,7 +723,8 @@ static void display(void)
   // Projection
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
-  gluPerspective(75.0, (GLfloat)window_width / (GLfloat)window_height, 0.001, 500.0);
+  gluPerspective(75.0, (GLfloat)window_width 
+      / (GLfloat)window_height, 0.001, 500.0);
 
   // Change point size based on distance from camera
   glPointSize((float)(p.point_size));
@@ -733,9 +760,14 @@ static void display(void)
 
   // Draw agents from vbo
   /// Each agent is a dot. 
-  /// vbo_swarm (GLuint) is the link to cuda_vbo_resource
+  /// vbo_swarm (GLuint) is the link to cuda_vbo_resource_swarm
   glBindBuffer(GL_ARRAY_BUFFER, vbo_swarm);
   glVertexPointer(3, GL_FLOAT, 16, 0);
+  /// arg1 = the number of components per color (RGBAlpha)
+  /// arg2 = the data type of each color component
+  /// arg3 = stride = the byte offset between consecutive colors in the array.
+  ///   If stride is 0, the colors are understood to be tightly packed in the array
+  /// arg4 = a pointer to the 1st component of the 1st color in the array
   glColorPointer(4, GL_UNSIGNED_BYTE, 16, (GLvoid*)12);
   glEnableClientState(GL_VERTEX_ARRAY);
   glEnableClientState(GL_COLOR_ARRAY);
@@ -746,18 +778,19 @@ static void display(void)
   // Draw robot data
   for (uint i = 0; i < p.num_robots; i++) {
 
-    // Set color and width of orientation lines
-    glColor4f(0.6f, 0.6f, 0.6f, 0.8f);
-    glLineWidth(2.0f);
-
     // Orientation lines
     if ((p.show_leaders && modes[i] == MODE_LEADER) || 
       (p.show_non_leaders && modes[i] != MODE_LEADER)) {
+      // Set color and width of orientation lines
+      glColor4f(0.6f, 0.6f, 0.6f, 0.8f);
+      glLineWidth(2.0f);
       glBegin(GL_LINES);
       glVertex3f(positions[i].x, positions[i].y, 0.0f);
-      glVertex3f(positions[i].x + ((100.0f * velocities[i].x) / p.vel_bound), positions[i].y + ((100.0f * velocities[i].y) / p.vel_bound), 0.1f);
+      glVertex3f(positions[i].x + ((100.0f * velocities[i].x) / p.vel_bound), 
+          positions[i].y + ((100.0f * velocities[i].y) / p.vel_bound), 0.1f);
       glEnd();
     }
+
 
     // Set color and width for communication connections
     glColor4f(0.6f, 0.6f, 0.0f, 0.4f);
@@ -897,7 +930,8 @@ void loadParametersFromFile(std::string filename)
     std::vector<std::string> tokens;
 
     // Place the parameter and value into the token array
-    copy(std::istream_iterator<std::string>(iss), std::istream_iterator<std::string>(), back_inserter(tokens));
+    copy(std::istream_iterator<std::string>(iss), 
+        std::istream_iterator<std::string>(), back_inserter(tokens));
 
     // Ensure valid line before processing parameter
     if (tokens.size() == 2) {
@@ -974,6 +1008,8 @@ void processParam(std::vector<std::string> tokens)
     p.show_range = (std::stoul(tokens[1]) != 0);
   else if (tokens[0] == "highlight_leaders")
     p.highlight_leaders = (std::stoul(tokens[1]) != 0);
+  else if (tokens[0] == "highlight_pioneers")
+    p.highlight_pioneers = (std::stoul(tokens[1]) != 0);
   else if (tokens[0] == "show_non_leaders")
     p.show_non_leaders = (std::stoul(tokens[1]) != 0);
   else if (tokens[0] == "query_trust")
@@ -1087,8 +1123,8 @@ void promptTrust(int a)
   trust_verified = false;
 }
 
-void updateExplored()
-{
+void updateExplored() {
+
   // Variables to used in explored grid cell updates
   float world_size_2 = p.world_size / 2.0f;
 
@@ -1111,7 +1147,8 @@ void updateExplored()
         (world_y < data.bounds.w + p.range) && !paused) {
         // Check each robot to see if it is within range of this cell
         for (uint n = 0; n < p.num_robots; n++) {
-          if (eucl2(world_x + 0.5f, world_y + 0.5f, positions[n].x, positions[n].y) <= p.range) {
+          if (eucl2(world_x + 0.5f, world_y + 0.5f, 
+                positions[n].x, positions[n].y) <= p.range) {
             // Increment/decrement based on whether cell is obstacle
             if (explored_grid[i] >= 0) {
               explored_grid[i]++;
@@ -1140,7 +1177,8 @@ void updateExplored()
 void exitSimulation()
 {
   // Delete vertex buffer object
-  deleteVBO(&vbo_swarm, cuda_vbo_resource);
+  deleteVBO(&vbo_swarm, cuda_vbo_resource_swarm);
+  //deleteVBO(&vbo_grid, cuda_vbo_resource_swarm);
 
   // Free CUDA variables
   cuFree();
@@ -1151,6 +1189,7 @@ void exitSimulation()
   cudaFree(nearest_leaders);
   cudaFree(leader_countdowns);
   cudaFree(obstacles);
+  cudaFree(positions_obs);
 
   // Free non-CUDA variables
   std::free(explored_grid);
@@ -1237,7 +1276,7 @@ static void step(int value)
     //leaders = whether each member is leader or not, used in kernels.cu
     //ap = Articulation pts (min vertex cut set)
     //p = parameters
-    //cuda_vbo_resource = VBO
+    //cuda_vbo_resource_swarm = VBO
 
     //std::cout<<"goal_vector = ("<<goal_vector.x<<", "<<goal_vector.y<<", "
       //<<goal_vector.z<<")"<<std::endl;
@@ -1250,10 +1289,42 @@ static void step(int value)
       //std::cout<<"ID="<<i<<", leaders=" << leaders[i] << ", mode="<<modes[i]<<std::endl;
     //}
 
-    launchMainKernel(goal_vector, goal_point, step_num, leaders, ap, p, &cuda_vbo_resource);
+    launchMainKernel(goal_vector, goal_point, step_num, leaders, ap, p, &cuda_vbo_resource_swarm);
 
     // Retrieve data from GPU (kernels.cu)
-    getData(p.num_robots, positions, velocities, modes);
+    getData(p.num_robots, positions, velocities, modes, positions_obs);
+
+    /// print positions_obs
+    //std::set<int> robots_obs_indices;
+    for (int i = 0; i < p.num_robots*NUM_ANGLE_RAY_TRACE; i ++) {
+      int robot_index = floor(i/NUM_ANGLE_RAY_TRACE);
+      //robots_obs_indices.emplace(robot_index);
+      if (positions_obs[i].w!=-1.0f) {
+        std::cout<<"Robot "<<robot_index<<" encounter obstacle at ("
+          <<positions_obs[i].x<<", "<<positions_obs[i].y<<")"<<std::endl;
+      }
+    }
+
+    //for (std::set<int>::iterator it=robots_obs_indices.begin(); 
+        //it!=robots_obs_indices.end(); ++it) {
+      //std::cout<<"Robot "<<*it<<" has encountered obstacles."<<std::endl;
+    //}
+    
+    ////x = int \in [-75, 74]
+    ////y = int \in [-75, 74]
+    //for (uint i = 0; i < p.world_size * p.world_size; i++) {
+      //float world_x = -world_size_2 + (float)(floor(i / p.world_size));
+      //float world_y = -world_size_2 + (float)(i % p.world_size);
+      ////std::cout<<"("<<world_x<<", "<<world_y<<")"<<std::endl;
+    //}
+    //for (uint i = 0; i < p.num_robots*NUM_ANGLE_RAY_TRACE; i ++) {
+      //if (positions_obs[i].w!=-1.0f) {
+        //obs_x = positions_obs[i].x;
+        //obs_y = positions_obs[i].y;
+        ///// We will assign the 4 grid around the exact obstacle position to be obstacles
+      //}
+    /*}*/
+
     // Update explored grid
     updateExplored();
 
@@ -1279,7 +1350,12 @@ static void step(int value)
 
     if (p.log_data) {
       // Write data to the output log at the end of every step
-      std::fprintf(output_f, "step %d %d %f %f %f %f %f %f %f %f %f %d %d %d %d\n", step_num, p.behavior, -goal_heading, p.align_weight, p.vel_bound, data.heading_avg, data.heading_var, data.centroid.x, data.centroid.y, data.ch_area, data.connectivity, data.explored, data.targets_seen, data.targets_explored, data.user_trust);
+      std::fprintf(output_f, 
+          "step %d %d %f %f %f %f %f %f %f %f %f %d %d %d %d\n", 
+          step_num, p.behavior, -goal_heading, p.align_weight, p.vel_bound, 
+          data.heading_avg, data.heading_var, data.centroid.x, 
+          data.centroid.y, data.ch_area, data.connectivity, data.explored, 
+          data.targets_seen, data.targets_explored, data.user_trust);
     }
 
     // Increment the targets counter
@@ -1340,6 +1416,10 @@ int main(int argc, char** argv)
   cudaHostAlloc(&laplacian, p.num_robots * p.num_robots * sizeof(int4), 0);
   cudaHostAlloc(&obstacles, p.num_obstacles * sizeof(float4), 0);
 
+  /// the positions of all the obstacles
+	cudaHostAlloc(&positions_obs, 
+      p.num_robots*NUM_ANGLE_RAY_TRACE*sizeof(float4), 0);
+
   // Fill the leader list with -1 initially
   fill(leaders, leaders + p.num_robots, LEADER_NON_EXIST);
 
@@ -1358,14 +1438,14 @@ int main(int argc, char** argv)
   // Initialize OpenGL
   initGL(argc, argv);
   // Create vertex buffer object (VBO)
-  createVBO(&vbo_swarm, &cuda_vbo_resource, cudaGraphicsMapFlagsWriteDiscard);
+  createVBO(&vbo_swarm, &cuda_vbo_resource_swarm, cudaGraphicsMapFlagsWriteDiscard);
   // Set camera to default settings
   resetCamera();
 
   ///// CUDA INITIALIZATION /////
-  launchInitKernel(p, &cuda_vbo_resource);
+  launchInitKernel(p, &cuda_vbo_resource_swarm);
   // Retrieve initial data from GPU (kernels.cu)
-  getData(p.num_robots, positions, velocities, modes);
+  getData(p.num_robots, positions, velocities, modes, positions_obs);
   getLaplacian(p.num_robots, laplacian);
 
   ///// WORLD GENERATION /////

@@ -51,10 +51,21 @@
 ***** STRUCTURES AND TYPEDEFS ******
 ***********************************/
 
+/// In kernels.cu, we set each components as (R,G,B,Alpha) in [0,255]
+/// Then due to the property of union, the float c is located at the same address
+/// as the uchar4. So the float c has 4 bytes. Then the graphic driver of opengl
+/// will transform each byte in float c to a uchar and display the color accordingly.
+/// For example, red = uchar4 (255,0,0,255) 
+/// = float c with 4 bytes (ffffffff,0,0,ffffffff)
 union Color
 {
+  /// 1 float
   float c;
+  /// 4 uchars
   uchar4 components;
+  /// union is the type where multiple data types are saved in one location
+  /// this Color union takes 4 bytes
+  /// It transforms 4 chars into 1 float
 };
 
 /**************************************
@@ -76,9 +87,10 @@ void launchMainKernel(float3 gh, float2 gp, uint sn, int* leaders,
   bool* ap, Parameters p);
 
 // CUDA host<->device copy functions
-void getData(uint n, float4* positions, float3* velocities, int* modes);
+void getData(uint n, float4* positions, float3* velocities, int* modes,
+  float4* positions_obs);
 void getData(uint n, float4* positions, float3* velocities, int* modes, 
-  int* nearest_leader, uint* leader_countdown);
+  int* nearest_leader, uint* leader_countdown, float4* positions_obs);
 void getLaplacian(uint n, int4* laplacian);
 void setData(uint n, float4* positions, float3* velocities, int* modes);
 void setData(uint n, float4* positions, float3* velocities, int* modes, 
@@ -92,7 +104,7 @@ void setOccupancy(Parameters p, bool* occupancy);
 __global__ void init_kernel(float4* pos, float3* vel, int* mode, 
   curandState* rand_state, ulong seed, float2* flow_pos, float2* flow_dir, 
   int* nearest_leader, uint* leader_countdown, Parameters p,
-  float4* d_positions_obs);
+  float4* pos_obs);
 
 __global__ void side_kernel(float4* pos, int* mode, int* leaders, 
   curandState* rand_state, Parameters p, int* nearest_leader, 
@@ -117,13 +129,13 @@ __device__ void rendezvousToPoint(float3 dist3, float2* repel, Parameters p);
 
 __device__ void obstacleAvoidance(float4 myPos, float2* avoid, 
   float* dist_to_obstacle, bool* occupancy, Parameters p, 
-  float4* pos_obs, uint robot_index);
+  float4* pos_obs, uint robot_index, bool &obs_encountered);
 
 __device__ bool checkOccupancy(float x, float y, bool* occupancy, 
   Parameters p);
 
 __device__ void setColor(uchar4* color, int mode, bool is_ap, uint i, 
-  Parameters p);
+  Parameters p, bool obs_encountered);
 
 __device__ float euclidean(float2 vector);
 
