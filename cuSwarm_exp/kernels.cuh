@@ -86,10 +86,10 @@ void launchMainKernel(float3 gh, float2 gp, uint sn, int* leaders,
   bool* ap, Parameters p);
 
 // CUDA host<->device copy functions
-void getData(uint n, uint n_grid, float4* positions, 
+void getData(uint num_robots, float4* positions, 
   float3* velocities, int* modes,
   float4* positions_obs);
-void getData(uint n, uint n_grid, float4* positions, 
+void getData(uint num_robots, float4* positions, 
   float3* velocities, int* modes, 
   int* nearest_leader, uint* leader_countdown, float4* positions_obs);
 void getLaplacian(uint n, int4* laplacian);
@@ -105,7 +105,7 @@ void setOccupancy(Parameters p, bool* occupancy);
 __global__ void init_kernel(float4* pos, float3* vel, int* mode, 
   curandState* rand_state, ulong seed, float2* flow_pos, float2* flow_dir, 
   int* nearest_leader, uint* leader_countdown, Parameters p,
-  float4* pos_obs, int* counteraaa);
+  float4* pos_obs);
 
 __global__ void side_kernel(float4* pos, int* mode, int* leaders, 
   curandState* rand_state, Parameters p, int* nearest_leader, 
@@ -115,7 +115,7 @@ __global__ void main_kernel(float4* pos, float3* vel, int* mode,
   float3 goal_heading, float2 goal_point, curandState* rand_state, 
   bool* ap, float2* flow_pos, float2* flor_dir, bool* occupancy, 
   Parameters p, uint sn, 
-  float4* pos_obs, int* counteraaa);
+  float4* pos_obs);
 
 __device__ void rendezvous(float3 dist3, float2* min_bounds, 
   float2* max_bounds, float2* repel, bool is_ap, Parameters p);

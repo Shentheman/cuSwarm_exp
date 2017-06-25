@@ -5,8 +5,10 @@
 *********************/
 
 // Device pointers for simulation agent data arrays
-/// This is part of the back end of d_vbo_resource on device
+/// This is the back end of d_vbo_resource on device
+/// (float x, float y, float z, float color)
 float4* d_positions;
+/// (float x, float y, float speed)
 float3* d_velocities;
 int* d_modes;
 int* d_leaders;
@@ -14,8 +16,8 @@ int* d_nearest_leader;
 uint* d_leader_countdown;
 int4* d_laplacian;
 bool* d_ap;
-/// The positions of all the obstacles. 
-/// This is part of the back end of d_vbo_resource on device
+/// The positions of all the obstacles
+/// (float x, float y, int flag, float color) (we replace z with flag)
 float4* d_positions_obs;
 /* front end = the array on the device which connected to the VBO on the host
  * back end = the array on the device used for updating the VBO on the host
@@ -39,8 +41,6 @@ uint grid_dim;
 dim3 block;
 dim3 grid;
 
-int* counteraaa;
-
 // CUDA streams
 cudaStream_t streams[4];
 
@@ -49,8 +49,6 @@ cudaStream_t streams[4];
 ****************************/
 
 void cudaAllocate(Parameters p) {
-
-  cudaMalloc(&counteraaa, sizeof(int));
 
   // Allocate space on device for simulation arrays
   cudaMalloc(&d_positions, p.num_robots*sizeof(float4));
@@ -78,8 +76,8 @@ void cudaAllocate(Parameters p) {
   cudaMemset(d_ap, 0, p.num_robots*sizeof(bool));
 
   // Allocate space on device for environment arrays
-  cudaMalloc(&d_occupancy, GRID_SIZE*10*10*sizeof(bool));
-  cudaMemset(d_occupancy, 0, GRID_SIZE*10*10*sizeof(bool));
+  cudaMalloc(&d_occupancy, p.world_size*p.world_size*10*10*sizeof(bool));
+  cudaMemset(d_occupancy, 0, p.world_size*p.world_size*10*10*sizeof(bool));
 
   cudaMalloc(&d_flow_pos, 256*sizeof(float2));
   cudaMemset(d_flow_pos, 0, 256*sizeof(float2));
@@ -92,14 +90,15 @@ void cudaAllocate(Parameters p) {
   cudaMemset(d_rand_states, 0, p.num_robots * sizeof(curandState));
 
   /// For each robot, we will have NUM_ANGLE_RAY_TRACE possible obstacles
-  /// we need to use double pointer
+  /// XXX: we need to use double pointer in cuda
   /// https://stackoverflow.com/questions/7989039/use-of-cudamalloc-why-the-double-pointer
-  /*cudaMalloc(&d_positions_obs, p.num_robots*NUM_ANGLE_RAY_TRACE*sizeof(float4));*/
-  cudaMalloc(&d_positions_obs, GRID_SIZE*sizeof(float4));
-  cudaMemset(d_positions_obs, 0, GRID_SIZE*sizeof(float4));
+  cudaMalloc(&d_positions_obs, 
+      p.num_robots*NUM_ANGLE_RAY_TRACE*sizeof(float4));
+  cudaMemset(d_positions_obs, 0, 
+      p.num_robots*NUM_ANGLE_RAY_TRACE*sizeof(float4));
 
-  cudaMalloc(&d_vbo_resource, (p.num_robots+GRID_SIZE)*sizeof(float4));
-  cudaMemset(d_vbo_resource, 0, (p.num_robots+GRID_SIZE)*sizeof(float4));
+  cudaMalloc(&d_vbo_resource, p.num_robots*sizeof(float4));
+  cudaMemset(d_vbo_resource, 0, p.num_robots*sizeof(float4));
 
   // Set kernel launch parameters
   grid_dim = (uint)(ceilf((float)(p.num_robots) / BLOCK_SIZE));
@@ -143,7 +142,7 @@ void launchInitKernel(Parameters p) {
   // Run initialization kernel to load initial simulation state
   init_kernel <<<grid, block>>>(d_positions, d_velocities, d_modes, 
       d_rand_states, (ulong)(time(NULL)), d_flow_pos, d_flow_dir, 
-      d_nearest_leader, d_leader_countdown, p, d_positions_obs, counteraaa);
+      d_nearest_leader, d_leader_countdown, p, d_positions_obs);
 }
 
 void launchInitKernel(Parameters p, 
@@ -157,7 +156,6 @@ void launchInitKernel(Parameters p,
   // Get an device pointer through which to access a mapped graphics resource.
   error = cudaGraphicsResourceGetMappedPointer((void **)&d_vbo_resource, 
         &num_bytes, *vbo_resource);
-  /*printf("num_bytes = %zu\n",num_bytes);*/
   if (error != 0) printf("ERROR launchInitKernel 2 = %d\n",error);
 
   // Run initialization kernel to load initial simulation state
@@ -170,9 +168,9 @@ void launchInitKernel(Parameters p,
           p.num_robots*sizeof(float4), cudaMemcpyDefault);
   if (error != 0) printf("ERROR launchInitKernel 3 = %d\n",error);
   /// XXX: we cannot add p.number_robots*sizeof(float4) - pointer arithmatic
-  error = cudaMemcpy(d_vbo_resource+p.num_robots, d_positions_obs, 
-          GRID_SIZE*sizeof(float4), cudaMemcpyDefault);
-  if (error != 0) printf("ERROR launchInitKernel 4 = %d\n",error);
+  /*error = cudaMemcpy(d_vbo_resource+p.num_robots, d_positions_obs, */
+          /*GRID_SIZE*sizeof(float4), cudaMemcpyDefault);*/
+  /*if (error != 0) printf("ERROR launchInitKernel 4 = %d\n",error);*/
 
   // Unmap OpenGL buffer object
   error = cudaGraphicsUnmapResources(1, vbo_resource, 0);
@@ -195,7 +193,7 @@ void launchMainKernel(float3 gh, float2 gp, uint sn, int* leaders, bool* ap,
   // Launch the main and side kernels
   main_kernel <<<grid, block, 0, streams[0]>>>(d_positions, d_velocities, 
       d_modes, gh, gp,  d_rand_states, d_ap, d_flow_pos, d_flow_dir, 
-      d_occupancy, p, sn, d_positions_obs, counteraaa);
+      d_occupancy, p, sn, d_positions_obs);
 
   // Run side kernel for extra computations outside the control loop
   side_kernel <<<grid, block, 0, streams[1]>>>(d_positions, d_modes, 
@@ -215,7 +213,6 @@ void launchMainKernel(float3 gh, float2 gp, uint sn, int* leaders, bool* ap,
   size_t num_bytes;
   error = cudaGraphicsResourceGetMappedPointer((void **)&d_vbo_resource, 
       &num_bytes, *vbo_resource);
-  /*printf("num_bytes = %zu\n",num_bytes);*/
   if (error != 0) printf("ERROR launchMainKernel 2 = %d\n",error);
 
   launchMainKernel(gh, gp, sn, leaders, ap, p);
@@ -223,44 +220,50 @@ void launchMainKernel(float3 gh, float2 gp, uint sn, int* leaders, bool* ap,
   error = cudaMemcpy(d_vbo_resource, d_positions, 
           p.num_robots*sizeof(float4), cudaMemcpyDefault);
   if (error != 0) printf("ERROR launchMainKernel 3 = %d\n",error);
-  error = cudaMemcpy(d_vbo_resource+p.num_robots, d_positions_obs, 
-          GRID_SIZE*sizeof(float4), cudaMemcpyDefault);
-  if (error != 0) printf("ERROR launchMainKernel 4 = %d\n",error);
+  /*error = cudaMemcpy(d_vbo_resource+p.num_robots, d_positions_obs, */
+          /*GRID_SIZE*sizeof(float4), cudaMemcpyDefault);*/
+  /*if (error != 0) printf("ERROR launchMainKernel 4 = %d\n",error);*/
 
   // Unmap OpenGL buffer object
   error = cudaGraphicsUnmapResources(1, vbo_resource, 0);
   if (error != 0) printf("ERROR launchMainKernel 5 = %d\n",error);
 }
 
-void getData(uint n, uint n_grid, float4* positions, float3* velocities, int* modes,
+void getData(uint num_robots, float4* positions, float3* velocities, int* modes,
     float4* positions_obs) {
 
   // Copy simulation data from device to host arrays
-  cudaMemcpy(positions, d_positions, n * sizeof(float4), cudaMemcpyDeviceToHost);
-  cudaMemcpy(velocities, d_velocities, n * sizeof(float3), cudaMemcpyDeviceToHost);
-  cudaMemcpy(modes, d_modes, n * sizeof(int), cudaMemcpyDeviceToHost);
-
+  cudaMemcpy(positions, d_positions, 
+      num_robots*sizeof(float4), cudaMemcpyDeviceToHost);
+  cudaMemcpy(velocities, d_velocities, 
+      num_robots*sizeof(float3), cudaMemcpyDeviceToHost);
+  cudaMemcpy(modes, d_modes, 
+      num_robots*sizeof(int), cudaMemcpyDeviceToHost);
   /// the positions of all the obstacles
-  /*cudaMemcpy(positions_obs, d_positions_obs, */
-      /*n_grid*sizeof(float4), cudaMemcpyDeviceToHost);*/
+  cudaMemcpy(positions_obs, d_positions_obs, 
+      num_robots*NUM_ANGLE_RAY_TRACE*sizeof(float4), cudaMemcpyDeviceToHost);
 }
 
-void getData(uint n, uint n_grid, float4* positions, float3* velocities, int* modes, 
-  int* nearest_leader, uint* leader_countdown, float4* positions_obs) {
+void getData(uint num_robots, uint n_positions_obs, float4* positions, 
+    float3* velocities, int* modes, int* nearest_leader, 
+    uint* leader_countdown, float4* positions_obs) {
   // Copy simulation data from device to host arrays
-  cudaMemcpy(positions, d_positions, n * sizeof(float4), cudaMemcpyDeviceToHost);
-  cudaMemcpy(velocities, d_velocities, n * sizeof(float3), cudaMemcpyDeviceToHost);
-  cudaMemcpy(modes, d_modes, n * sizeof(int), cudaMemcpyDeviceToHost);
-  cudaMemcpy(nearest_leader, d_nearest_leader, n * sizeof(int), cudaMemcpyDeviceToHost);
-  cudaMemcpy(leader_countdown, d_leader_countdown, n * sizeof(uint), cudaMemcpyDeviceToHost);
-
+  cudaMemcpy(positions, d_positions, 
+      num_robots*sizeof(float4), cudaMemcpyDeviceToHost);
+  cudaMemcpy(velocities, d_velocities, 
+      num_robots*sizeof(float3), cudaMemcpyDeviceToHost);
+  cudaMemcpy(modes, d_modes, 
+      num_robots*sizeof(int), cudaMemcpyDeviceToHost);
+  cudaMemcpy(nearest_leader, d_nearest_leader, 
+      num_robots*sizeof(int), cudaMemcpyDeviceToHost);
+  cudaMemcpy(leader_countdown, d_leader_countdown, 
+      num_robots*sizeof(uint), cudaMemcpyDeviceToHost);
   /// the positions of all the obstacles
-  /*cudaMemcpy(positions_obs, d_positions_obs, */
-      /*n_grid*sizeof(float4), cudaMemcpyDeviceToHost);*/
+  cudaMemcpy(positions_obs, d_positions_obs, 
+      num_robots*NUM_ANGLE_RAY_TRACE*sizeof(float4), cudaMemcpyDeviceToHost);
 }
 
-void getLaplacian(uint n, int4* laplacian)
-{
+void getLaplacian(uint n, int4* laplacian) {
   cudaMemcpy(laplacian, d_laplacian, n * n * sizeof(int4), cudaMemcpyDeviceToHost);
 }
 
@@ -286,7 +289,7 @@ void setData(uint n, float4* positions, float3* velocities, int* modes,
 void setOccupancy(Parameters p, bool* occupancy) {
   // Copy occupancy data from host to device array
   cudaMemcpy(d_occupancy, occupancy, 
-      GRID_SIZE*10*10*sizeof(bool), cudaMemcpyHostToDevice);
+      p.world_size*p.world_size*10*10*sizeof(bool), cudaMemcpyHostToDevice);
 }
 
 /**************************
@@ -296,35 +299,21 @@ void setOccupancy(Parameters p, bool* occupancy) {
 __global__ void init_kernel(float4* pos, float3* vel, int* mode, 
     curandState* rand_state, ulong seed, float2* flow_pos, float2* flow_dir, 
     int* nearest_leader, uint* leader_countdown, Parameters p,
-    float4* pos_obs, int* counteraaa) {
+    float4* pos_obs) {
 
   // Index of this robot
   uint i = blockIdx.x * blockDim.x + threadIdx.x;
 
   /*Just let one robot to do it*/
   if (i == 0) {
-      *counteraaa = 0;
-      for (uint j = 0; j < GRID_SIZE; j++) {
-        /// Test: draw all the points
-        /*float ws_2 = (float)(p.world_size) / 2.0f;*/
-        /*float y = (float)(j % p.world_size) - ws_2;*/
-        /*float x = floorf((float)(j) / (float)(p.world_size)) - ws_2;*/
-        /*// Set the initial color*/
-        /*Color color;*/
-        /*setColorGrid(&(color.components), GRID_EXPLORED_OBS);*/
-        /*pos_obs[j] = make_float4(x,y,0.0f,color.c);*/
-
-        /// Draw nothing inside the map
-        float ws_2 = (float)(p.world_size) / 2.0f;
-        float y = (float)(GRID_SIZE % p.world_size) - ws_2;
-        float x = floorf((float)(GRID_SIZE) / (float)(p.world_size)) - ws_2;
-        Color color;
-        setColorGrid(&(color.components), GRID_EXPLORED_OBS);
-        pos_obs[j] = make_float4(x,y,0.0f,0.0f);
+      for (uint j = 0; j < p.num_robots*NUM_ANGLE_RAY_TRACE; j++) {
+        pos_obs[j] = make_float4(-p.world_size, -p.world_size,
+            GRID_UNEXPLORED, 0.0f);
       }
-      /*for (uint j = 0; j < GRID_SIZE; j ++) {*/
-        /*printf("array[%d]=(%f,%f)",j, pos_obs[j].x, pos_obs[j].y);*/
-      /*}*/
+      for (uint j = 0; j < p.num_robots*NUM_ANGLE_RAY_TRACE; j++) {
+        printf("array[%d]=(%f,%f,%f,%f)",j, pos_obs[j].x, pos_obs[j].y, 
+            pos_obs[j].z, pos_obs[j].w);
+      }
   }
 
   __syncthreads();
@@ -553,7 +542,7 @@ __global__ void main_kernel(float4* pos, float3* vel, int* mode,
   float3 goal_heading, float2 goal_point, curandState* rand_state, 
   bool* ap, float2* flow_pos, float2* flow_dir, bool* occupancy, 
   Parameters p, uint sn,
-  float4* pos_obs, int* counteraaa) {
+  float4* pos_obs) {
 
   // Index of this robot
   uint i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -730,30 +719,6 @@ __global__ void main_kernel(float4* pos, float3* vel, int* mode,
 
   // Update random state for CUDA RNG
   rand_state[i] = local_state;
-
-
-  /// print obstacle positions if there are any
-  /*int counter = 0;*/
-  /*for (float angle = 0; angle < 2.0f * PI; angle += RAY_TRACE_INTERVAL) {*/
-    /*int tmp = i*NUM_ANGLE_RAY_TRACE+counter;*/
-    /*counter ++;*/
-    /*if (pos_obs[tmp].w!=-1.0f) {*/
-      /*printf("tmp=%d, angle=%f, RAY_TRACE_INTERVAL=%f\n",tmp,angle,RAY_TRACE_INTERVAL);*/
-      /*assert(angle<2.0f*PI);*/
-      /*printf(">>>>>>>>>>>>>>>Robot=%d ~ angle=%f ~ pos=(%f,%f) ~ obstacle\n",*/
-          /*i, angle, pos_obs[tmp].x, pos_obs[tmp].y);*/
-    /*}*/
-  /*}*/
-  int counter = 0;
-  for (uint j = 0; j < GRID_SIZE; j ++) {
-    if (pos_obs[j].w != 0.0f) {
-      counter ++;
-      /*printf("obstacle = pos_obs[%d]=(%f,%f)\n",j, pos_obs[j].x, pos_obs[j].y);*/
-    }
-  }
-  assert(counter >= *counteraaa);
-  /*printf ("counter = %d, prev = %d\n", counter, *counteraaa);*/
-  *counteraaa = counter;
 }
 
 __device__ void rendezvous(float3 dist3, float2* min_bounds, float2* max_bounds, 
@@ -854,21 +819,6 @@ __device__ void obstacleAvoidance(float4 myPos, float2* avoid,
     for (float r = 0.0f; r < p.range_o; r += 1.0f) {
       float x_check = myPos.x + r * cos;
       float y_check = myPos.y + r * sin;
-      // If this point contains an obstacle, add the corresponding vector 
-      // component to the obstacle vector
-      /*float world_size_2 = p.world_size / 2.0f;*/
-      /*int obstacle_index1 = (uint)(x_check+world_size_2)*/
-          /*+(uint)(floorf(y_check+world_size_2));*/
-      /*int obstacle_index2 = (floorf(x_check)+world_size_2)*p.world_size*/
-          /*+(ceilf(y_check)+world_size_2);*/
-      /*int obstacle_index3 = (ceilf(x_check)+world_size_2)*p.world_size*/
-          /*+(floorf(y_check)+world_size_2);*/
-      /*int obstacle_index4 = (ceilf(x_check)+world_size_2)*p.world_size*/
-          /*+(ceilf(y_check)+world_size_2);*/
-
-    /*uint x_component = (uint)((x + ws_2) * 10.0f);*/
-    /*uint y_component = (uint)(floorf(y + ws_2) * ws_10 * 10.0f);*/
- 
 
       int occupancy_ind = occupancySub2Ind(x_check, y_check, p);
       bool occupied = false;
@@ -890,31 +840,14 @@ __device__ void obstacleAvoidance(float4 myPos, float2* avoid,
 
         int tmp = robot_index*NUM_ANGLE_RAY_TRACE+counter;
         counter ++;
-
-        /// XXX: We assign the four grids around the precise point as obstacles
-        /*pos_obs[tmp] = make_float4(x_check,y_check,0.0f,0.0f);*/
-
         Color color;
         setColorGrid(&(color.components), GRID_EXPLORED_OBS);
-        if (pos_obs[occupancy_ind].w != 0.0f){
-          printf("draw obs on prev obs");
-        }
-        /*pos_obs[obstacle_index1] = make_float4(x_check, y_check, 0.0f, color.c);*/
-        pos_obs[(uint)(occupancy_ind/100)] = make_float4(x_check, y_check, 0.0f, color.c);
-
-        /*printf("obs = array[%d]=%f\n",obstacle_index, pos_obs[obstacle_index].z);*/
+        pos_obs[tmp] = make_float4(x_check,y_check,GRID_EXPLORED_OBS,color.c);
+        printf("obs = array[%d]=%f\n",tmp, pos_obs[tmp].w);
 
         is_obs_encountered = true;
-
         break;
       }
-      /*else {*/
-        /*Color color;*/
-        /*setColorGrid(&(color.components), GRID_EXPLORED_FREE);*/
-        /*pos_obs[obstacle_index] = make_float4(x_check, y_check,*/
-            /*(float)GRID_EXPLORED_FREE, color.c);*/
-        /*printf("free = array[%d]=%f\n",obstacle_index, pos_obs[obstacle_index].z);*/
-      /*}*/
     }
   }
 }
@@ -993,16 +926,16 @@ __device__ void setColorGrid(uchar4* color, int grid) {
   /*draw others in (0,0,0)*/
   if (grid == GRID_EXPLORED_OBS) {
     *color = make_uchar4(255, 255, 0, 255);
-    /*printf("right\n");*/
   }
-  else if (grid == GRID_UNEXPLORED) {
-    printf("WTF1\n");
-    *color = make_uchar4(0, 255, 0, 255);
+  else {
+    printf("WTF\n");
   }
-  else if (grid == GRID_EXPLORED_FREE) {
-    printf("WTF2\n");
-    *color = make_uchar4(0, 0, 100, 255);
-  }
+  /*else if (grid == GRID_UNEXPLORED) {*/
+    /**color = make_uchar4(0, 255, 0, 255);*/
+  /*}*/
+  /*else if (grid == GRID_EXPLORED_FREE) {*/
+    /**color = make_uchar4(0, 0, 100, 255);*/
+  /*}*/
 }
 
 

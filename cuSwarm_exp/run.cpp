@@ -802,17 +802,57 @@ static void display(void) {
   glColorPointer(4, GL_UNSIGNED_BYTE, 16, (GLvoid*)12);
   /// TODO: Some points are missing. But the VBO should have all the points
   /// from the past because the counter keeps increasing.
-  glDrawArrays(GL_POINTS, 0, p.num_robots+GRID_SIZE);
+  glDrawArrays(GL_POINTS, 0, p.num_robots);
   glDisableClientState(GL_COLOR_ARRAY);
   glDisableClientState(GL_VERTEX_ARRAY);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-/*  GLfloat pointVertex[] = {0,0,50,50};*/
+
+  !!!!!!!!!!!!!!!!!!???????????????????????????????
+  every round you need to clean this array
+  store previous drawing
+  color not working now
+  int counter = 0;
+  for (uint i = 0; i < p.num_robots*NUM_ANGLE_RAY_TRACE; i ++) {
+    if (positions_obs[i].z == GRID_EXPLORED_OBS) {
+      printf("obs at pos %d = (%f,%f,%f,%f)\n", i, positions_obs[i].x, 
+          positions_obs[i].y, positions_obs[i].z, positions_obs[i].w);
+      counter ++;
+    }
+  }
+  printf("size = %d\n",counter);
+
+  if (counter > 0) {
+    GLfloat* pointVertex = NULL;
+    pointVertex = new GLfloat[counter*2];
+    GLfloat* tmp = pointVertex;
+    for (uint i = 0; i < p.num_robots*NUM_ANGLE_RAY_TRACE; i ++) {
+      if (positions_obs[i].z == GRID_EXPLORED_OBS) {
+        *tmp = positions_obs[i].x;
+        tmp ++;
+        *tmp = positions_obs[i].y;
+        tmp ++;
+      }
+    }
+    //for (uint i = 0; i < counter*2; i ++) {
+      //printf("%d - %f\n", i, pointVertex[i]);
+    //}
+
+
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glPointSize(100);
+    glVertexPointer(2, GL_FLOAT, 8, pointVertex);
+    glDrawArrays(GL_POINTS, 0, counter);
+    glDisableClientState(GL_VERTEX_ARRAY);
+  }
+
+  //GLfloat pointVertex[] = {0,0,50,50};
   //glEnableClientState(GL_VERTEX_ARRAY);
   //glPointSize(100);
   //glVertexPointer(2, GL_FLOAT, 8, pointVertex);
   //glDrawArrays(GL_POINTS, 0, 2);
   //glDisableClientState(GL_VERTEX_ARRAY);
+
 
  
 
@@ -1331,8 +1371,7 @@ static void step(int value)
         &cuda_vbo_resource);
 
     // Retrieve data from GPU (kernels.cu)
-    getData(p.num_robots, p.world_size*p.world_size, 
-        positions, velocities, modes, positions_obs);
+    getData(p.num_robots, positions, velocities, modes, positions_obs);
 
     /// print positions_obs
     //std::set<int> robots_obs_indices;
@@ -1456,7 +1495,8 @@ int main(int argc, char** argv)
   cudaHostAlloc(&obstacles, p.num_obstacles * sizeof(float4), 0);
 
   /// the positions of all the obstacles
-	cudaHostAlloc(&positions_obs, p.world_size*p.world_size*sizeof(float4), 0);
+	cudaHostAlloc(&positions_obs, 
+      p.num_robots*NUM_ANGLE_RAY_TRACE*sizeof(float4), 0);
 
   // Fill the leader list with -1 initially
   fill(leaders, leaders + p.num_robots, LEADER_NON_EXIST);
@@ -1476,7 +1516,7 @@ int main(int argc, char** argv)
   // Initialize OpenGL
   initGL(argc, argv);
   // Create vertex buffer object (VBO)
-  uint size = (p.num_robots+GRID_SIZE) *4*sizeof(float);
+  uint size = p.num_robots*4*sizeof(float);
   //(32+150*150)*4*4
   //printf("size = %d\n",size);
   /// cudaGraphicsMapFlagsWriteDiscard = 
@@ -1490,8 +1530,7 @@ int main(int argc, char** argv)
   ///// CUDA INITIALIZATION /////
   launchInitKernel(p, &cuda_vbo_resource);
   // Retrieve initial data from GPU (kernels.cu)
-  getData(p.num_robots, p.world_size*p.world_size, 
-      positions, velocities, modes, positions_obs);
+  getData(p.num_robots, positions, velocities, modes, positions_obs);
   getLaplacian(p.num_robots, laplacian);
 
   ///// WORLD GENERATION /////

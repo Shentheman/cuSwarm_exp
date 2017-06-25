@@ -87,18 +87,9 @@
 #define GRID_EXPLORED_OBS 1
 #endif
 
-#ifndef GRID_EXPLORED_FREE
-#define GRID_EXPLORED_FREE 0
-#endif
-
 #ifndef GRID_UNEXPLORED
 #define GRID_UNEXPLORED -1
 #endif
-
-#ifndef GRID_SIZE
-#define GRID_SIZE p.world_size*p.world_size
-#endif
-
 
 
 /***********************************
