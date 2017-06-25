@@ -96,8 +96,6 @@ void drawInterface(float window_width, float window_height)
   //if (eucl2(world_x + 0.5f, world_y + 0.5f, 
         //positions[n].x, positions[n].y) <= p.range) {
  
-  //!!!!!!!!!!!!!1
-
  
   // Draw targets on the GUI
   for (uint i = 0; i < p.targets; i++) {
@@ -672,26 +670,24 @@ void initGL(int argc, char **argv)
 }
 
 void createVBO(GLuint* vbo, struct cudaGraphicsResource **vbo_res,
-  unsigned int vbo_res_flags)
-{
-  // Create vertex buffer object
+  unsigned int vbo_res_flags, uint size) {
+  // Create vertex buffer name
   glGenBuffers(1, vbo);
-  glBindBuffer(GL_ARRAY_BUFFER, *vbo);
 
-  // Initialize VBO
-  uint size = p.num_robots * 4 * sizeof(float);
+  /// Bind
+  glBindBuffer(GL_ARRAY_BUFFER, *vbo);
   glBufferData(GL_ARRAY_BUFFER, size, 0, GL_DYNAMIC_DRAW);
+  /// Unbind
   glBindBuffer(GL_ARRAY_BUFFER, 0);
 
   // Register VBO with CUDA
-  cudaGraphicsGLRegisterBuffer(vbo_res, *vbo, vbo_res_flags);
+  int error = cudaGraphicsGLRegisterBuffer(vbo_res, *vbo, vbo_res_flags);
+  if (error != 0) printf("ERROR createVBO 1 = %d\n",error);
 }
 
-void deleteVBO(GLuint *vbo, struct cudaGraphicsResource *vbo_res)
-{
+void deleteVBO(GLuint *vbo, struct cudaGraphicsResource *vbo_res) {
   // unregister this buffer object with CUDA
   cudaGraphicsUnregisterResource(vbo_res);
-
   // Delete VBO
   glBindBuffer(1, *vbo);
   glDeleteBuffers(1, vbo);
@@ -717,17 +713,17 @@ static void display(void) {
   glViewport(0, 0, window_width, window_height);
 
   // Draw interface elements
-  drawInterface((float)(window_width),
-    (float)(window_height));
+  drawInterface((float)(window_width), (float)(window_height));
 
   // Projection
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
-  gluPerspective(75.0, (GLfloat)window_width 
-      / (GLfloat)window_height, 0.001, 500.0);
+  gluPerspective(75.0, (GLfloat)window_width / (GLfloat)window_height, 
+      0.001, 500.0);
 
   // Change point size based on distance from camera
   glPointSize((float)(p.point_size));
+  //with smooth, draw round point, otherwise, draw rectangle point
   glEnable(GL_POINT_SMOOTH);
   float quadratic[] = {0.05f, 0.0f, 0.001f};
   glPointParameterfvARB(GL_POINT_DISTANCE_ATTENUATION_ARB, quadratic);
@@ -749,19 +745,54 @@ static void display(void) {
   glTranslatef(-translate_x0, -translate_y0, -translate_z0);
 
   // Closer things cover far things
-  glEnable(GL_DEPTH_TEST);
-  glDepthFunc(GL_LESS);
-  glDepthMask(GL_TRUE);
+  /// Shen TODO  to display obstacle more clearly
+  //glEnable(GL_DEPTH_TEST);
+  //glDepthFunc(GL_LESS);
+  //glDepthMask(GL_TRUE);
 
   // Transparency
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   //glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
   glEnable(GL_BLEND);
 
-  // Draw agents from vbo
-  /// Each agent is a dot. 
-  /// vbo_swarm (GLuint) is the link to cuda_vbo_resource_swarm
-  glBindBuffer(GL_ARRAY_BUFFER, vbo_swarm);
+  // 1. Draw agents from vbo
+  /*
+   * Here, we want to draw robot members and obstacle grids on the interface.
+   * I. Use 2 VBOs, one for robot positions 
+   * and the other one for obstacle positions.
+   * Since both of them are GL_ARRAY_BUFFER, we have to create 2 VBOs
+   * and bind both of them with GL_ARRAY_BUFFER in step().
+   *
+   * However, opengl does not allow us to bind two vbos with the same target.
+   * https://www.opengl.org/discussion_boards/showthread.php/172530-Two-VBOs-at-once?p=1209767&viewfull=1#post1209767
+   * https://stackoverflow.com/a/21540956
+   * "You can use >=2 buffers to draw from, 
+   * but only if they have different targets.
+   * So here, if we bind the 2 VBOs with GL_ARRAY_BUFFER two times,
+   * only the most recent one remains in effect.
+   *
+   * Here's a quote from OpenGL core 4.0 spec.:
+   * BindBuffer may also be used to bind an existing buffer object. 
+   * (1) If the bind is successful no change is made to the state of 
+   * the newly bound buffer object, 
+   * and any previous binding to target is broken.
+   * (2) In the case of indexed data, then the indices are bound to 
+   * target GL_ELEMENT_ARRAY_BUFFER 
+   * while the vertices (and their attributes) are bound to GL_ARRAY_BUFFER; 
+   * two different targets and so two different VBOs are okay.
+   *
+   * II. Combine all the vertex and attribute data into a single VBO.
+   */
+  /// We need to store 2 arrays in the same VBO
+  /// (1) Draw each explored obstacle grid as a point
+  /// (2) Draw each agent as a point
+  /// vbo_name (GLuint) is the link to cuda_vbo_resource_swarm
+  glBindBuffer(GL_ARRAY_BUFFER, vbo_name);
+  glEnableClientState(GL_VERTEX_ARRAY);
+  glEnableClientState(GL_COLOR_ARRAY);
+  // array = [x (float), y (float), z (float), c (4 unsigned byte RGBA), ...]
+  // 4 in a pair for a vertex, so stride = 16 bytes
+  // position starts from 0 bytes while color starts from 12 bytes
   glVertexPointer(3, GL_FLOAT, 16, 0);
   /// arg1 = the number of components per color (RGBAlpha)
   /// arg2 = the data type of each color component
@@ -769,13 +800,23 @@ static void display(void) {
   ///   If stride is 0, the colors are understood to be tightly packed in the array
   /// arg4 = a pointer to the 1st component of the 1st color in the array
   glColorPointer(4, GL_UNSIGNED_BYTE, 16, (GLvoid*)12);
-  glEnableClientState(GL_VERTEX_ARRAY);
-  glEnableClientState(GL_COLOR_ARRAY);
-  glDrawArrays(GL_POINTS, 0, p.num_robots);
-  glDisableClientState(GL_VERTEX_ARRAY);
+  /// TODO: Some points are missing. But the VBO should have all the points
+  /// from the past because the counter keeps increasing.
+  glDrawArrays(GL_POINTS, 0, p.num_robots+GRID_SIZE);
   glDisableClientState(GL_COLOR_ARRAY);
+  glDisableClientState(GL_VERTEX_ARRAY);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-  // Draw robot data
+/*  GLfloat pointVertex[] = {0,0,50,50};*/
+  //glEnableClientState(GL_VERTEX_ARRAY);
+  //glPointSize(100);
+  //glVertexPointer(2, GL_FLOAT, 8, pointVertex);
+  //glDrawArrays(GL_POINTS, 0, 2);
+  //glDisableClientState(GL_VERTEX_ARRAY);
+
+ 
+
+  // 2. Draw robot data
   for (uint i = 0; i < p.num_robots; i++) {
 
     // Orientation lines
@@ -790,7 +831,6 @@ static void display(void) {
           positions[i].y + ((100.0f * velocities[i].y) / p.vel_bound), 0.1f);
       glEnd();
     }
-
 
     // Set color and width for communication connections
     glColor4f(0.6f, 0.6f, 0.0f, 0.4f);
@@ -818,7 +858,7 @@ static void display(void) {
       drawEllipse(positions[i].x, positions[i].y, p.range, p.range, false);
     }
   }
-
+  
   // Refresh display
   glutSwapBuffers();
   glutPostRedisplay();
@@ -1177,8 +1217,7 @@ void updateExplored() {
 void exitSimulation()
 {
   // Delete vertex buffer object
-  deleteVBO(&vbo_swarm, cuda_vbo_resource_swarm);
-  //deleteVBO(&vbo_grid, cuda_vbo_resource_swarm);
+  deleteVBO(&vbo_name, cuda_vbo_resource);
 
   // Free CUDA variables
   cuFree();
@@ -1276,34 +1315,35 @@ static void step(int value)
     //leaders = whether each member is leader or not, used in kernels.cu
     //ap = Articulation pts (min vertex cut set)
     //p = parameters
-    //cuda_vbo_resource_swarm = VBO
 
     //std::cout<<"goal_vector = ("<<goal_vector.x<<", "<<goal_vector.y<<", "
       //<<goal_vector.z<<")"<<std::endl;
     //std::cout<<"goal_point = ("<<goal_point.x<<", "<<goal_point.y<<")"<<std::endl;
 
-    goal_vector.x = 10.0f;
-    goal_vector.y = 0.0f;
+    //goal_vector.x = 10.0f;
+    //goal_vector.y = 0.0f;
     //check what is mode and leaders
     //for (int i = 0; i < p.num_robots; i++) {
       //std::cout<<"ID="<<i<<", leaders=" << leaders[i] << ", mode="<<modes[i]<<std::endl;
     //}
 
-    launchMainKernel(goal_vector, goal_point, step_num, leaders, ap, p, &cuda_vbo_resource_swarm);
+    launchMainKernel(goal_vector, goal_point, step_num, leaders, ap, p, 
+        &cuda_vbo_resource);
 
     // Retrieve data from GPU (kernels.cu)
-    getData(p.num_robots, positions, velocities, modes, positions_obs);
+    getData(p.num_robots, p.world_size*p.world_size, 
+        positions, velocities, modes, positions_obs);
 
     /// print positions_obs
     //std::set<int> robots_obs_indices;
-    for (int i = 0; i < p.num_robots*NUM_ANGLE_RAY_TRACE; i ++) {
-      int robot_index = floor(i/NUM_ANGLE_RAY_TRACE);
-      //robots_obs_indices.emplace(robot_index);
-      if (positions_obs[i].w!=-1.0f) {
-        std::cout<<"Robot "<<robot_index<<" encounter obstacle at ("
-          <<positions_obs[i].x<<", "<<positions_obs[i].y<<")"<<std::endl;
-      }
-    }
+    //for (int i = 0; i < p.num_robots*NUM_ANGLE_RAY_TRACE; i ++) {
+      //int robot_index = floor(i/NUM_ANGLE_RAY_TRACE);
+      ////robots_obs_indices.emplace(robot_index);
+      //if (positions_obs[i].w!=-1.0f) {
+        //std::cout<<"Robot "<<robot_index<<" encounter obstacle at ("
+          //<<positions_obs[i].x<<", "<<positions_obs[i].y<<")"<<std::endl;
+      //}
+    //}
 
     //for (std::set<int>::iterator it=robots_obs_indices.begin(); 
         //it!=robots_obs_indices.end(); ++it) {
@@ -1403,8 +1443,7 @@ int main(int argc, char** argv)
   memset(heading_var_by_second, 0, (int)((float)p.step_limit / 60.0f) * sizeof(float));
   area_by_second = (float*)malloc((int)((float)p.step_limit / 60.0f) * sizeof(float));
   memset(area_by_second, 0, (int)((float)p.step_limit / 60.0f) * sizeof(float));
-  occupancy = (bool*)malloc(p.world_size * 10 * p.world_size * 10 * 
-    sizeof(bool));
+  occupancy = (bool*)malloc(p.world_size*10*p.world_size*10*sizeof(bool));
   failures = (uint2*)malloc(5 * sizeof(uint2));
   // Initialize pinned host memory for data arrays
   cudaHostAlloc(&positions, p.num_robots * sizeof(float4), 0);
@@ -1417,8 +1456,7 @@ int main(int argc, char** argv)
   cudaHostAlloc(&obstacles, p.num_obstacles * sizeof(float4), 0);
 
   /// the positions of all the obstacles
-	cudaHostAlloc(&positions_obs, 
-      p.num_robots*NUM_ANGLE_RAY_TRACE*sizeof(float4), 0);
+	cudaHostAlloc(&positions_obs, p.world_size*p.world_size*sizeof(float4), 0);
 
   // Fill the leader list with -1 initially
   fill(leaders, leaders + p.num_robots, LEADER_NON_EXIST);
@@ -1438,14 +1476,22 @@ int main(int argc, char** argv)
   // Initialize OpenGL
   initGL(argc, argv);
   // Create vertex buffer object (VBO)
-  createVBO(&vbo_swarm, &cuda_vbo_resource_swarm, cudaGraphicsMapFlagsWriteDiscard);
+  uint size = (p.num_robots+GRID_SIZE) *4*sizeof(float);
+  //(32+150*150)*4*4
+  //printf("size = %d\n",size);
+  /// cudaGraphicsMapFlagsWriteDiscard = 
+  //    CUDA will only write to and will not read from this resource
+  createVBO(&vbo_name, &cuda_vbo_resource, 
+      cudaGraphicsMapFlagsWriteDiscard, size);
+
   // Set camera to default settings
   resetCamera();
 
   ///// CUDA INITIALIZATION /////
-  launchInitKernel(p, &cuda_vbo_resource_swarm);
+  launchInitKernel(p, &cuda_vbo_resource);
   // Retrieve initial data from GPU (kernels.cu)
-  getData(p.num_robots, positions, velocities, modes, positions_obs);
+  getData(p.num_robots, p.world_size*p.world_size, 
+      positions, velocities, modes, positions_obs);
   getLaplacian(p.num_robots, laplacian);
 
   ///// WORLD GENERATION /////

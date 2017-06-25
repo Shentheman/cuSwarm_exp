@@ -80,16 +80,17 @@ void cuFree();
 void launchInitKernel(Parameters p, 
   struct cudaGraphicsResource **vbo_resource);
 void launchMainKernel(float3 gh, float2 gp, uint sn, int* leaders, 
-  bool* ap, Parameters p, 
-struct cudaGraphicsResource **vbo_resource);
+  bool* ap, Parameters p, struct cudaGraphicsResource **vbo_resource);
 void launchInitKernel(Parameters p);
 void launchMainKernel(float3 gh, float2 gp, uint sn, int* leaders, 
   bool* ap, Parameters p);
 
 // CUDA host<->device copy functions
-void getData(uint n, float4* positions, float3* velocities, int* modes,
+void getData(uint n, uint n_grid, float4* positions, 
+  float3* velocities, int* modes,
   float4* positions_obs);
-void getData(uint n, float4* positions, float3* velocities, int* modes, 
+void getData(uint n, uint n_grid, float4* positions, 
+  float3* velocities, int* modes, 
   int* nearest_leader, uint* leader_countdown, float4* positions_obs);
 void getLaplacian(uint n, int4* laplacian);
 void setData(uint n, float4* positions, float3* velocities, int* modes);
@@ -104,7 +105,7 @@ void setOccupancy(Parameters p, bool* occupancy);
 __global__ void init_kernel(float4* pos, float3* vel, int* mode, 
   curandState* rand_state, ulong seed, float2* flow_pos, float2* flow_dir, 
   int* nearest_leader, uint* leader_countdown, Parameters p,
-  float4* pos_obs);
+  float4* pos_obs, int* counteraaa);
 
 __global__ void side_kernel(float4* pos, int* mode, int* leaders, 
   curandState* rand_state, Parameters p, int* nearest_leader, 
@@ -114,7 +115,7 @@ __global__ void main_kernel(float4* pos, float3* vel, int* mode,
   float3 goal_heading, float2 goal_point, curandState* rand_state, 
   bool* ap, float2* flow_pos, float2* flor_dir, bool* occupancy, 
   Parameters p, uint sn, 
-  float4* pos_obs);
+  float4* pos_obs, int* counteraaa);
 
 __device__ void rendezvous(float3 dist3, float2* min_bounds, 
   float2* max_bounds, float2* repel, bool is_ap, Parameters p);
@@ -131,11 +132,12 @@ __device__ void obstacleAvoidance(float4 myPos, float2* avoid,
   float* dist_to_obstacle, bool* occupancy, Parameters p, 
   float4* pos_obs, uint robot_index, bool &obs_encountered);
 
-__device__ bool checkOccupancy(float x, float y, bool* occupancy, 
-  Parameters p);
+__device__ int occupancySub2Ind(float x, float y, Parameters p);
 
-__device__ void setColor(uchar4* color, int mode, bool is_ap, uint i, 
+__device__ void setColorSwarm(uchar4* color, int mode, bool is_ap, uint i, 
   Parameters p, bool obs_encountered);
+
+__device__ void setColorGrid(uchar4* color, int grid);
 
 __device__ float euclidean(float2 vector);
 

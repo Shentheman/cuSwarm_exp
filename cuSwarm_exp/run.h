@@ -103,10 +103,8 @@ float translate_x0, translate_y0, translate_z0;
 uint frames = 0;            
 uint last_frames = 0;
 // Vertex buffer object and resource
-GLuint vbo_swarm;           
-struct cudaGraphicsResource* cuda_vbo_resource_swarm;
-GLuint vbo_grid;           
-struct cudaGraphicsResource* cuda_vbo_resource_grid;
+GLuint vbo_name;           
+struct cudaGraphicsResource* cuda_vbo_resource;
 
 
 // 6. Log file
@@ -135,7 +133,9 @@ void glResetModelAndProjection();
 
 // OpenGL utility functions
 void initGL(int argc, char **argv);
-void createVBO(GLuint* vbo);
+//void createVBO(GLuint* vbo);
+void createVBO(GLuint* vbo, struct cudaGraphicsResource **vbo_res,
+    unsigned int vbo_res_flags, uint size);
 void deleteVBO(GLuint* vbo, struct cudaGraphicsResource ** vbo_res);
 static void display(void);
 void screenToWorld(float3 screen, float3 *world);
