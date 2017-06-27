@@ -13,6 +13,7 @@
 #include <queue>
 #include <iterator>
 #include <set>
+#include <tuple>
 
 // Project includes
 #include "kernels.cuh"
@@ -48,7 +49,11 @@ int* explored_grid;
                     
 // 2. Robot positions (x, y, z, color)
 float4* positions;            
-/// the positions of all the obstacles
+/// Array on host: the positions of the obstacles detected 
+/// at this time stamp from cuda device
+float4* positions_obs_from_cuda;
+/// Array on local: the positions of all the obstacles 
+/// which have been detected so far from positions_obs_from_cuda
 float4* positions_obs;
 // Robot velocities (x, y, z)
 float3* velocities;           

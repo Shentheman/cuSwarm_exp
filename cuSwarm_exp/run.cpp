@@ -4,8 +4,8 @@
 ***** OpenGL Callback Functions ******
 *************************************/
 
-void drawInterface(float window_width, float window_height)
-{
+void drawInterface(float window_width, float window_height) {
+
   // Draw edge only polygons (wire frame)
   glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
   glLineWidth(3.0f);
@@ -166,7 +166,7 @@ void drawInterface(float window_width, float window_height)
   drawText(-0.98f, -0.7f, (char*)ss.str().c_str(), 0.8f, 0.8f, 0.8f);
   
   // Draw user trust info
-  drawText(0.735f, 0.9f, "Trust Level:", 0.8f, 0.8f, 0.8f);
+  drawText(0.735f, 0.9f, (char *)"Trust Level:", 0.8f, 0.8f, 0.8f);
   ss.str("");
   ss << data.user_trust;
   float x_pos;
@@ -186,7 +186,7 @@ void drawInterface(float window_width, float window_height)
   drawText(x_pos, 0.8f, (char*)ss.str().c_str(), 0.8f, 0.8f, 0.8f);
 
   // Draw target label
-  drawText(-0.98f, 0.9f, "Target information:", 0.8f, 0.8f, 0.8f);
+  drawText(-0.98f, 0.9f, (char *)"Target information:", 0.8f, 0.8f, 0.8f);
 
   // Draw either text or visualization of performance (targets found) 
   // and swarm state properties (variance and area covered) 
@@ -808,53 +808,61 @@ static void display(void) {
   glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 
-  !!!!!!!!!!!!!!!!!!???????????????????????????????
-  every round you need to clean this array
-  store previous drawing
-  color not working now
+  //!!!!!!!!!!!!!!!!!!???????????????????????????????
   int counter = 0;
   for (uint i = 0; i < p.num_robots*NUM_ANGLE_RAY_TRACE; i ++) {
-    if (positions_obs[i].z == GRID_EXPLORED_OBS) {
-      printf("obs at pos %d = (%f,%f,%f,%f)\n", i, positions_obs[i].x, 
-          positions_obs[i].y, positions_obs[i].z, positions_obs[i].w);
+    if (positions_obs_from_cuda[i].z == GRID_EXPLORED_OBS) {
       counter ++;
+      uint index = (uint)((positions_obs_from_cuda[i].x+p.world_size/2.0f)
+          +(uint)(floor(positions_obs_from_cuda[i].y+p.world_size/2.0f)
+          *p.world_size));
+      //printf("positions_obs_from_cuda[%d]=(%f,%f,%f,%f)\n", index, 
+          //positions_obs_from_cuda[i].x, positions_obs_from_cuda[i].y,
+          //positions_obs_from_cuda[i].z, positions_obs_from_cuda[i].w);
+      assert(index >=0 && index < p.world_size*p.world_size);
+      positions_obs[index] = positions_obs_from_cuda[i];
+      //printf("obs at pos %d = (%f,%f,%f,%f)\n", 
+          //i, positions_obs_from_cuda[i].x, positions_obs_from_cuda[i].y, 
+          //positions_obs_from_cuda[i].z, positions_obs_from_cuda[i].w);
     }
   }
-  printf("size = %d\n",counter);
+  printf("size = %d\n", counter);
+  for (uint i = 0; i < p.world_size*p.world_size; i++) {
+    std::cout<<positions_obs[i].x<<", "<<positions_obs[i].y<<
+      ", "<<positions_obs[i].z<<", "<<positions_obs[i].w<<std::endl;
+  }
 
+
+  /// array = [x (float), y (float), c (4 unsigned byte RGBA), ...]
+  std::vector<float> positions_obs_tmp(counter*3);
   if (counter > 0) {
-    GLfloat* pointVertex = NULL;
-    pointVertex = new GLfloat[counter*2];
-    GLfloat* tmp = pointVertex;
-    for (uint i = 0; i < p.num_robots*NUM_ANGLE_RAY_TRACE; i ++) {
+    for (uint i = 0; i < p.world_size*p.world_size; i++) {
       if (positions_obs[i].z == GRID_EXPLORED_OBS) {
-        *tmp = positions_obs[i].x;
-        tmp ++;
-        *tmp = positions_obs[i].y;
-        tmp ++;
+        positions_obs_tmp.emplace_back(positions_obs[i].x);
+        positions_obs_tmp.emplace_back(positions_obs[i].y);
+        positions_obs_tmp.emplace_back(positions_obs[i].w);
       }
     }
-    //for (uint i = 0; i < counter*2; i ++) {
-      //printf("%d - %f\n", i, pointVertex[i]);
-    //}
-
+    for (uint i = 0; i < counter; i++) {
+      std::cout<<positions_obs_tmp[i]<<", ";
+    }
 
     glEnableClientState(GL_VERTEX_ARRAY);
+    //glEnableClientState(GL_COLOR_ARRAY);
     glPointSize(100);
-    glVertexPointer(2, GL_FLOAT, 8, pointVertex);
+    // array = [x (float), y (float), c (4 unsigned byte RGBA), ...]
+    // 3 in a pair for a vertex, so stride = 12 bytes
+    // position starts from 0 bytes while color starts from 12 bytes
+    glVertexPointer(2, GL_FLOAT, 12, &positions_obs_tmp[0]);
+    /// arg1 = the number of components per color (RGBAlpha)
+    /// arg2 = the data type of each color component
+    /// arg3 = stride = the byte offset between consecutive colors in the array.
+    /// arg4 = a pointer to the 1st component of the 1st color in the array
+    //glColorPointer(4, GL_UNSIGNED_BYTE, 12, &positions_obs_tmp[0]+8);
     glDrawArrays(GL_POINTS, 0, counter);
+    //glDisableClientState(GL_COLOR_ARRAY);
     glDisableClientState(GL_VERTEX_ARRAY);
   }
-
-  //GLfloat pointVertex[] = {0,0,50,50};
-  //glEnableClientState(GL_VERTEX_ARRAY);
-  //glPointSize(100);
-  //glVertexPointer(2, GL_FLOAT, 8, pointVertex);
-  //glDrawArrays(GL_POINTS, 0, 2);
-  //glDisableClientState(GL_VERTEX_ARRAY);
-
-
- 
 
   // 2. Draw robot data
   for (uint i = 0; i < p.num_robots; i++) {
@@ -908,8 +916,8 @@ static void display(void) {
 }
 
 
-void screenToWorld(float3 screen, float3 *world)
-{
+void screenToWorld(float3 screen, float3 *world) {
+
   // Initialize variables
   GLint viewport[4];
   GLdouble modelview[16];
@@ -1268,7 +1276,7 @@ void exitSimulation()
   cudaFree(nearest_leaders);
   cudaFree(leader_countdowns);
   cudaFree(obstacles);
-  cudaFree(positions_obs);
+  cudaFree(positions_obs_from_cuda);
 
   // Free non-CUDA variables
   std::free(explored_grid);
@@ -1371,16 +1379,17 @@ static void step(int value)
         &cuda_vbo_resource);
 
     // Retrieve data from GPU (kernels.cu)
-    getData(p.num_robots, positions, velocities, modes, positions_obs);
+    getData(p.num_robots, positions, velocities, modes, positions_obs_from_cuda);
 
-    /// print positions_obs
+    /// print positions_obs_from_cuda
     //std::set<int> robots_obs_indices;
     //for (int i = 0; i < p.num_robots*NUM_ANGLE_RAY_TRACE; i ++) {
       //int robot_index = floor(i/NUM_ANGLE_RAY_TRACE);
       ////robots_obs_indices.emplace(robot_index);
-      //if (positions_obs[i].w!=-1.0f) {
+      //if (positions_obs_from_cuda[i].w!=-1.0f) {
         //std::cout<<"Robot "<<robot_index<<" encounter obstacle at ("
-          //<<positions_obs[i].x<<", "<<positions_obs[i].y<<")"<<std::endl;
+          //<<positions_obs_from_cuda[i].x<<", "
+          //<<positions_obs_from_cuda[i].y<<")"<<std::endl;
       //}
     //}
 
@@ -1397,9 +1406,9 @@ static void step(int value)
       ////std::cout<<"("<<world_x<<", "<<world_y<<")"<<std::endl;
     //}
     //for (uint i = 0; i < p.num_robots*NUM_ANGLE_RAY_TRACE; i ++) {
-      //if (positions_obs[i].w!=-1.0f) {
-        //obs_x = positions_obs[i].x;
-        //obs_y = positions_obs[i].y;
+      //if (positions_obs_from_cuda[i].w!=-1.0f) {
+        //obs_x = positions_obs_from_cuda[i].x;
+        //obs_y = positions_obs_from_cuda[i].y;
         ///// We will assign the 4 grid around the exact obstacle position to be obstacles
       //}
     /*}*/
@@ -1430,7 +1439,7 @@ static void step(int value)
     if (p.log_data) {
       // Write data to the output log at the end of every step
       std::fprintf(output_f, 
-          "step %d %d %f %f %f %f %f %f %f %f %f %d %d %d %d\n", 
+          "step %lu %d %f %f %f %f %f %f %f %f %f %d %d %d %d\n", 
           step_num, p.behavior, -goal_heading, p.align_weight, p.vel_bound, 
           data.heading_avg, data.heading_var, data.centroid.x, 
           data.centroid.y, data.ch_area, data.connectivity, data.explored, 
@@ -1473,6 +1482,7 @@ int main(int argc, char** argv)
   output_fname << argv[2];
 
   ///// MEMORY ALLOCATION /////
+  /// XXX: the memory which does not have to communicate with cuda
   explored_grid = (int*)malloc(p.world_size * p.world_size * sizeof(int));
   ap = (bool*)malloc(p.num_robots * sizeof(bool));
   targets = (int3*)malloc(p.targets * sizeof(int3));
@@ -1484,7 +1494,20 @@ int main(int argc, char** argv)
   memset(area_by_second, 0, (int)((float)p.step_limit / 60.0f) * sizeof(float));
   occupancy = (bool*)malloc(p.world_size*10*p.world_size*10*sizeof(bool));
   failures = (uint2*)malloc(5 * sizeof(uint2));
+
+  positions_obs = (float4*)malloc(p.world_size*p.world_size*4*sizeof(float));
+  for (uint i = 0; i < p.world_size*p.world_size; i++) {
+    positions_obs[i] = make_float4(0.0f, 0.0f, (float)GRID_UNEXPLORED,0.0f);
+  }
+
+   
+  /// The coordinates of all the obstacles detected by robots
+  /// Initialized to be 0. 
+  /// Whenever the obstacle is detected, assign a color to it
+  //int* obstacles_detected = new int*[p.world_size];
+
   // Initialize pinned host memory for data arrays
+  /// XXX: the memory which has to communicate with cuda
   cudaHostAlloc(&positions, p.num_robots * sizeof(float4), 0);
   cudaHostAlloc(&velocities, p.num_robots * sizeof(float3), 0);
   cudaHostAlloc(&modes, p.num_robots * sizeof(float4), 0);
@@ -1493,9 +1516,8 @@ int main(int argc, char** argv)
   cudaHostAlloc(&leader_countdowns, p.num_robots * sizeof(uint), 0);
   cudaHostAlloc(&laplacian, p.num_robots * p.num_robots * sizeof(int4), 0);
   cudaHostAlloc(&obstacles, p.num_obstacles * sizeof(float4), 0);
-
   /// the positions of all the obstacles
-	cudaHostAlloc(&positions_obs, 
+	cudaHostAlloc(&positions_obs_from_cuda, 
       p.num_robots*NUM_ANGLE_RAY_TRACE*sizeof(float4), 0);
 
   // Fill the leader list with -1 initially
@@ -1530,7 +1552,7 @@ int main(int argc, char** argv)
   ///// CUDA INITIALIZATION /////
   launchInitKernel(p, &cuda_vbo_resource);
   // Retrieve initial data from GPU (kernels.cu)
-  getData(p.num_robots, positions, velocities, modes, positions_obs);
+  getData(p.num_robots, positions, velocities, modes, positions_obs_from_cuda);
   getLaplacian(p.num_robots, laplacian);
 
   ///// WORLD GENERATION /////
