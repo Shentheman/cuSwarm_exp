@@ -20,8 +20,6 @@ ps ax | grep "ssh_command" | awk '{print $1}' | xargs -i kill {} 2>/dev/null
 Just SSHing with one command
 
 ssh -t shen@krasato.cimds.ri.cmu.edu "ssh shenli@shredder"
-dallas41
-Shentheman
 
 
 $ mkdir build
