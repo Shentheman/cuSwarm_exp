@@ -804,7 +804,6 @@ static void display(void) {
   glDisableClientState(GL_VERTEX_ARRAY);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-  //!!!!!!!!!!!!!!!!!!???????????????????????????????
   for (uint i = 0; i < p.num_robots*NUM_ANGLE_RAY_TRACE; i ++) {
     if (positions_obs_from_cuda[i].z == GRID_EXPLORED_OBS) {
      uint tmp = (uint)((positions_obs_from_cuda[i].y+p.world_size/2.0f) < 0) ? 
@@ -1328,7 +1327,8 @@ static void step(int value)
       }
       
       // Process data of initial state
-      processData(positions, velocities, explored_grid, targets, laplacian, ap, &data, p);
+      processData(positions, velocities, explored_grid, 
+          targets, laplacian, ap, &data, p);
 
       // Indicates inital state has passed
       initial_passed = true;
@@ -1376,7 +1376,8 @@ static void step(int value)
         &cuda_vbo_resource);
 
     // Retrieve data from GPU (kernels.cu)
-    getData(p.num_robots, positions, velocities, modes, positions_obs_from_cuda);
+    getData(p.num_robots, positions, velocities, modes, 
+        positions_obs_from_cuda);
 
     /// print positions_obs_from_cuda
     //std::set<int> robots_obs_indices;
@@ -1413,19 +1414,71 @@ static void step(int value)
     // Update explored grid
     updateExplored();
 
-    /// Here we can use explored to keep track and make the next plan!!!!!!!!!!!!!!!!!
+
+    /// Here we can use explored to keep track 
+    //and make the next plan!!!!!!!!!!!!!!!!!
     //if average robot position is close to obstaacle
     //then change direction
 
     // Get data variables (data_ops.h)
-    processData(positions, velocities, explored_grid, targets, laplacian, ap, &data, p);
+    processData(positions, velocities, explored_grid, 
+        targets, laplacian, ap, &data, p);
+
+    // shen: compute the next navigational direction
+    std::vector<float2> obstacle_pos;
+    for (uint i = 0; i < p.world_size*p.world_size; i++) {
+      if (positions_obs[i].z == GRID_EXPLORED_OBS) {
+        obstacle_pos.emplace_back(make_float2(positions_obs[i].x,
+              positions_obs[i].y));
+      }
+    }
+    int num_obstacle_pos = obstacle_pos.size();
+    if (num_obstacle_pos>0){
+      std::cout<<"Num obs = "<< num_obstacle_pos<<std::endl;
+    }
+
+    std::vector<Point> convex_hull = data.ch;
+    std::cout<<"there are "<<convex_hull.size()<<" points in ch."<<std::endl;
+    for (uint i = 0; i < convex_hull.size(); i ++) {
+      std::cout<<"ch=("<<convex_hull[i].x<<", "<<
+        convex_hull[i].y<<")"<<std::endl;
+    }
+    auto xExtremes = std::minmax_element
+      (convex_hull.begin(), convex_hull.end(), 
+       [](const Point& lhs, const Point& rhs) 
+       {return lhs.x < rhs.x;});
+    float min_x = (*xExtremes.first).x;
+    float max_x = (*xExtremes.second).x;
+    std::cout<<"max x = "<<max_x<<", min x = "<<min_x<<std::endl;
+    auto yExtremes = std::minmax_element
+      (convex_hull.begin(), convex_hull.end(), 
+       [](const Point& lhs, const Point& rhs) 
+       {return lhs.y < rhs.y;});
+    float min_y = (*yExtremes.first).y;
+    float max_y = (*yExtremes.second).y;
+    std::cout<<"max y = "<<max_y<<", min y = "<<min_y<<std::endl;
+
+    //turn back if obstacles are in the front
+    bool obs_front = false;
+    for (uint i = 0; i < obstacle_pos.size(); i ++) {
+      if ((goal_vector.x > 0 && obstacle_pos[i].x > max_x 
+            && obstacle_pos[i].y > min_y && obstacle_pos[i].y < max_y)
+          || (goal_vector.x < 0 && obstacle_pos[i].x < min_x 
+            && obstacle_pos[i].y > min_y && obstacle_pos[i].y < max_y)) {
+        obs_front = true;
+      }
+      goal_vector.x = -goal_vector.x;
+    }
+    //!!!!!!!!!!!!!!!!!
+ 
 
     // Update leader list (Very inefficient now, should compute at the same 
     // time as convex hull)
     for (uint i = 0; i < p.num_robots; i++) {
       bool is_in_ch = false;
       for (uint j = 0; j < data.ch.size(); j++) {
-        if (positions[i].x == data.ch[j].x && positions[i].y == data.ch[j].y) {
+        if (positions[i].x == data.ch[j].x 
+            && positions[i].y == data.ch[j].y) {
           is_in_ch = true;
           break;
         }
