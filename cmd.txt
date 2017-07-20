@@ -1,0 +1,33 @@
+https://osxfuse.github.io/
+
+Complete Solution: URL: http://www.larkinweb.co.uk/computing/mounting_file_systems_over_two_ssh_hops.html
+
+Mounting:
+
+ssh -f shen@krasato.cimds.ri.cmu.edu -L 2223:shredder:22 -N
+
+sshfs -p 2223 shenli@localhost:/home/shenli/ /home/shen/Desktop/swarm_machine
+
+
+Unmounting:
+
+sudo umount -f /home/shen/Desktop/swarm_machine
+
+ps ax | grep "ssh_command" | awk '{print $1}' | xargs -i kill {} 2>/dev/null
+
+
+
+Just SSHing with one command
+
+ssh -t shen@krasato.cimds.ri.cmu.edu "ssh shenli@shredder"
+dallas41
+Shentheman
+
+
+$ mkdir build
+$ cd build
+$ cmake ..
+$ cmake --build .
+
+Then run the code as follow:
+$./swarm params.txt output.txt

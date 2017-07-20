@@ -1,0 +1,12 @@
+explored_grid If it is obstacle, the value = the number of robots which have viewed it; and if it is free, the value = the number of robots which have viewed it.
+
+top left is 0,0
+
+BEHAVIOR_RENDEZVOUS = 0;
+BEHAVIOR_FLOCKING = 1;
+BEHAVIOR_DISPERSION = 2;
+BEHAVIOR_RENDEZVOUS_TO_POINT = 3;
+
+
+create a array similar to mode to store pioneer, so that you can change color in the server side
+

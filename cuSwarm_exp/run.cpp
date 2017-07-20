@@ -826,11 +826,11 @@ static void display(void) {
           //positions_obs_from_cuda[i].z, positions_obs_from_cuda[i].w);
     }
   }
-  printf("size = %d\n", counter);
-  for (uint i = 0; i < p.world_size*p.world_size; i++) {
-    std::cout<<positions_obs[i].x<<", "<<positions_obs[i].y<<
-      ", "<<positions_obs[i].z<<", "<<positions_obs[i].w<<std::endl;
-  }
+  //printf("size = %d\n", counter);
+  //for (uint i = 0; i < p.world_size*p.world_size; i++) {
+    //std::cout<<positions_obs[i].x<<", "<<positions_obs[i].y<<
+      //", "<<positions_obs[i].z<<", "<<positions_obs[i].w<<std::endl;
+  //}
 
 
   /// array = [x (float), y (float), c (4 unsigned byte RGBA), ...]
