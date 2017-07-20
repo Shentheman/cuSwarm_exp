@@ -745,10 +745,9 @@ static void display(void) {
   glTranslatef(-translate_x0, -translate_y0, -translate_z0);
 
   // Closer things cover far things
-  /// Shen TODO  to display obstacle more clearly
-  //glEnable(GL_DEPTH_TEST);
-  //glDepthFunc(GL_LESS);
-  //glDepthMask(GL_TRUE);
+  glEnable(GL_DEPTH_TEST);
+  glDepthFunc(GL_LESS);
+  glDepthMask(GL_TRUE);
 
   // Transparency
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -800,55 +799,53 @@ static void display(void) {
   ///   If stride is 0, the colors are understood to be tightly packed in the array
   /// arg4 = a pointer to the 1st component of the 1st color in the array
   glColorPointer(4, GL_UNSIGNED_BYTE, 16, (GLvoid*)12);
-  /// TODO: Some points are missing. But the VBO should have all the points
-  /// from the past because the counter keeps increasing.
   glDrawArrays(GL_POINTS, 0, p.num_robots);
   glDisableClientState(GL_COLOR_ARRAY);
   glDisableClientState(GL_VERTEX_ARRAY);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-
   //!!!!!!!!!!!!!!!!!!???????????????????????????????
-  int counter = 0;
   for (uint i = 0; i < p.num_robots*NUM_ANGLE_RAY_TRACE; i ++) {
     if (positions_obs_from_cuda[i].z == GRID_EXPLORED_OBS) {
-      counter ++;
+     uint tmp = (uint)((positions_obs_from_cuda[i].y+p.world_size/2.0f) < 0) ? 
+       ceil(positions_obs_from_cuda[i].y+p.world_size/2.0f) : 
+       floor(positions_obs_from_cuda[i].y+p.world_size/2.0f);
       uint index = (uint)((positions_obs_from_cuda[i].x+p.world_size/2.0f)
-          +(uint)(floor(positions_obs_from_cuda[i].y+p.world_size/2.0f)
-          *p.world_size));
-      //printf("positions_obs_from_cuda[%d]=(%f,%f,%f,%f)\n", index, 
-          //positions_obs_from_cuda[i].x, positions_obs_from_cuda[i].y,
-          //positions_obs_from_cuda[i].z, positions_obs_from_cuda[i].w);
+          +(uint)(tmp*p.world_size));
+      if (! (index >=0 && index < p.world_size*p.world_size)){
+        std::cout<<"index="<<index<<", x="<<positions_obs_from_cuda[i].x<<
+          ", y="<<positions_obs_from_cuda[i].y<<std::endl;
+      }
       assert(index >=0 && index < p.world_size*p.world_size);
       positions_obs[index] = positions_obs_from_cuda[i];
-      //printf("obs at pos %d = (%f,%f,%f,%f)\n", 
-          //i, positions_obs_from_cuda[i].x, positions_obs_from_cuda[i].y, 
-          //positions_obs_from_cuda[i].z, positions_obs_from_cuda[i].w);
     }
   }
-  //printf("size = %d\n", counter);
-  //for (uint i = 0; i < p.world_size*p.world_size; i++) {
-    //std::cout<<positions_obs[i].x<<", "<<positions_obs[i].y<<
-      //", "<<positions_obs[i].z<<", "<<positions_obs[i].w<<std::endl;
-  //}
 
-
+  int counter = 0;
+  for (uint i = 0; i < p.world_size*p.world_size; i++) {
+    if (positions_obs[i].z == GRID_EXPLORED_OBS) {
+      counter ++;
+    }
+  }
+ 
+  // Build vector to store the obs for painting
   /// array = [x (float), y (float), c (4 unsigned byte RGBA), ...]
-  std::vector<float> positions_obs_tmp(counter*3);
   if (counter > 0) {
+    std::vector<float> positions_obs_tmp(counter*3);
+    std::vector<float>::iterator it = positions_obs_tmp.begin();
     for (uint i = 0; i < p.world_size*p.world_size; i++) {
       if (positions_obs[i].z == GRID_EXPLORED_OBS) {
-        positions_obs_tmp.emplace_back(positions_obs[i].x);
-        positions_obs_tmp.emplace_back(positions_obs[i].y);
-        positions_obs_tmp.emplace_back(positions_obs[i].w);
+        *it = positions_obs[i].x;
+        it ++;
+        *it = positions_obs[i].y;
+        it ++;
+        *it = positions_obs[i].w;
+        it ++;
       }
-    }
-    for (uint i = 0; i < counter; i++) {
-      std::cout<<positions_obs_tmp[i]<<", ";
     }
 
     glEnableClientState(GL_VERTEX_ARRAY);
-    //glEnableClientState(GL_COLOR_ARRAY);
+    glEnableClientState(GL_COLOR_ARRAY);
     glPointSize(100);
     // array = [x (float), y (float), c (4 unsigned byte RGBA), ...]
     // 3 in a pair for a vertex, so stride = 12 bytes
@@ -858,9 +855,9 @@ static void display(void) {
     /// arg2 = the data type of each color component
     /// arg3 = stride = the byte offset between consecutive colors in the array.
     /// arg4 = a pointer to the 1st component of the 1st color in the array
-    //glColorPointer(4, GL_UNSIGNED_BYTE, 12, &positions_obs_tmp[0]+8);
+    glColorPointer(4, GL_UNSIGNED_BYTE, 12, &positions_obs_tmp[0]+2);
     glDrawArrays(GL_POINTS, 0, counter);
-    //glDisableClientState(GL_COLOR_ARRAY);
+    glDisableClientState(GL_COLOR_ARRAY);
     glDisableClientState(GL_VERTEX_ARRAY);
   }
 

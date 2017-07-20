@@ -843,7 +843,7 @@ __device__ void obstacleAvoidance(float4 myPos, float2* avoid,
         Color color;
         setColorGrid(&(color.components), GRID_EXPLORED_OBS);
         pos_obs[tmp] = make_float4(x_check,y_check,GRID_EXPLORED_OBS,color.c);
-        printf("obs = array[%d]=%f\n",tmp, pos_obs[tmp].w);
+        /*printf("obs = array[%d]=%f\n",tmp, pos_obs[tmp].w);*/
 
         is_obs_encountered = true;
         break;
