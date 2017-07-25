@@ -91,6 +91,27 @@
 #define GRID_UNEXPLORED -1
 #endif
 
+//navigation direction used in run.cpp, similar to goal_vector
+#ifndef GOAL_VECTOR_UP
+#define GOAL_VECTOR_UP make_float3(0.0,1.0,0.0)
+#endif
+#ifndef GOAL_VECTOR_DOWN
+#define GOAL_VECTOR_DOWN make_float3(0.0,-1.0,0.0)
+#endif
+#ifndef GOAL_VECTOR_LEFT
+#define GOAL_VECTOR_LEFT make_float3(-1.0,0.0,0.0)
+#endif
+#ifndef GOAL_VECTOR_RIGHT
+#define GOAL_VECTOR_RIGHT make_float3(1.0,0.0,0.0)
+#endif
+#ifndef GOAL_VECTOR_NULL
+#define GOAL_VECTOR_NULL make_float3(0.0,0.0,1.0)
+#endif
+
+#ifndef INF_COORDINATE
+#define INF_COORDINATE p.world_size*100
+#endif
+
 
 /***********************************
 ***** STRUCTURES AND TYPEDEFS ******

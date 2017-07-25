@@ -35,6 +35,8 @@ cuda_add_executable(
     run.h
     utils.cpp
     utils.h
+    cell.h
+    cell.cpp
     )
 
 #specify target and library to link it with

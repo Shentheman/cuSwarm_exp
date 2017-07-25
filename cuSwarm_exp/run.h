@@ -13,13 +13,13 @@
 #include <queue>
 #include <iterator>
 #include <set>
-#include <tuple>
 
 // Project includes
 #include "kernels.cuh"
 #include "data_ops.h"
 #include "utils.h"
 
+#include "cell.h"
 
 
 
@@ -111,12 +111,21 @@ uint last_frames = 0;
 GLuint vbo_name;           
 struct cudaGraphicsResource* cuda_vbo_resource;
 
-
 // 6. Log file
 // Main log files
 FILE* output_f;             
 // Name of the log file
 std::stringstream output_fname;     
+
+// 7. Contact-based Coverage Rectilinear (CCR) algorithm
+std::vector<Cell> cells;
+float prev_max_x;
+float prev_min_x;
+float prev_max_y;
+float prev_min_y;
+
+
+
 
 /**************************************
 ***** FORWARD DECLARED FUNCTIONS ******
@@ -158,6 +167,7 @@ void promptTrust(int a);
 void updateExplored();
 void exitSimulation();
 void printDataHeader();
+bool EqualFloat3(const float3 src1, const float3 src2);
 
 // Function to execute each step
 static void step(int value);

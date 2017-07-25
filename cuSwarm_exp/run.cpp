@@ -806,15 +806,23 @@ static void display(void) {
 
   for (uint i = 0; i < p.num_robots*NUM_ANGLE_RAY_TRACE; i ++) {
     if (positions_obs_from_cuda[i].z == GRID_EXPLORED_OBS) {
-     uint tmp = (uint)((positions_obs_from_cuda[i].y+p.world_size/2.0f) < 0) ? 
-       ceil(positions_obs_from_cuda[i].y+p.world_size/2.0f) : 
-       floor(positions_obs_from_cuda[i].y+p.world_size/2.0f);
-      uint index = (uint)((positions_obs_from_cuda[i].x+p.world_size/2.0f)
-          +(uint)(tmp*p.world_size));
-      if (! (index >=0 && index < p.world_size*p.world_size)){
-        std::cout<<"index="<<index<<", x="<<positions_obs_from_cuda[i].x<<
-          ", y="<<positions_obs_from_cuda[i].y<<std::endl;
-      }
+      uint x_tmp = (uint)((positions_obs_from_cuda[i].x+p.world_size/2.0f) < 0) 
+        ? ceil(positions_obs_from_cuda[i].x+p.world_size/2.0f) 
+        : floor(positions_obs_from_cuda[i].x+p.world_size/2.0f);
+      uint y_tmp = (uint)((positions_obs_from_cuda[i].y+p.world_size/2.0f) < 0) 
+        ? ceil(positions_obs_from_cuda[i].y+p.world_size/2.0f)
+        : floor(positions_obs_from_cuda[i].y+p.world_size/2.0f);
+      if (x_tmp<=0.0) {x_tmp=1.0;}
+      if (x_tmp>=p.world_size) {x_tmp=p.world_size-1.0;}
+      if (y_tmp<=0.0) {y_tmp=1.0;}
+      if (y_tmp>=p.world_size) {y_tmp=p.world_size-1.0;}
+      uint index = (uint)(x_tmp)+(uint)(y_tmp*p.world_size);
+      //if (! (index >=0 && index < p.world_size*p.world_size)){
+        //std::cout<<"index="<<index<<", x="<<positions_obs_from_cuda[i].x<<
+          //", y="<<positions_obs_from_cuda[i].y<<std::endl;
+      //}
+      //std::cout<<"-================="<<index<<"xtmp="<<x_tmp<<"ytmp"
+        //<<y_tmp<<std::endl;
       assert(index >=0 && index < p.world_size*p.world_size);
       positions_obs[index] = positions_obs_from_cuda[i];
     }
@@ -1309,6 +1317,10 @@ void printDataHeader()
   }
 }
 
+bool EqualFloat3(const float3 src1, const float3 src2) {
+  return (src1.x==src2.x && src1.y==src2.y && src1.z==src2.z);
+}
+
 /************************
 ***** PROGRAM LOOP ******
 ************************/
@@ -1414,17 +1426,28 @@ static void step(int value)
     // Update explored grid
     updateExplored();
 
+    // Get data variables (data_ops.h)
+    processData(positions, velocities, explored_grid, 
+        targets, laplacian, ap, &data, p);
+
 
     /// Here we can use explored to keep track 
     //and make the next plan!!!!!!!!!!!!!!!!!
     //if average robot position is close to obstaacle
     //then change direction
 
-    // Get data variables (data_ops.h)
-    processData(positions, velocities, explored_grid, 
-        targets, laplacian, ap, &data, p);
 
     // shen: compute the next navigational direction
+    // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+    //for (uint i = 0; i < cells.size(); i++) {
+      //std::cout<<"--------------"<<cells[i].ToString()<<std::endl;
+    //}
+
+    // We need to check several things
+    // 1. move 1 step further
+    // 2. touch ceiling = ceiling in cell
+    // 3. touch floor = floor in cell
+
     std::vector<float2> obstacle_pos;
     for (uint i = 0; i < p.world_size*p.world_size; i++) {
       if (positions_obs[i].z == GRID_EXPLORED_OBS) {
@@ -1433,45 +1456,142 @@ static void step(int value)
       }
     }
     int num_obstacle_pos = obstacle_pos.size();
-    if (num_obstacle_pos>0){
-      std::cout<<"Num obs = "<< num_obstacle_pos<<std::endl;
-    }
+    //if (num_obstacle_pos>0){
+      //std::cout<<"Num obs = "<< num_obstacle_pos<<std::endl;
+    //}
 
     std::vector<Point> convex_hull = data.ch;
-    std::cout<<"there are "<<convex_hull.size()<<" points in ch."<<std::endl;
-    for (uint i = 0; i < convex_hull.size(); i ++) {
-      std::cout<<"ch=("<<convex_hull[i].x<<", "<<
-        convex_hull[i].y<<")"<<std::endl;
-    }
+    //std::cout<<"there are "<<convex_hull.size()<<" points in ch."<<std::endl;
+    //for (uint i = 0; i < convex_hull.size(); i ++) {
+      //std::cout<<"ch=("<<convex_hull[i].x<<", "<<
+        //convex_hull[i].y<<")"<<std::endl;
+    //}
+    //TODO: whenever hit wall, converge to that position until the variance is low
     auto xExtremes = std::minmax_element
       (convex_hull.begin(), convex_hull.end(), 
        [](const Point& lhs, const Point& rhs) 
        {return lhs.x < rhs.x;});
     float min_x = (*xExtremes.first).x;
     float max_x = (*xExtremes.second).x;
-    std::cout<<"max x = "<<max_x<<", min x = "<<min_x<<std::endl;
+    //std::cout<<"max x = "<<max_x<<", min x = "<<min_x<<std::endl;
     auto yExtremes = std::minmax_element
       (convex_hull.begin(), convex_hull.end(), 
        [](const Point& lhs, const Point& rhs) 
        {return lhs.y < rhs.y;});
     float min_y = (*yExtremes.first).y;
     float max_y = (*yExtremes.second).y;
-    std::cout<<"max y = "<<max_y<<", min y = "<<min_y<<std::endl;
+    //std::cout<<"max y = "<<max_y<<", min y = "<<min_y<<std::endl;
 
-    //turn back if obstacles are in the front
-    bool obs_front = false;
+    // XXX: here front, left, and right mean the position 
+    // relative to the navigation direction
+    // TODO: whenever hit wall, converge to that position until the variance is low
+    std::vector<float2> obstacle_pos_front;
+    std::vector<float2> obstacle_pos_left;
+    std::vector<float2> obstacle_pos_right;
+    //float view_reduction = p.point_size/5.0;
+    float view_reduction = 0.0;
     for (uint i = 0; i < obstacle_pos.size(); i ++) {
-      if ((goal_vector.x > 0 && obstacle_pos[i].x > max_x 
-            && obstacle_pos[i].y > min_y && obstacle_pos[i].y < max_y)
-          || (goal_vector.x < 0 && obstacle_pos[i].x < min_x 
-            && obstacle_pos[i].y > min_y && obstacle_pos[i].y < max_y)) {
-        obs_front = true;
-      }
-      goal_vector.x = -goal_vector.x;
-    }
-    //!!!!!!!!!!!!!!!!!
- 
 
+      std::cout<<"obs ("<<obstacle_pos[i].x<<", "<<obstacle_pos[i].y<<
+        "); max_x="<<max_x<<", min_x="<<min_x<<", max_y"<<max_y<<
+        ", min_y="<<min_y<<"; goalvec=("<<goal_vector.x<<", "<<
+        goal_vector.y<<")\n";
+
+      if ((EqualFloat3(goal_vector, GOAL_VECTOR_RIGHT)==true 
+            && obstacle_pos[i].x > max_x
+            && obstacle_pos[i].y-view_reduction > min_y 
+            && obstacle_pos[i].y+view_reduction < max_y)
+          || (EqualFloat3(goal_vector, GOAL_VECTOR_LEFT)==true
+            && obstacle_pos[i].x < min_x 
+            && obstacle_pos[i].y-view_reduction > min_y 
+            && obstacle_pos[i].y+view_reduction < max_y)
+          || (EqualFloat3(goal_vector, GOAL_VECTOR_UP)==true
+            && obstacle_pos[i].y > max_y 
+            && obstacle_pos[i].x-view_reduction > min_x 
+            && obstacle_pos[i].x+view_reduction < max_x)
+          || (EqualFloat3(goal_vector, GOAL_VECTOR_DOWN)==true
+            && obstacle_pos[i].y < min_y 
+            && obstacle_pos[i].x-view_reduction > min_x 
+            && obstacle_pos[i].x+view_reduction < max_x)) {
+        obstacle_pos_front.emplace_back(obstacle_pos[i]);
+        std::cout<<"add front"<<std::endl;
+      }
+      else if ((EqualFloat3(goal_vector, GOAL_VECTOR_RIGHT)==true
+          && obstacle_pos[i].y > max_y 
+          && obstacle_pos[i].x-view_reduction > min_x 
+          && obstacle_pos[i].x+view_reduction < max_x)
+              || (EqualFloat3(goal_vector, GOAL_VECTOR_LEFT)==true
+                && obstacle_pos[i].y < min_y 
+                && obstacle_pos[i].x-view_reduction > min_x 
+                && obstacle_pos[i].x+view_reduction < max_x)
+              || (EqualFloat3(goal_vector, GOAL_VECTOR_UP)==true
+                && obstacle_pos[i].x < min_x 
+                && obstacle_pos[i].y-view_reduction > min_y 
+                && obstacle_pos[i].y+view_reduction < max_y)
+              || (EqualFloat3(goal_vector, GOAL_VECTOR_DOWN)==true
+                && obstacle_pos[i].x > max_x 
+                && obstacle_pos[i].y-view_reduction > min_y 
+                && obstacle_pos[i].y+view_reduction < max_y)) {
+        obstacle_pos_left.emplace_back(obstacle_pos[i]);
+        //std::cout<<"add left"<<std::endl;
+      }
+      else if ((EqualFloat3(goal_vector, GOAL_VECTOR_RIGHT)
+                && obstacle_pos[i].y < min_y 
+                && obstacle_pos[i].x-p.point_size > min_x 
+                && obstacle_pos[i].x+p.point_size < max_x)
+              || (EqualFloat3(goal_vector, GOAL_VECTOR_LEFT)==true
+                && obstacle_pos[i].y > max_y
+                && obstacle_pos[i].x-p.point_size > min_x 
+                && obstacle_pos[i].x+p.point_size < max_x)
+              || (EqualFloat3(goal_vector, GOAL_VECTOR_UP)==true
+                && obstacle_pos[i].x > max_x 
+                && obstacle_pos[i].y-p.point_size > min_y 
+                && obstacle_pos[i].y+p.point_size < max_y)
+              || (EqualFloat3(goal_vector, GOAL_VECTOR_DOWN)==true
+                && obstacle_pos[i].x < min_x 
+                && obstacle_pos[i].y-p.point_size > min_y 
+                && obstacle_pos[i].y+p.point_size < max_y)) {
+        obstacle_pos_right.emplace_back(obstacle_pos[i]);
+        //std::cout<<"add right"<<std::endl;
+      }
+    }
+
+    //TODO: adaptively fix direction so that it is not off too much
+    if (EqualFloat3(goal_vector, GOAL_VECTOR_NULL)==true) {
+      // initial action
+      goal_point = make_float2(0.0,0.0);
+      goal_vector = GOAL_VECTOR_DOWN;
+      std::cout<<"init - down"<<std::endl;
+      prev_max_x = max_x;
+      //update cell frontier
+    }
+    else if (obstacle_pos_front.empty()==false 
+      && EqualFloat3(goal_vector, GOAL_VECTOR_DOWN)==true) {
+      goal_point = make_float2(0.0,0.0);
+      goal_vector = GOAL_VECTOR_RIGHT;
+      std::cout<<"down - right"<<std::endl;
+      prev_max_x = max_x;
+      //update cell frontier
+    }
+    else if (min_x-prev_max_x>0.0
+        && EqualFloat3(goal_vector, GOAL_VECTOR_RIGHT)==true) {
+      goal_point = make_float2(0.0,0.0);
+      goal_vector = GOAL_VECTOR_UP;
+      std::cout<<"right - up"<<std::endl;
+      prev_max_x = max_x;
+      //update cell frontier
+    }
+    else if (obstacle_pos_front.empty()==false 
+      && EqualFloat3(goal_vector, GOAL_VECTOR_UP)==true) {
+      goal_point = make_float2(0.0,0.0);
+      goal_vector = GOAL_VECTOR_RIGHT;
+      std::cout<<"up - right"<<std::endl;
+      prev_max_x = max_x;
+      //update cell frontier
+    }
+
+
+    // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     // Update leader list (Very inefficient now, should compute at the same 
     // time as convex hull)
     for (uint i = 0; i < p.num_robots; i++) {
@@ -1536,12 +1656,18 @@ int main(int argc, char** argv)
   explored_grid = (int*)malloc(p.world_size * p.world_size * sizeof(int));
   ap = (bool*)malloc(p.num_robots * sizeof(bool));
   targets = (int3*)malloc(p.targets * sizeof(int3));
-  targets_by_second = (int*)malloc((int)((float)p.step_limit / 60.0f) * sizeof(int));
-  memset(targets_by_second, 0, (int)((float)p.step_limit / 60.0f) * sizeof(int));
-  heading_var_by_second = (float*)malloc((int)((float)p.step_limit / 60.0f) * sizeof(float));
-  memset(heading_var_by_second, 0, (int)((float)p.step_limit / 60.0f) * sizeof(float));
-  area_by_second = (float*)malloc((int)((float)p.step_limit / 60.0f) * sizeof(float));
-  memset(area_by_second, 0, (int)((float)p.step_limit / 60.0f) * sizeof(float));
+  targets_by_second = (int*)malloc((int)((float)p.step_limit/60.0f)
+      *sizeof(int));
+  memset(targets_by_second, 0, (int)((float)p.step_limit/60.0f)
+      *sizeof(int));
+  heading_var_by_second = (float*)malloc((int)((float)p.step_limit/60.0f)
+      *sizeof(float));
+  memset(heading_var_by_second, 0, (int)((float)p.step_limit/60.0f)
+      *sizeof(float));
+  area_by_second = (float*)malloc((int)((float)p.step_limit/60.0f)
+      *sizeof(float));
+  memset(area_by_second, 0, (int)((float)p.step_limit/60.0f)
+      *sizeof(float));
   occupancy = (bool*)malloc(p.world_size*10*p.world_size*10*sizeof(bool));
   failures = (uint2*)malloc(5 * sizeof(uint2));
 
@@ -1625,7 +1751,25 @@ int main(int argc, char** argv)
   // Initialize goal heading, goal region, and goal point to 0
   goal_heading = 0.0f;
   goal_point = make_float2(0.0f, 0.0f);
-  
+
+  // Initialize cells by treating the entire map as 1 cell
+  Cell* world = new Cell(-p.world_size, INF_COORDINATE, INF_COORDINATE,
+      INF_COORDINATE, true, false, false, false);
+  // XXX: initialize a reference to the placeholder vector to make it modifiable
+  // x,y are from [-world_size/2, world_size/2]
+  std::vector<std::tuple<float2,float2> > &ph = world->GetPlaceholder();
+  // XXX: C++ does not allow -p.world_size, it has to be -1.0*p.world_size
+  ph.emplace_back(std::make_tuple(make_float2(0.0, -1.0*p.world_size/2.0),
+       make_float2(0.0, p.world_size/2.0)));
+  cells.emplace_back(*world);
+  goal_vector = GOAL_VECTOR_NULL;
+  prev_max_x = 0.0;
+  prev_min_x = 0.0;
+  prev_max_y = 0.0;
+  prev_min_y = 0.0;
+
+
+
   ///// START MAIN LOOP /////
   glutMainLoop();
 

@@ -310,10 +310,10 @@ __global__ void init_kernel(float4* pos, float3* vel, int* mode,
         pos_obs[j] = make_float4(-p.world_size, -p.world_size,
             GRID_UNEXPLORED, 0.0f);
       }
-      for (uint j = 0; j < p.num_robots*NUM_ANGLE_RAY_TRACE; j++) {
-        printf("array[%d]=(%f,%f,%f,%f)",j, pos_obs[j].x, pos_obs[j].y, 
-            pos_obs[j].z, pos_obs[j].w);
-      }
+      /*for (uint j = 0; j < p.num_robots*NUM_ANGLE_RAY_TRACE; j++) {*/
+        /*printf("array[%d]=(%f,%f,%f,%f)",j, pos_obs[j].x, pos_obs[j].y, */
+            /*pos_obs[j].z, pos_obs[j].w);*/
+      /*}*/
   }
 
   __syncthreads();
