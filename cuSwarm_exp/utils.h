@@ -83,9 +83,20 @@
 #define LEADER_NON_EXIST -1
 #endif
 
+//This grid has been explored before and it is an obstacle
+//We found this grid to be obstacle in the past
 #ifndef GRID_EXPLORED_OBS
 #define GRID_EXPLORED_OBS 1
 #endif
+//This grid is being explored at this moment and it is an obstacle
+//We found this grid to be obstacle in this iteration step
+#ifndef GRID_EXPLORING_OBS
+#define GRID_EXPLORING_OBS 2
+#endif
+#ifndef GRID_EXPLORING_FREE
+#define GRID_EXPLORING_FREE 3
+#endif
+
 
 #ifndef GRID_UNEXPLORED
 #define GRID_UNEXPLORED -1
@@ -93,19 +104,19 @@
 
 //navigation direction used in run.cpp, similar to goal_vector
 #ifndef GOAL_VECTOR_UP
-#define GOAL_VECTOR_UP make_float3(0.0,1.0,0.0)
+#define GOAL_VECTOR_UP 1
 #endif
 #ifndef GOAL_VECTOR_DOWN
-#define GOAL_VECTOR_DOWN make_float3(0.0,-1.0,0.0)
+#define GOAL_VECTOR_DOWN 2
 #endif
 #ifndef GOAL_VECTOR_LEFT
-#define GOAL_VECTOR_LEFT make_float3(-1.0,0.0,0.0)
+#define GOAL_VECTOR_LEFT 3
 #endif
 #ifndef GOAL_VECTOR_RIGHT
-#define GOAL_VECTOR_RIGHT make_float3(1.0,0.0,0.0)
+#define GOAL_VECTOR_RIGHT 4
 #endif
 #ifndef GOAL_VECTOR_NULL
-#define GOAL_VECTOR_NULL make_float3(0.0,0.0,1.0)
+#define GOAL_VECTOR_NULL -1
 #endif
 
 #ifndef INF_COORDINATE

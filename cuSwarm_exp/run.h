@@ -40,6 +40,8 @@ bool paused;
 Parameters p;             
 // Goal heading / speed (flocking only)
 float3 goal_vector;           
+// The goal direction in a discrete way, e.g. up/down/left/right
+int goal_vector_discrete;
 // Goal heading and error goal heading
 float goal_heading, goal_heading_err; 
 // Goal point (for rendezvous to point)

@@ -813,15 +813,20 @@ __device__ void obstacleAvoidance(float4 myPos, float2* avoid,
   *(dist_to_obstacle) = FLT_MAX;
   int counter = 0;
   for (float i = 0; i < 2.0f * PI; i += RAY_TRACE_INTERVAL) {
+    bool occupied = false;
+    int idx_check = robot_index*NUM_ANGLE_RAY_TRACE+counter;
+    counter ++;
+    float x_check = 0.0;
+    float y_check = 0.0;
+
     float cos = cosf(i);
     float sin = sinf(i);
     // Ray trace along this angle up to the robot's avoidance range
-    for (float r = 0.0f; r < p.range_o; r += 1.0f) {
-      float x_check = myPos.x + r * cos;
-      float y_check = myPos.y + r * sin;
+    for (float r = 0.0; r < p.range_o; r += 1.0) {
+      x_check = myPos.x + r * cos;
+      y_check = myPos.y + r * sin;
 
       int occupancy_ind = occupancySub2Ind(x_check, y_check, p);
-      bool occupied = false;
       if (occupancy_ind == -1)
         occupied = true;
       else
@@ -838,16 +843,21 @@ __device__ void obstacleAvoidance(float4 myPos, float2* avoid,
         avoid->x += weight * -r * cos;
         avoid->y += weight * -r * sin;
 
-        int tmp = robot_index*NUM_ANGLE_RAY_TRACE+counter;
-        counter ++;
         Color color;
-        setColorGrid(&(color.components), GRID_EXPLORED_OBS);
-        pos_obs[tmp] = make_float4(x_check,y_check,GRID_EXPLORED_OBS,color.c);
-        /*printf("obs = array[%d]=%f\n",tmp, pos_obs[tmp].w);*/
+        setColorGrid(&(color.components), GRID_EXPLORING_OBS);
+        pos_obs[idx_check] = make_float4(x_check, y_check,
+            GRID_EXPLORING_OBS, color.c);
+        /*printf("obs = array[%d]=%f\n",idx_check, pos_obs[idx_check].w);*/
 
         is_obs_encountered = true;
         break;
       }
+    }
+    if (occupied == false) {
+        Color color;
+        setColorGrid(&(color.components), GRID_EXPLORING_FREE);
+        pos_obs[idx_check] = make_float4(x_check,y_check,
+            GRID_EXPLORING_FREE,color.c);
     }
   }
 }
@@ -924,17 +934,17 @@ __device__ void setColorGrid(uchar4* color, int grid) {
 
   /*draw explored obstacle in (255,255,0)*/
   /*draw others in (0,0,0)*/
-  if (grid == GRID_EXPLORED_OBS) {
+  if (grid == GRID_EXPLORING_OBS) {
     *color = make_uchar4(255, 255, 0, 255);
+  }
+  else if (grid == GRID_EXPLORING_FREE) {
+    *color = make_uchar4(0, 0, 100, 255);
   }
   else {
     printf("WTF\n");
   }
   /*else if (grid == GRID_UNEXPLORED) {*/
     /**color = make_uchar4(0, 255, 0, 255);*/
-  /*}*/
-  /*else if (grid == GRID_EXPLORED_FREE) {*/
-    /**color = make_uchar4(0, 0, 100, 255);*/
   /*}*/
 }
 

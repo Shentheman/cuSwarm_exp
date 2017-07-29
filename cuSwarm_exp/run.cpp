@@ -805,7 +805,7 @@ static void display(void) {
   glBindBuffer(GL_ARRAY_BUFFER, 0);
 
   for (uint i = 0; i < p.num_robots*NUM_ANGLE_RAY_TRACE; i ++) {
-    if (positions_obs_from_cuda[i].z == GRID_EXPLORED_OBS) {
+    if (positions_obs_from_cuda[i].z == GRID_EXPLORING_OBS) {
       uint x_tmp = (uint)((positions_obs_from_cuda[i].x+p.world_size/2.0f) < 0) 
         ? ceil(positions_obs_from_cuda[i].x+p.world_size/2.0f) 
         : floor(positions_obs_from_cuda[i].x+p.world_size/2.0f);
@@ -830,7 +830,8 @@ static void display(void) {
 
   int counter = 0;
   for (uint i = 0; i < p.world_size*p.world_size; i++) {
-    if (positions_obs[i].z == GRID_EXPLORED_OBS) {
+    if (positions_obs[i].z == GRID_EXPLORED_OBS
+        || positions_obs[i].z == GRID_EXPLORING_OBS) {
       counter ++;
     }
   }
@@ -841,7 +842,8 @@ static void display(void) {
     std::vector<float> positions_obs_tmp(counter*3);
     std::vector<float>::iterator it = positions_obs_tmp.begin();
     for (uint i = 0; i < p.world_size*p.world_size; i++) {
-      if (positions_obs[i].z == GRID_EXPLORED_OBS) {
+      if (positions_obs[i].z == GRID_EXPLORED_OBS
+        || positions_obs[i].z == GRID_EXPLORING_OBS) {
         *it = positions_obs[i].x;
         it ++;
         *it = positions_obs[i].y;
@@ -1449,16 +1451,20 @@ static void step(int value)
     // 3. touch floor = floor in cell
 
     std::vector<float2> obstacle_pos;
+    obstacle_pos.clear();
     for (uint i = 0; i < p.world_size*p.world_size; i++) {
-      if (positions_obs[i].z == GRID_EXPLORED_OBS) {
+      if (positions_obs[i].z == GRID_EXPLORING_OBS) {
         obstacle_pos.emplace_back(make_float2(positions_obs[i].x,
               positions_obs[i].y));
+        // We distinguish the obstacles found in this iteration step
+        // versus the obstacles we found previously
+        positions_obs[i].z = GRID_EXPLORED_OBS;
       }
     }
     int num_obstacle_pos = obstacle_pos.size();
-    //if (num_obstacle_pos>0){
-      //std::cout<<"Num obs = "<< num_obstacle_pos<<std::endl;
-    //}
+    if (num_obstacle_pos>0){
+      std::cout<<"Num obs = "<< num_obstacle_pos<<std::endl;
+    }
 
     std::vector<Point> convex_hull = data.ch;
     //std::cout<<"there are "<<convex_hull.size()<<" points in ch."<<std::endl;
@@ -1492,102 +1498,176 @@ static void step(int value)
     float view_reduction = 0.0;
     for (uint i = 0; i < obstacle_pos.size(); i ++) {
 
-      std::cout<<"obs ("<<obstacle_pos[i].x<<", "<<obstacle_pos[i].y<<
-        "); max_x="<<max_x<<", min_x="<<min_x<<", max_y"<<max_y<<
-        ", min_y="<<min_y<<"; goalvec=("<<goal_vector.x<<", "<<
-        goal_vector.y<<")\n";
+      //std::cout<<"obs ("<<obstacle_pos[i].x<<", "<<obstacle_pos[i].y<<
+        //"); max_x="<<max_x<<", min_x="<<min_x<<", max_y"<<max_y<<
+        //", min_y="<<min_y<<"; goalvec=("<<goal_vector.x<<", "<<
+        //goal_vector.y<<")\n";
 
-      if ((EqualFloat3(goal_vector, GOAL_VECTOR_RIGHT)==true 
+      //XXX: center = (0,0), right up is positive x y
+      if ((goal_vector_discrete == GOAL_VECTOR_RIGHT
             && obstacle_pos[i].x > max_x
             && obstacle_pos[i].y-view_reduction > min_y 
             && obstacle_pos[i].y+view_reduction < max_y)
-          || (EqualFloat3(goal_vector, GOAL_VECTOR_LEFT)==true
+          || (goal_vector_discrete == GOAL_VECTOR_LEFT
             && obstacle_pos[i].x < min_x 
             && obstacle_pos[i].y-view_reduction > min_y 
             && obstacle_pos[i].y+view_reduction < max_y)
-          || (EqualFloat3(goal_vector, GOAL_VECTOR_UP)==true
+          || (goal_vector_discrete == GOAL_VECTOR_UP
             && obstacle_pos[i].y > max_y 
             && obstacle_pos[i].x-view_reduction > min_x 
             && obstacle_pos[i].x+view_reduction < max_x)
-          || (EqualFloat3(goal_vector, GOAL_VECTOR_DOWN)==true
+          || (goal_vector_discrete == GOAL_VECTOR_DOWN
             && obstacle_pos[i].y < min_y 
             && obstacle_pos[i].x-view_reduction > min_x 
             && obstacle_pos[i].x+view_reduction < max_x)) {
         obstacle_pos_front.emplace_back(obstacle_pos[i]);
         std::cout<<"add front"<<std::endl;
       }
-      else if ((EqualFloat3(goal_vector, GOAL_VECTOR_RIGHT)==true
-          && obstacle_pos[i].y > max_y 
-          && obstacle_pos[i].x-view_reduction > min_x 
-          && obstacle_pos[i].x+view_reduction < max_x)
-              || (EqualFloat3(goal_vector, GOAL_VECTOR_LEFT)==true
+      else if ((goal_vector_discrete == GOAL_VECTOR_RIGHT
+            && obstacle_pos[i].x < min_x
+            && obstacle_pos[i].y-view_reduction > min_y 
+            && obstacle_pos[i].y+view_reduction < max_y)
+          || (goal_vector_discrete == GOAL_VECTOR_LEFT
+            && obstacle_pos[i].x > max_x 
+            && obstacle_pos[i].y-view_reduction > min_y 
+            && obstacle_pos[i].y+view_reduction < max_y)
+          || (goal_vector_discrete == GOAL_VECTOR_UP
+            && obstacle_pos[i].y < min_y 
+            && obstacle_pos[i].x-view_reduction > min_x 
+            && obstacle_pos[i].x+view_reduction < max_x)
+          || (goal_vector_discrete == GOAL_VECTOR_DOWN
+            && obstacle_pos[i].y > max_y 
+            && obstacle_pos[i].x-view_reduction > min_x 
+            && obstacle_pos[i].x+view_reduction < max_x)) {
+        std::cout<<"add back"<<std::endl;
+      }
+      else if ((goal_vector_discrete == GOAL_VECTOR_RIGHT
+                && obstacle_pos[i].y > max_y 
+                && obstacle_pos[i].x-view_reduction > min_x 
+                && obstacle_pos[i].x+view_reduction < max_x)
+              || (goal_vector_discrete == GOAL_VECTOR_LEFT
                 && obstacle_pos[i].y < min_y 
                 && obstacle_pos[i].x-view_reduction > min_x 
                 && obstacle_pos[i].x+view_reduction < max_x)
-              || (EqualFloat3(goal_vector, GOAL_VECTOR_UP)==true
+              || (goal_vector_discrete == GOAL_VECTOR_UP
                 && obstacle_pos[i].x < min_x 
                 && obstacle_pos[i].y-view_reduction > min_y 
                 && obstacle_pos[i].y+view_reduction < max_y)
-              || (EqualFloat3(goal_vector, GOAL_VECTOR_DOWN)==true
+              || (goal_vector_discrete == GOAL_VECTOR_DOWN
                 && obstacle_pos[i].x > max_x 
                 && obstacle_pos[i].y-view_reduction > min_y 
                 && obstacle_pos[i].y+view_reduction < max_y)) {
         obstacle_pos_left.emplace_back(obstacle_pos[i]);
-        //std::cout<<"add left"<<std::endl;
+        std::cout<<"add left"<<std::endl;
       }
-      else if ((EqualFloat3(goal_vector, GOAL_VECTOR_RIGHT)
+      else if ((goal_vector_discrete == GOAL_VECTOR_RIGHT
                 && obstacle_pos[i].y < min_y 
-                && obstacle_pos[i].x-p.point_size > min_x 
-                && obstacle_pos[i].x+p.point_size < max_x)
-              || (EqualFloat3(goal_vector, GOAL_VECTOR_LEFT)==true
+                && obstacle_pos[i].x-view_reduction > min_x 
+                && obstacle_pos[i].x+view_reduction < max_x)
+              || (goal_vector_discrete == GOAL_VECTOR_LEFT
                 && obstacle_pos[i].y > max_y
-                && obstacle_pos[i].x-p.point_size > min_x 
-                && obstacle_pos[i].x+p.point_size < max_x)
-              || (EqualFloat3(goal_vector, GOAL_VECTOR_UP)==true
+                && obstacle_pos[i].x-view_reduction > min_x 
+                && obstacle_pos[i].x+view_reduction < max_x)
+              || (goal_vector_discrete == GOAL_VECTOR_UP
                 && obstacle_pos[i].x > max_x 
-                && obstacle_pos[i].y-p.point_size > min_y 
-                && obstacle_pos[i].y+p.point_size < max_y)
-              || (EqualFloat3(goal_vector, GOAL_VECTOR_DOWN)==true
+                && obstacle_pos[i].y-view_reduction > min_y 
+                && obstacle_pos[i].y+view_reduction < max_y)
+              || (goal_vector_discrete == GOAL_VECTOR_DOWN
                 && obstacle_pos[i].x < min_x 
-                && obstacle_pos[i].y-p.point_size > min_y 
-                && obstacle_pos[i].y+p.point_size < max_y)) {
+                && obstacle_pos[i].y-view_reduction > min_y 
+                && obstacle_pos[i].y+view_reduction < max_y)) {
         obstacle_pos_right.emplace_back(obstacle_pos[i]);
-        //std::cout<<"add right"<<std::endl;
+        std::cout<<"add right"<<std::endl;
+      }
+      else {
+        std::cout<<"WTF"<<std::endl;
+        std::cout<<"obstacle_pos=("<<obstacle_pos[i].x<<", "
+          <<obstacle_pos[i].y<<"); max_x="<<max_x<<", min_x="<<min_x
+          <<", max_y"<<max_y<<", min_y="<<min_y<<"; goal_vector=("
+          <<goal_vector.x<<", "<<goal_vector.y<<"), goal_vector_discrete="
+          <<goal_vector_discrete<<"\n";
       }
     }
 
-    //TODO: adaptively fix direction so that it is not off too much
-    if (EqualFloat3(goal_vector, GOAL_VECTOR_NULL)==true) {
+    Cell cur_cell = cells[0];
+    float cur_avg_x = (min_x+max_x)/2.0;
+    float cur_avg_y = (min_y+max_y)/2.0;
+    float cur_size_x = max_x-min_x;
+    float cur_size_y = max_y-min_y;
+    //TODO: ???
+    float min_distance_as_enough = -cur_size_x/3;
+
+    //adaptively fix direction so that it is not off too much
+    float endpt_y1 = std::get<0>(cur_cell.GetPlaceholder()[0]).y;
+    float endpt_y2 = std::get<1>(cur_cell.GetPlaceholder()[0]).y;
+    // 1. Initially, move down
+    if (goal_vector_discrete == GOAL_VECTOR_NULL) {
       // initial action
-      goal_point = make_float2(0.0,0.0);
-      goal_vector = GOAL_VECTOR_DOWN;
+      p.behavior = BEHAVIOR_FLOCKING;
+      float endpt_y = std::min(endpt_y1,endpt_y2);
+      goal_point = make_float2(cur_avg_x, endpt_y+cur_size_y/2.0);
+      goal_vector_discrete = GOAL_VECTOR_DOWN;
+      goal_vector = make_float3(goal_point.x-cur_avg_x,
+          goal_point.y-cur_avg_y, 0.0);
       std::cout<<"init - down"<<std::endl;
       prev_max_x = max_x;
       //update cell frontier
     }
+    // 2. When touch floor, move right
     else if (obstacle_pos_front.empty()==false 
-      && EqualFloat3(goal_vector, GOAL_VECTOR_DOWN)==true) {
-      goal_point = make_float2(0.0,0.0);
-      goal_vector = GOAL_VECTOR_RIGHT;
+      && goal_vector_discrete == GOAL_VECTOR_DOWN) {
+      float endpt_y = std::min(endpt_y1,endpt_y2);
+      goal_point = make_float2(cur_avg_x+cur_size_x, endpt_y+cur_size_y/2.0);
+      goal_vector_discrete = GOAL_VECTOR_RIGHT;
+      goal_vector = make_float3(goal_point.x-cur_avg_x,
+          goal_point.y-cur_avg_y, 0.0);
       std::cout<<"down - right"<<std::endl;
       prev_max_x = max_x;
       //update cell frontier
     }
-    else if (min_x-prev_max_x>0.0
-        && EqualFloat3(goal_vector, GOAL_VECTOR_RIGHT)==true) {
-      goal_point = make_float2(0.0,0.0);
-      goal_vector = GOAL_VECTOR_UP;
-      std::cout<<"right - up"<<std::endl;
+    // 3. When move right far enough, move up or down
+    else if (min_x-prev_max_x > min_distance_as_enough
+        && goal_vector_discrete == GOAL_VECTOR_RIGHT) {
+      float endpt_y = 0.0;
+      if (cur_avg_y < 0.0) {
+        //if below origin, go up
+        endpt_y = std::max(endpt_y1,endpt_y2);
+        goal_point = make_float2(cur_avg_x, endpt_y-cur_size_y/2.0);
+        goal_vector_discrete = GOAL_VECTOR_UP;
+        std::cout<<"right - up"<<std::endl;
+      }
+      else {
+        //if above origin, go down
+        endpt_y = std::min(endpt_y1,endpt_y2);
+        goal_point = make_float2(cur_avg_x, endpt_y+cur_size_y/2.0);
+        goal_vector_discrete = GOAL_VECTOR_DOWN;
+        std::cout<<"right - down"<<std::endl;
+      }
+      goal_vector = make_float3(goal_point.x-cur_avg_x,
+          goal_point.y-cur_avg_y, 0.0);
       prev_max_x = max_x;
       //update cell frontier
     }
+    // 4. When touch ceiling, move right
     else if (obstacle_pos_front.empty()==false 
-      && EqualFloat3(goal_vector, GOAL_VECTOR_UP)==true) {
-      goal_point = make_float2(0.0,0.0);
-      goal_vector = GOAL_VECTOR_RIGHT;
+      && goal_vector_discrete == GOAL_VECTOR_UP) {
+      float endpt_y = std::max(endpt_y1,endpt_y2);
+      goal_point = make_float2(cur_avg_x+cur_size_x, endpt_y-cur_size_y/2.0);
+      goal_vector_discrete = GOAL_VECTOR_RIGHT;
+      goal_vector = make_float3(goal_point.x-cur_avg_x,
+          goal_point.y-cur_avg_y, 0.0);
       std::cout<<"up - right"<<std::endl;
       prev_max_x = max_x;
       //update cell frontier
+    }
+    // 5. When moving in the middle between those waypoints, keep change 
+    // direction adaptively
+    else {
+      goal_vector = make_float3(goal_point.x-cur_avg_x,
+          goal_point.y-cur_avg_y, 0.0);
+/*      std::cout<<"middle: goal point=("<<goal_point.x<<", "*/
+        //<<goal_point.y<<"), cur pos=("<<cur_avg_x<<", "
+        /*<<cur_avg_y<<")"<<std::endl;*/
     }
 
 
@@ -1762,7 +1842,7 @@ int main(int argc, char** argv)
   ph.emplace_back(std::make_tuple(make_float2(0.0, -1.0*p.world_size/2.0),
        make_float2(0.0, p.world_size/2.0)));
   cells.emplace_back(*world);
-  goal_vector = GOAL_VECTOR_NULL;
+  goal_vector_discrete = GOAL_VECTOR_NULL;
   prev_max_x = 0.0;
   prev_min_x = 0.0;
   prev_max_y = 0.0;
