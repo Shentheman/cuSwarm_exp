@@ -25,3 +25,17 @@ Data calculations used for logging and drawing certain GUI elements
 
 ---utils.cpp/utils.h---
 Utilities file
+
+
+To build it
+'''
+$ mkdir build
+$ cd build
+$ cmake ..
+$ make
+'''
+
+To run it 
+'''
+$ ./swarm param.txt output.txt
+'''
