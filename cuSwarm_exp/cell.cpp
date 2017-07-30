@@ -30,10 +30,10 @@ float Cell::GetMinX() const {return min_x_;}
 float Cell::GetMaxX() const {return max_x_;}
 float Cell::GetMinY() const {return min_y_;}
 float Cell::GetMaxY() const {return max_y_;}
-bool Cell::GetIsLeftExplored() const {return is_left_explored_;}
-bool Cell::GetIsRightExplored() const {return is_right_explored_;}
-bool Cell::GetIsCeilingExplored() const {return is_ceiling_explored_;}
-bool Cell::GetIsFloorExplored() const {return is_floor_explored_;}
+//bool Cell::GetIsLeftExplored() const {return is_left_explored_;}
+//bool Cell::GetIsRightExplored() const {return is_right_explored_;}
+//bool Cell::GetIsCeilingExplored() const {return is_ceiling_explored_;}
+//bool Cell::GetIsFloorExplored() const {return is_floor_explored_;}
 bool Cell::GetCompletelyExplored() const {return completely_explored_;}
 // need to return a reference of vector
 // so that the vector is modifiable outside
@@ -45,21 +45,21 @@ void Cell::SetMinX(const float min_x) {min_x_=min_x;}
 void Cell::SetMaxX(const float max_x) {max_x_=max_x;}
 void Cell::SetMinY(const float min_y) {min_y_=min_y;}
 void Cell::SetMaxY(const float max_y) {max_y_=max_y;}
-void Cell::SetIsLeftExplored(const bool is_left_explored) {
-  is_left_explored_=is_left_explored;
-}
-void Cell::SetIsRightExplored(const bool is_right_explored) {
-  is_right_explored_=is_right_explored_;
-}
-void Cell::SetIsCeilingExplored(const bool is_ceiling_explored) {
-  is_ceiling_explored_=is_ceiling_explored;
-}
-void Cell::SetIsFloorExplored(const bool is_floor_explored) {
-  is_floor_explored_=is_floor_explored;
-}
-void Cell::SetCompletelyExplored(const bool completely_explored) {
-  completely_explored_=completely_explored;
-}
+//void Cell::SetIsLeftExplored(const bool is_left_explored) {
+  //is_left_explored_=is_left_explored;
+//}
+//void Cell::SetIsRightExplored(const bool is_right_explored) {
+  //is_right_explored_=is_right_explored_;
+//}
+//void Cell::SetIsCeilingExplored(const bool is_ceiling_explored) {
+  //is_ceiling_explored_=is_ceiling_explored;
+//}
+//void Cell::SetIsFloorExplored(const bool is_floor_explored) {
+  //is_floor_explored_=is_floor_explored;
+//}
+/*void Cell::SetCompletelyExplored(const bool completely_explored) {*/
+  //completely_explored_=completely_explored;
+/*}*/
 
 std::string Cell::ToString() const {
   std::ostringstream stream;

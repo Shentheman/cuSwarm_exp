@@ -123,6 +123,56 @@
 #define INF_COORDINATE p.world_size*100
 #endif
 
+// Contact-based Coverage Rectilinear (CCR) algorithm
+// Go right on floor
+#ifndef CCR_STATUS_NULL
+#define CCR_STATUS_NULL 0
+#endif
+// Go right on floor
+#ifndef CCR_STATUS_A_ALPHA
+#define CCR_STATUS_A_ALPHA 1
+#endif
+// Go up
+#ifndef CCR_STATUS_A_BETA
+#define CCR_STATUS_A_BETA 2
+#endif
+// Go down
+#ifndef CCR_STATUS_A_GAMMA
+#define CCR_STATUS_A_GAMMA 3
+#endif
+// Go right on ceiling
+#ifndef CCR_STATUS_A_DELTA
+#define CCR_STATUS_A_DELTA 4
+#endif
+// Go right on floor but encounter obstacle
+#ifndef CCR_STATUS_F
+#define CCR_STATUS_F 5
+#endif
+// Go right but loss contact with floor
+#ifndef CCR_STATUS_D
+#define CCR_STATUS_D 6
+#endif
+// Go up but enconter obstacle
+#ifndef CCR_STATUS_E
+#define CCR_STATUS_E 7
+#endif
+// Go up but pass ceiling
+#ifndef CCR_STATUS_B
+#define CCR_STATUS_B 8
+#endif
+// Go right but loss contact with ceiling
+#ifndef CCR_STATUS_C
+#define CCR_STATUS_C 9
+#endif
+
+
+
+
+
+
+
+
+
 
 /***********************************
 ***** STRUCTURES AND TYPEDEFS ******

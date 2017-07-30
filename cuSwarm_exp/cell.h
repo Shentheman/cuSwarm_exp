@@ -17,10 +17,10 @@ public:
   float GetMaxX() const;
   float GetMinY() const;
   float GetMaxY() const;
-  bool GetIsLeftExplored() const;
-  bool GetIsRightExplored() const;
-  bool GetIsCeilingExplored() const;
-  bool GetIsFloorExplored() const;
+  //bool GetIsLeftExplored() const;
+  //bool GetIsRightExplored() const;
+  //bool GetIsCeilingExplored() const;
+  //bool GetIsFloorExplored() const;
   bool GetCompletelyExplored() const;
   std::vector<std::tuple<float2,float2> > & GetPlaceholder();
 
@@ -28,11 +28,11 @@ public:
   void SetMaxX(const float max_x);
   void SetMinY(const float min_y);
   void SetMaxY(const float max_y);
-  void SetIsLeftExplored(const bool is_left_explored);
-  void SetIsRightExplored(const bool is_right_explored);
-  void SetIsCeilingExplored(const bool is_ceiling_explored);
-  void SetIsFloorExplored(const bool is_floor_explored);
-  void SetCompletelyExplored(const bool completely_explored);
+  //void SetIsLeftExplored(const bool is_left_explored);
+  //void SetIsRightExplored(const bool is_right_explored);
+  //void SetIsCeilingExplored(const bool is_ceiling_explored);
+  //void SetIsFloorExplored(const bool is_floor_explored);
+  //void SetCompletelyExplored(const bool completely_explored);
 
   std::string ToString() const;
 

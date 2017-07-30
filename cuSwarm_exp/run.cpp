@@ -1128,35 +1128,92 @@ void processParam(std::vector<std::string> tokens)
 
 void generateWorld()
 {
-  // Create the specified number of obstacles in the parameters file
-  for (uint i = 0; i < p.num_obstacles; i++) {
-    bool obstacle_accepted = false;
+  //// Create the specified number of obstacles in the parameters file
+  //for (uint i = 0; i < p.num_obstacles; i++) {
+    //bool obstacle_accepted = false;
 
-    // Generate obstacles, discarding ones that don't fit the criteria
-    while (!obstacle_accepted) {
-      float4 obstacle = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+    //// Generate random obstacles, discarding ones that don't fit the criteria
+    //while (!obstacle_accepted) {
+      //float4 obstacle = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
 
-      // Create width and height for the obstacle
-      obstacle.z = (float)(rand() % p.max_obstacle_size);
-      obstacle.w = (float)(rand() % p.max_obstacle_size);
-      // Create x, y position for top left corner of rectangular obstacle
-      obstacle.x = rand() % (p.world_size - (uint)(obstacle.z)) - (p.world_size / 2.0f);
-      obstacle.y = rand() % (p.world_size - (uint)(obstacle.w)) - (p.world_size / 2.0f);
+      //// Create width and height for the obstacle
+      //obstacle.z = (float)(rand() % p.max_obstacle_size);
+      //obstacle.w = (float)(rand() % p.max_obstacle_size);
+      //// Create x, y position for top left corner of rectangular obstacle
+      //obstacle.x = rand() % (p.world_size - (uint)(obstacle.z))
+        //- (p.world_size / 2.0f);
+      //obstacle.y = rand() % (p.world_size - (uint)(obstacle.w))
+        //- (p.world_size / 2.0f);
 
-      // Ensure obstacle does not cover the start or goal areas and that 
-      // it is not too thin
-      if ((obstacle.x < -(p.start_size + 1.0f) - obstacle.z || 
-        obstacle.x > (p.start_size + 1.0f) ||
-        obstacle.y < -(p.start_size + 1.0f) - obstacle.w || 
-        obstacle.y > (p.start_size + 1.0f)) &&
-        (obstacle.z > 3.0f && obstacle.w > 3.0f)) {
-        // Signal the obstacle fits criteria
-        obstacle_accepted = true;
-        // Add this to the list of obstacles
-        obstacles[i] = obstacle;
-      }
-    }
-  }
+      //// Ensure obstacle does not cover the start or goal areas and that 
+      //// it is not too thin
+      //if ((obstacle.x < -(p.start_size + 1.0f) - obstacle.z || 
+        //obstacle.x > (p.start_size + 1.0f) ||
+        //obstacle.y < -(p.start_size + 1.0f) - obstacle.w || 
+        //obstacle.y > (p.start_size + 1.0f)) &&
+        //(obstacle.z > 3.0f && obstacle.w > 3.0f)) {
+        //// Signal the obstacle fits criteria
+        //obstacle_accepted = true;
+        //// Add this to the list of obstacles
+        //obstacles[i] = obstacle;
+      //}
+    //}
+  //}
+
+  // !!!!!!!!!!!!!!!!!!!!!!!!!!
+  // For debugging, we make obstacles
+  // F
+  //float4 obstacle = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+  //obstacle.z = 80;
+  //obstacle.w = 10;
+  //obstacle.x = -20;
+  //obstacle.y = -40;
+  //obstacles[0] = obstacle;
+  //obstacle.z = 20;
+  //obstacle.w = 40;
+  //obstacle.x = 20;
+  //obstacle.y = -30;
+  //obstacles[1] = obstacle;
+
+  // D
+  //float4 obstacle = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+  //obstacle.z = 10;
+  //obstacle.w = 10;
+  //obstacle.x = 0;
+  //obstacle.y = -40;
+  //obstacles[0] = obstacle;
+  //obstacle.z = 10;
+  //obstacle.w = 10;
+  //obstacle.x = -70;
+  //obstacle.y = 70;
+  //obstacles[1] = obstacle;
+
+  // E
+  //float4 obstacle = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+  //obstacle.z = 90;
+  //obstacle.w = 10;
+  //obstacle.x = -10;
+  //obstacle.y = 20;
+  //obstacles[0] = obstacle;
+  //obstacle.z = 10;
+  //obstacle.w = 10;
+  //obstacle.x = -70;
+  //obstacle.y = 70;
+  //obstacles[1] = obstacle;
+
+  // B
+  float4 obstacle = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+  obstacle.z = 5;
+  obstacle.w = 20;
+  obstacle.x = 10;
+  obstacle.y = 20;
+  obstacles[0] = obstacle;
+  obstacle.z = 10;
+  obstacle.w = 10;
+  obstacle.x = -70;
+  obstacle.y = 70;
+  obstacles[1] = obstacle;
+
 
   // Create the specified number of targets in the parameters file
   for (uint i = 0; i < p.targets; i++) {
@@ -1462,9 +1519,9 @@ static void step(int value)
       }
     }
     int num_obstacle_pos = obstacle_pos.size();
-    if (num_obstacle_pos>0){
-      std::cout<<"Num obs = "<< num_obstacle_pos<<std::endl;
-    }
+    //if (num_obstacle_pos>0){
+      //std::cout<<"Num obs = "<< num_obstacle_pos<<std::endl;
+    //}
 
     std::vector<Point> convex_hull = data.ch;
     //std::cout<<"there are "<<convex_hull.size()<<" points in ch."<<std::endl;
@@ -1521,7 +1578,7 @@ static void step(int value)
             && obstacle_pos[i].x-view_reduction > min_x 
             && obstacle_pos[i].x+view_reduction < max_x)) {
         obstacle_pos_front.emplace_back(obstacle_pos[i]);
-        std::cout<<"add front"<<std::endl;
+        //std::cout<<"add front"<<std::endl;
       }
       else if ((goal_vector_discrete == GOAL_VECTOR_RIGHT
             && obstacle_pos[i].x < min_x
@@ -1539,7 +1596,7 @@ static void step(int value)
             && obstacle_pos[i].y > max_y 
             && obstacle_pos[i].x-view_reduction > min_x 
             && obstacle_pos[i].x+view_reduction < max_x)) {
-        std::cout<<"add back"<<std::endl;
+        //std::cout<<"add back"<<std::endl;
       }
       else if ((goal_vector_discrete == GOAL_VECTOR_RIGHT
                 && obstacle_pos[i].y > max_y 
@@ -1558,7 +1615,7 @@ static void step(int value)
                 && obstacle_pos[i].y-view_reduction > min_y 
                 && obstacle_pos[i].y+view_reduction < max_y)) {
         obstacle_pos_left.emplace_back(obstacle_pos[i]);
-        std::cout<<"add left"<<std::endl;
+        //std::cout<<"add left"<<std::endl;
       }
       else if ((goal_vector_discrete == GOAL_VECTOR_RIGHT
                 && obstacle_pos[i].y < min_y 
@@ -1577,101 +1634,268 @@ static void step(int value)
                 && obstacle_pos[i].y-view_reduction > min_y 
                 && obstacle_pos[i].y+view_reduction < max_y)) {
         obstacle_pos_right.emplace_back(obstacle_pos[i]);
-        std::cout<<"add right"<<std::endl;
+        //std::cout<<"add right"<<std::endl;
       }
       else {
-        std::cout<<"WTF"<<std::endl;
-        std::cout<<"obstacle_pos=("<<obstacle_pos[i].x<<", "
-          <<obstacle_pos[i].y<<"); max_x="<<max_x<<", min_x="<<min_x
-          <<", max_y"<<max_y<<", min_y="<<min_y<<"; goal_vector=("
-          <<goal_vector.x<<", "<<goal_vector.y<<"), goal_vector_discrete="
-          <<goal_vector_discrete<<"\n";
+        //std::cout<<"WTF"<<std::endl;
+        //std::cout<<"obstacle_pos=("<<obstacle_pos[i].x<<", "
+          //<<obstacle_pos[i].y<<"); max_x="<<max_x<<", min_x="<<min_x
+          //<<", max_y"<<max_y<<", min_y="<<min_y<<"; goal_vector=("
+          //<<goal_vector.x<<", "<<goal_vector.y<<"), goal_vector_discrete="
+          /*<<goal_vector_discrete<<"\n";*/
       }
     }
 
-    Cell cur_cell = cells[0];
     float cur_avg_x = (min_x+max_x)/2.0;
     float cur_avg_y = (min_y+max_y)/2.0;
     float cur_size_x = max_x-min_x;
     float cur_size_y = max_y-min_y;
     //TODO: ???
-    float min_distance_as_enough = -cur_size_x/3;
+    float min_significant_dist_x = -0.0*cur_size_x/4.0;
+    float min_significant_dist_y = cur_size_y/2*3;
+    const int PH_MIN_IDX = 0;
+    const int PH_MAX_IDX = 1;
 
     //adaptively fix direction so that it is not off too much
-    float endpt_y1 = std::get<0>(cur_cell.GetPlaceholder()[0]).y;
-    float endpt_y2 = std::get<1>(cur_cell.GetPlaceholder()[0]).y;
-    // 1. Initially, move down
-    if (goal_vector_discrete == GOAL_VECTOR_NULL) {
-      // initial action
+    float cur_ph_min_y = std::get<PH_MIN_IDX>
+      (CCR_placeholders[CCR_placeholders.size()-1]).y;
+    float cur_ph_max_y = std::get<PH_MAX_IDX>
+      (CCR_placeholders[CCR_placeholders.size()-1]).y;
+    float cell_center = (cur_ph_max_y+cur_ph_min_y)/2.0;
+
+    // NULL => A-Gamma. Initially, move down
+    if (CCR_status == CCR_STATUS_NULL) {
       p.behavior = BEHAVIOR_FLOCKING;
-      float endpt_y = std::min(endpt_y1,endpt_y2);
-      goal_point = make_float2(cur_avg_x, endpt_y+cur_size_y/2.0);
+      goal_point = make_float2(cur_avg_x, cur_ph_min_y);
       goal_vector_discrete = GOAL_VECTOR_DOWN;
       goal_vector = make_float3(goal_point.x-cur_avg_x,
           goal_point.y-cur_avg_y, 0.0);
       std::cout<<"init - down"<<std::endl;
       prev_max_x = max_x;
-      //update cell frontier
+      CCR_status = CCR_STATUS_A_GAMMA;
     }
-    // 2. When touch floor, move right
+    // A-Gamma => A-Alpha. When touch floor, move right
     else if (obstacle_pos_front.empty()==false 
-      && goal_vector_discrete == GOAL_VECTOR_DOWN) {
-      float endpt_y = std::min(endpt_y1,endpt_y2);
-      goal_point = make_float2(cur_avg_x+cur_size_x, endpt_y+cur_size_y/2.0);
+      && CCR_status == CCR_STATUS_A_GAMMA) {
+      p.behavior = BEHAVIOR_FLOCKING;
+      goal_point = make_float2(cur_avg_x+cur_size_x, 
+          cur_ph_min_y);
       goal_vector_discrete = GOAL_VECTOR_RIGHT;
       goal_vector = make_float3(goal_point.x-cur_avg_x,
           goal_point.y-cur_avg_y, 0.0);
       std::cout<<"down - right"<<std::endl;
       prev_max_x = max_x;
-      //update cell frontier
+      CCR_status = CCR_STATUS_A_ALPHA;
     }
-    // 3. When move right far enough, move up or down
-    else if (min_x-prev_max_x > min_distance_as_enough
-        && goal_vector_discrete == GOAL_VECTOR_RIGHT) {
-      float endpt_y = 0.0;
-      if (cur_avg_y < 0.0) {
-        //if below origin, go up
-        endpt_y = std::max(endpt_y1,endpt_y2);
-        goal_point = make_float2(cur_avg_x, endpt_y-cur_size_y/2.0);
-        goal_vector_discrete = GOAL_VECTOR_UP;
-        std::cout<<"right - up"<<std::endl;
-      }
-      else {
-        //if above origin, go down
-        endpt_y = std::min(endpt_y1,endpt_y2);
-        goal_point = make_float2(cur_avg_x, endpt_y+cur_size_y/2.0);
-        goal_vector_discrete = GOAL_VECTOR_DOWN;
-        std::cout<<"right - down"<<std::endl;
-      }
+    // A-Alpha => A-Beta. When move right on floor for far enough, move up
+    else if (min_x-prev_max_x > min_significant_dist_x
+        && CCR_status == CCR_STATUS_A_ALPHA
+        && cur_avg_y < cell_center) {
+      p.behavior = BEHAVIOR_FLOCKING;
+      goal_point = make_float2(cur_avg_x, cur_ph_max_y);
+      goal_vector_discrete = GOAL_VECTOR_UP;
+      std::cout<<"right - up"<<std::endl;
+      CCR_status = CCR_STATUS_A_BETA;
       goal_vector = make_float3(goal_point.x-cur_avg_x,
-          goal_point.y-cur_avg_y, 0.0);
+      goal_point.y-cur_avg_y, 0.0);
       prev_max_x = max_x;
-      //update cell frontier
     }
-    // 4. When touch ceiling, move right
+    // A-Beta => A-Delta. When touch ceiling, move right
     else if (obstacle_pos_front.empty()==false 
-      && goal_vector_discrete == GOAL_VECTOR_UP) {
-      float endpt_y = std::max(endpt_y1,endpt_y2);
-      goal_point = make_float2(cur_avg_x+cur_size_x, endpt_y-cur_size_y/2.0);
+      && CCR_status == CCR_STATUS_A_BETA
+      && abs(cur_ph_max_y - cur_avg_y) <= min_significant_dist_y) {
+      p.behavior = BEHAVIOR_FLOCKING;
+      goal_point = make_float2(cur_avg_x+cur_size_x,
+          cur_ph_max_y);
       goal_vector_discrete = GOAL_VECTOR_RIGHT;
       goal_vector = make_float3(goal_point.x-cur_avg_x,
           goal_point.y-cur_avg_y, 0.0);
       std::cout<<"up - right"<<std::endl;
       prev_max_x = max_x;
+      CCR_status = CCR_STATUS_A_DELTA;
       //update cell frontier
+      std::get<PH_MIN_IDX>(CCR_placeholders[CCR_placeholders.size()-1]) = 
+       make_float2(cur_avg_x,cur_ph_min_y);
+      std::get<PH_MAX_IDX>(CCR_placeholders[CCR_placeholders.size()-1]) = 
+       make_float2(cur_avg_x,cur_ph_max_y);
     }
-    // 5. When moving in the middle between those waypoints, keep change 
-    // direction adaptively
-    else {
+    // A-Delta => A-Gamma. When move right on ceiling for far enough, move down
+    else if (min_x-prev_max_x > min_significant_dist_x
+        && CCR_status == CCR_STATUS_A_DELTA
+        && cur_avg_y >= cell_center) {
+      p.behavior = BEHAVIOR_FLOCKING;
+      goal_point = make_float2(cur_avg_x, cur_ph_min_y);
+      goal_vector_discrete = GOAL_VECTOR_DOWN;
+      std::cout<<"right - down"<<std::endl;
+      CCR_status = CCR_STATUS_A_GAMMA;
       goal_vector = make_float3(goal_point.x-cur_avg_x,
           goal_point.y-cur_avg_y, 0.0);
-/*      std::cout<<"middle: goal point=("<<goal_point.x<<", "*/
-        //<<goal_point.y<<"), cur pos=("<<cur_avg_x<<", "
-        /*<<cur_avg_y<<")"<<std::endl;*/
+      prev_max_x = max_x;
     }
+
+    //// A-Alpha -> F. Move right when encounter an obstacle
+    //else if (min_x-prev_max_x <= min_significant_dist_x
+        //&& CCR_status == CCR_STATUS_A_ALPHA
+        //&& cur_avg_y < cell_center
+        //&& obstacle_pos_front.empty()==false) {
+      //CCR_status = CCR_STATUS_F;
+      //std::cout<<"-------F"<<std::endl;
+    //}
+    //// A-Alpha -> D. Move right when loss contact with floor
+    //else if (min_x-prev_max_x <= min_significant_dist_x
+        //&& CCR_status == CCR_STATUS_A_ALPHA
+        //&& cur_avg_y < cell_center
+        //&& obstacle_pos_right.empty()==true) {
+      //CCR_status = CCR_STATUS_D;
+      //std::cout<<"-------D"<<std::endl;
+    //}
+
+    //// A-Beta => E. Move up when encounter an obstacle
+    //else if (obstacle_pos_front.empty()==false
+        //&& CCR_status == CCR_STATUS_A_BETA
+        //&& cur_avg_y < cell_center
+        //&& cur_ph_max_y - cur_avg_y > min_significant_dist_y) {
+      //CCR_status = CCR_STATUS_E;
+      //std::cout<<"-------E"<<std::endl;
+    //}
+
+    // A-Beta => B
+    // Pre: A-Beta where move up but pass the prevous ceiling
+    else if (obstacle_pos_front.empty()==true
+        && CCR_status == CCR_STATUS_A_BETA
+        && cur_avg_y - cur_ph_max_y > min_significant_dist_y) {
+
+      CCR_status = CCR_STATUS_B;
+
+      CCR_placeholders.pop_back();
+      CCR_placeholders.emplace_back(std::make_tuple(
+            make_float2(cur_avg_x, cur_ph_min_y), 
+            make_float2(cur_avg_x, max_y)));
+
+      std::cout<<"A-Beta => B"<<std::endl;
+      std::cout<<"[CCR_placeholder]"<<std::endl;
+      for (uint i = 0; i < CCR_placeholders.size(); i++) {
+        std::cout<<"Min Y = ("<<std::get<PH_MIN_IDX>(CCR_placeholders[i]).x
+          <<", "<<std::get<PH_MIN_IDX>(CCR_placeholders[i]).y<<")\nMax Y = ("
+          <<std::get<PH_MAX_IDX>(CCR_placeholders[i]).x<<", "
+          <<std::get<PH_MAX_IDX>(CCR_placeholders[i]).y<<")\n";
+      }
+      std::cout<<"------------------------"<<std::endl;
+    }
+    // B => C
+    else if (CCR_status == CCR_STATUS_B) {
+      CCR_status = CCR_STATUS_C;
+      std::cout<<"B => C"<<std::endl;
+    }
+
+    // A => C
+    // Pre: Move right when loss contact with ceiling 
+    else if (min_x-prev_max_x <= min_significant_dist_x
+        && cur_avg_y >= cell_center
+        && obstacle_pos_left.empty()==true
+        && (CCR_status == CCR_STATUS_A_DELTA) {
+      CCR_status = CCR_STATUS_C;
+      std::cout<<"A-Delta => C"<<std::endl;
+    }
+ 
+    // C => A-Beta
+    else if (CCR_status == CCR_STATUS_C) {
+      std::cout<<"C => A-Beta"<<std::endl;
+      CCR_status = CCR_STATUS_A_BETA;
+      goal_point = make_float2(cur_avg_x, cur_ph_max_y+p.world_size);
+      goal_vector_discrete = GOAL_VECTOR_UP;
+      goal_vector = make_float3(goal_point.x-cur_avg_x,
+          goal_point.y-cur_avg_y, 0.0);
+      prev_max_x = max_x;
+      p.behavior = BEHAVIOR_FLOCKING;
+
+      //complete the previous cell and create a new one
+      CCR_placeholders.pop_back();
+      CCR_placeholders.emplace_back(std::make_tuple(
+            make_float2(cur_avg_x, cur_ph_min_y), 
+            make_float2(cur_avg_x, max_y)));
+
+      std::cout<<"[CCR_placeholder]"<<std::endl;
+      for (uint i = 0; i < CCR_placeholders.size(); i++) {
+        std::cout<<"Min Y = ("<<std::get<PH_MIN_IDX>(CCR_placeholders[i]).x
+          <<", "<<std::get<PH_MIN_IDX>(CCR_placeholders[i]).y<<")\nMax Y = ("
+          <<std::get<PH_MAX_IDX>(CCR_placeholders[i]).x<<", "
+          <<std::get<PH_MAX_IDX>(CCR_placeholders[i]).y<<")\n";
+      }
+      std::cout<<"^^^^^^^^^^^^^^^"<<std::endl;
+    }
+
+ 
+    // 5. When moving in the middle between those waypoints, keep adjust
+    // direction adaptively
+    else {
+      //XXX: comment out the goal_vector here will allow human control to overwrite
+      //     autonomous control
+      //goal_vector = make_float3(goal_point.x-cur_avg_x,
+          //goal_point.y-cur_avg_y, 0.0);
+      //std::cout<<"middle: goal point=("<<goal_point.x<<", "
+        //<<goal_point.y<<"), cur pos=("<<cur_avg_x<<", "
+        //<<cur_avg_y<<")"<<std::endl;
+      //if (obstacle_pos_front.empty()==true
+          //&& goal_vector_discrete == GOAL_VECTOR_UP) {
+        //std::cout<<cur_avg_y<<", "<<cur_cell_end_y1<<", "<<cur_cell_end_y2
+          //<<", "<<min_significant_dist_y;
+        //}
+    }
+
+    //if (CCR_status == CCR_STATUS_A_ALPHA
+        //&& obstacle_pos_front.empty()==false
+        //&& not far enough) {
+      //F
+    //}
+    //else if (CCR_status == CCR_STATUS_A_ALPHA
+        //&& obstacle_pos_right.empty()==true) {
+      //D
+    //}
+    //else if (CCR_status == CCR_STATUS_A_BETA
+        //&& obstacle_pos_front.empty()==false
+        //&& not ceiling enough) {
+      //E
+    //}
+    //else if (CCR_status == CCR_STATUS_A_BETA
+        //&& obstacle_pos_front.empty()==true
+        //&& pass ceiling) {
+      //B
+    //}
+    //else if (CCR_status == CCR_STATUS_A_DELTA
+        //&& obstacle_pos_front.empty()==true
+        //&& pass ceiling) {
+      //complete prev cell
+      //create new cell
+    //}
+    //else if B {
+      //check left boundary
+      //complete prev cell
+      //create new cell
+      //C
+    //}
+    //else if C {
+      //go up, add new intervals to find ceil
+      //A
+    //}
+    //else if D {
+      //create place holder
+      //F
+    //}
+    //else if E {
+      //go around to complete prev cell
+      //F
+    //}
+    //else if F {
+      //complete
+    /*}*/
+
+
 
 
     // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
     // Update leader list (Very inefficient now, should compute at the same 
     // time as convex hull)
     for (uint i = 0; i < p.num_robots; i++) {
@@ -1842,14 +2066,22 @@ int main(int argc, char** argv)
   ph.emplace_back(std::make_tuple(make_float2(0.0, -1.0*p.world_size/2.0),
        make_float2(0.0, p.world_size/2.0)));
   cells.emplace_back(*world);
+
   goal_vector_discrete = GOAL_VECTOR_NULL;
   prev_max_x = 0.0;
   prev_min_x = 0.0;
   prev_max_y = 0.0;
   prev_min_y = 0.0;
+  CCR_placeholders.clear();
+  //CCR_placeholders.emplace_back(std::make_tuple(
+        //make_float2(0.0, -1.0*p.world_size/2.0),
+        //make_float2(0.0, p.world_size/2.0)));
+  CCR_placeholders.emplace_back(std::make_tuple(
+        make_float2(0.0, -1.0*p.world_size/2.0),
+        make_float2(0.0, 10)));
 
 
-
+  CCR_status = CCR_STATUS_NULL;
   ///// START MAIN LOOP /////
   glutMainLoop();
 

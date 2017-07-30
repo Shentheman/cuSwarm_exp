@@ -121,10 +121,12 @@ std::stringstream output_fname;
 
 // 7. Contact-based Coverage Rectilinear (CCR) algorithm
 std::vector<Cell> cells;
+std::vector<std::tuple<float2,float2> > CCR_placeholders;
 float prev_max_x;
 float prev_min_x;
 float prev_max_y;
 float prev_min_y;
+int CCR_status;
 
 
 
