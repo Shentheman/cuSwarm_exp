@@ -31,7 +31,7 @@ $ make
 To run it, `$ ./swarm param.txt output.txt`
 
 ## Robot Autonomy
-Swarm is navigating in a rectilinear environment where each obstacle is generated randomly in a shape of rectangle. The task of the swarm is to cover the entire map by using sensors assembled on each robot member. Each sensor has a very short range, which makes it similar to contact sensor. So we are implementing this paper: Contact sensor-based Coverage of Rectilinear Environment.
+Swarm is navigating in a rectilinear environment where each obstacle is generated randomly in a shape of rectangle. The task of the swarm is to cover the entire map by using sensors assembled on each robot member. Each sensor has a very short range, which makes it similar to contact sensor. So we are implementing this paper: [Contact sensor-based Coverage of Rectilinear Environment](http://www.ri.cmu.edu/pub_files/pub2/butler_zack_1999_1/butler_zack_1999_1.pdf).
 
 ## Implementation
 There is a parameter called [debug](https://github.com/Shentheman/cuSwarm_exp/blob/new_draw/cuSwarm_exp/params.txt#L3). You can set it to be 1 so that the program will display all the obstacles, without the fog over the unexplored area, yellow dots to indicate obstacles encountered by the swarm.
