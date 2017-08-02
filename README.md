@@ -31,5 +31,5 @@ $ make
 To run it, `$ ./swarm param.txt output.txt`
 
 ## Robot Autonomy
-Swarm is navigating in a rectilinear environment where each obstacle is generated randomly in a shape of rectangle. The task of the swarm is to cover the entire map by using sensors assembled on each robot member. Each sensor has a very short range, which makes it similar to contact sensor. So we are implementing this paper: Contact sensor-based Coverage of Rectilinear Environmentsa.
+Swarm is navigating in a rectilinear environment where each obstacle is generated randomly in a shape of rectangle. The task of the swarm is to cover the entire map by using sensors assembled on each robot member. Each sensor has a very short range, which makes it similar to contact sensor. So we are implementing this paper: Contact sensor-based Coverage of Rectilinear Environment.
 
