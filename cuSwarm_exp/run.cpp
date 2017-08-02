@@ -11,7 +11,8 @@ void drawInterface(float window_width, float window_height) {
   glLineWidth(3.0f);
 
   // Color world boundaries based on whether the simulation is paused
-  (paused) ? glColor4f(1.0f, 0.0f, 0.0f, 1.0f) : glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+  (paused) ? glColor4f(1.0f, 0.0f, 0.0f, 1.0f) 
+    : glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 
   // Draw world boundaries
   float world_size_2 = p.world_size / 2.0f;
@@ -38,49 +39,55 @@ void drawInterface(float window_width, float window_height) {
   // Draw explored grid cells on the GUI
   if (p.show_explored) {
 
-    //for (uint i = 0; i < p.world_size * p.world_size; i++) {
-      //// Get the world coordinates for this iteration
-      //float world_x = -world_size_2 + (float)(floor(i / p.world_size));
-      //float world_y = -world_size_2 + (float)(i % p.world_size);
+    // Shen: if not debug, not draw all the obstacles
+    if (p.debug != 1) {
+      for (uint i = 0; i < p.world_size * p.world_size; i++) {
+        // Get the world coordinates for this iteration
+        float world_x = -world_size_2 + (float)(floor(i / p.world_size));
+        float world_y = -world_size_2 + (float)(i % p.world_size);
 
-      //// Now draw the grid cell if explored
-      //float explored_color = 0.0f;
-      //if (explored_grid[i] != 0) {
-        //explored_color = fabsf((float)(explored_grid[i]) / p.max_explore);
-        //// Color is based on obstacle/free space
-        //if (explored_grid[i] > 0) {   // Free space
-          //glColor4f(0.1f * explored_color, 0.3f * explored_color, 0.6f * explored_color, 0.5f);
-        //}
-        //else {              // Obstacle
-          //// Lower bar for showing an obstacle cell as fully explored
-          //explored_color = min(1.0f, explored_color * 4.0f);
-          //glColor4f(0.6f * explored_color, 0.2f * explored_color, 0.2f * explored_color, 1.0f);
-        //}
-        //glBegin(GL_POLYGON);
-        //glVertex3f(world_x, world_y, -0.2f);
-        //glVertex3f(world_x + 1.0f, world_y, -0.2f);
-        //glVertex3f(world_x + 1.0f, world_y + 1.0f, -0.2f);
-        //glVertex3f(world_x, world_y + 1.0f, -0.2f);
-        //glEnd();
-      //}
-    //}
-
-    // Shen: to debug, draw all
-    // Draw all the obstacles
-    for (uint i = 0; i < p.num_obstacles; i++) {
-      float4 obstacle = obstacles[i];
-      for (uint xx = 0; xx < obstacle.z; xx++) {
-        for (uint yy = 0; yy < obstacle.w; yy++) {
-          float world_x = obstacle.x + xx;
-          float world_y = obstacle.y + yy;
-          float explored_color = 1.0f;
-          glColor4f(0.6f * explored_color, 0.2f * explored_color, 0.2f * explored_color, 1.0f);
+        // Now draw the grid cell if explored
+        float explored_color = 0.0f;
+        if (explored_grid[i] != 0) {
+          explored_color = fabsf((float)(explored_grid[i]) / p.max_explore);
+          // Color is based on obstacle/free space
+          if (explored_grid[i] > 0) {   // Free space
+            glColor4f(0.1f * explored_color, 0.3f * explored_color,
+                0.6f * explored_color, 0.5f);
+          }
+          else {              
+            // Obstacle
+            // Lower bar for showing an obstacle cell as fully explored
+            explored_color = min(1.0f, explored_color * 4.0f);
+            glColor4f(0.6f * explored_color, 0.2f * explored_color,
+                0.2f * explored_color, 1.0f);
+          }
           glBegin(GL_POLYGON);
           glVertex3f(world_x, world_y, -0.2f);
           glVertex3f(world_x + 1.0f, world_y, -0.2f);
           glVertex3f(world_x + 1.0f, world_y + 1.0f, -0.2f);
           glVertex3f(world_x, world_y + 1.0f, -0.2f);
           glEnd();
+        }
+      }
+    }
+    else {
+      for (uint i = 0; i < p.num_obstacles; i++) {
+        float4 obstacle = obstacles[i];
+        for (uint xx = 0; xx < obstacle.z; xx++) {
+          for (uint yy = 0; yy < obstacle.w; yy++) {
+            float world_x = obstacle.x + xx;
+            float world_y = obstacle.y + yy;
+            float explored_color = 1.0f;
+            glColor4f(0.6f * explored_color, 0.2f * explored_color,
+                0.2f * explored_color, 1.0f);
+            glBegin(GL_POLYGON);
+            glVertex3f(world_x, world_y, -0.2f);
+            glVertex3f(world_x + 1.0f, world_y, -0.2f);
+            glVertex3f(world_x + 1.0f, world_y + 1.0f, -0.2f);
+            glVertex3f(world_x, world_y + 1.0f, -0.2f);
+            glEnd();
+          }
         }
       }
     }
@@ -101,18 +108,20 @@ void drawInterface(float window_width, float window_height) {
   for (uint i = 0; i < p.targets; i++) {
 
     // Get the explored grid index that this target corresponds to
-    uint exp_ind = (uint)(((targets[i].x + ws_2) * p.world_size) + (targets[i].y + ws_2));
+    uint exp_ind = (uint)(((targets[i].x + ws_2) * p.world_size) +
+        (targets[i].y + ws_2));
 
     // Saturate the target color based on explored value
     float saturation;
     // Target must be seen at least once to show
     (explored_grid[exp_ind] == 0) ? saturation = 0.0f : 
-      saturation = fabsf(0.25f + (0.75f * 
-            ((float)(explored_grid[exp_ind]) / p.max_explore)
-            ));
+      saturation = fabsf(0.25f +
+          (0.75f * ((float)(explored_grid[exp_ind]) / p.max_explore)));
 
-    //Shen: For debug, draw the entire map
-    saturation = 1.0f;
+    //Shen: For debug, we draw the entire map
+    if (p.debug == 1) {
+      saturation = 1.0f;
+    }
 
     // Change target color based on whether fully explored
     if (saturation < 1.0f) {
@@ -321,8 +330,10 @@ void drawInterface(float window_width, float window_height) {
   glLineWidth(2.0f);
 
   // Convert user-drawn line from screen to world coordinates
-  float3 screen_start_point = make_float3(mouse_start_x, mouse_start_y, translate_z0);
-  float3 screen_last_point = make_float3(mouse_last_x, mouse_last_y, translate_z0);
+  float3 screen_start_point = make_float3(mouse_start_x, 
+      mouse_start_y, translate_z0);
+  float3 screen_last_point = make_float3(mouse_last_x,
+      mouse_last_y, translate_z0);
   float3 world_start_point = make_float3(0.0f, 0.0f, 0.0f);
   float3 world_last_point = make_float3(0.0f, 0.0f, 0.0f);
   screenToWorld(screen_start_point, &world_start_point);
@@ -345,13 +356,14 @@ void drawEllipse(float cx, float cy, float w, float h, bool fill)
   float y = 0.0f;
 
   // Set to filled or wire frame depending on fill parameter
-  (fill) ? glPolygonMode(GL_FRONT_AND_BACK, GL_FILL) : glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+  (fill) ? glPolygonMode(
+      GL_FRONT_AND_BACK, GL_FILL) 
+    : glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
   // Draw the ellipse
   glBegin(GL_POLYGON);
   for (uint i = 0; i < 100; i++) {
     glVertex3f((w * x) + cx, (h * y) + cy, -0.2f);
-
     // Apply the rotation matrix
     t = x;
     x = c * x - s * y;
@@ -510,17 +522,21 @@ void mouse(int button, int state, int x, int y)
         fprintf(output_f, "rendezvous\n");
       }
     }
-    if (mb == GLUT_WHEEL_UP_PRESSED) {    // Scroll wheel forward to increase trust
+    // Scroll wheel forward to increase trust
+    if (mb == GLUT_WHEEL_UP_PRESSED) {
       data.user_trust += 1;
       data.user_trust = min(data.user_trust, 10);
     }
-    else if (mb == GLUT_WHEEL_DOWN_PRESSED) {   // Scroll wheel backward to decrease trust
+    // Scroll wheel backward to decrease trust
+    else if (mb == GLUT_WHEEL_DOWN_PRESSED) {
       data.user_trust -= 1;
       data.user_trust = max(data.user_trust, -10);
     }
   }
-  else if (state == GLUT_UP && mb == button) {  // If the button is released
-    if (mb == GLUT_LEFT_BUTTON) { // Primary or seconday mouse button
+  // If the button is released
+  else if (state == GLUT_UP && mb == button) {
+    // Primary or seconday mouse button
+    if (mb == GLUT_LEFT_BUTTON) { 
       // If the simulation is paused, unpause it; 
       // else log the new user goal heading and log the information; 
       if (paused && trust_verified) {
@@ -533,22 +549,14 @@ void mouse(int button, int state, int x, int y)
         command_trust = 0;
 
         // Get the magnitude (length) of user-drawn vector
-        float magnitude = eucl2(mouse_start_x, mouse_start_y, (float)x, (float)y);
+        float magnitude = eucl2(mouse_start_x, mouse_start_y, 
+            (float)x, (float)y);
         // Get the goal direction in radians
-        goal_heading = atan2f((float)(y)-mouse_start_y, (float)(x)-mouse_start_x);
+        goal_heading = atan2f((float)(y)-mouse_start_y,
+            (float)(x)-mouse_start_x);
         // Transform this into a 2D unit vector (float3, but z not used)
-        goal_vector = make_float3(cosf(goal_heading), -sinf(goal_heading), 0.0f);
-
-        //// (752,653) => (1339,536)
-        //std::cout<<"("<<mouse_start_x<<", "<<mouse_start_y<<") => ";
-        //std::cout<<"("<<(float)x<<", "<<(float)y<<")"<<std::endl;
-        //// magnitude = 635.542
-        //std::cout<<"magnitude = "<<magnitude<<std::endl;
-        //// goal_heading = -0.19674
-        //std::cout<<"goal_heading = "<<goal_heading<<std::endl;
-        //// goal_vector = (0.980,0.195,0)
-        //std::cout<<"goal_vector = ("<<goal_vector.x<<", "<<goal_vector.y<<", "
-          //<<goal_vector.z<<")"<<std::endl;
+        goal_vector = make_float3(cosf(goal_heading),
+            -sinf(goal_heading), 0.0f);
 
         // Log user command
         fprintf(output_f, "heading %f %f\n", goal_heading, magnitude);
@@ -652,13 +660,20 @@ void initGL(int argc, char **argv)
 #endif
 
   // Register OpenGL callbacks
-  glutDisplayFunc(display);       // OpenGL display callback (looped)
-  glutKeyboardFunc(keyboard);       // OpenGL keyboard callback
-  glutSpecialFunc(keyboardSpecial);   // OpenGL keyboard special callback
-  glutMouseFunc(mouse);         // OpenGL mouse callback
-  glutMotionFunc(motion);         // OpenGL mouse motion callback
-  glutPassiveMotionFunc(motion);      // OpenGL pass. mouse motion callback
-  glutTimerFunc(1000, calculateFPS, 0); // Recalculate FPS every 1/2 second
+  // OpenGL display callback (looped)
+  glutDisplayFunc(display);
+  // OpenGL keyboard callback
+  glutKeyboardFunc(keyboard);
+  // OpenGL keyboard special callback
+  glutSpecialFunc(keyboardSpecial);
+  // OpenGL mouse callback
+  glutMouseFunc(mouse);
+  // OpenGL mouse motion callback
+  glutMotionFunc(motion);
+  // OpenGL pass. mouse motion callback
+  glutPassiveMotionFunc(motion);
+  // Recalculate FPS every 1/2 second
+  glutTimerFunc(1000, calculateFPS, 0);
 
   // GLEW initialization
   glewInit();
@@ -754,10 +769,11 @@ static void display(void) {
   //glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
   glEnable(GL_BLEND);
 
+  // Shen's comment about VBO
   // 1. Draw agents from vbo
   /*
    * Here, we want to draw robot members and obstacle grids on the interface.
-   * I. Use 2 VBOs, one for robot positions 
+   * Method I. Use 2 VBOs, one for robot positions 
    * and the other one for obstacle positions.
    * Since both of them are GL_ARRAY_BUFFER, we have to create 2 VBOs
    * and bind both of them with GL_ARRAY_BUFFER in step().
@@ -780,7 +796,7 @@ static void display(void) {
    * while the vertices (and their attributes) are bound to GL_ARRAY_BUFFER; 
    * two different targets and so two different VBOs are okay.
    *
-   * II. Combine all the vertex and attribute data into a single VBO.
+   * Method II. Combine all the vertex and attribute data into a single VBO.
    */
   /// We need to store 2 arrays in the same VBO
   /// (1) Draw each explored obstacle grid as a point
@@ -796,7 +812,8 @@ static void display(void) {
   /// arg1 = the number of components per color (RGBAlpha)
   /// arg2 = the data type of each color component
   /// arg3 = stride = the byte offset between consecutive colors in the array.
-  ///   If stride is 0, the colors are understood to be tightly packed in the array
+  ///   If stride is 0, the colors are understood to be 
+  ///   tightly packed in the array
   /// arg4 = a pointer to the 1st component of the 1st color in the array
   glColorPointer(4, GL_UNSIGNED_BYTE, 16, (GLvoid*)12);
   glDrawArrays(GL_POINTS, 0, p.num_robots);
@@ -817,57 +834,56 @@ static void display(void) {
       if (y_tmp<=0.0) {y_tmp=1.0;}
       if (y_tmp>=p.world_size) {y_tmp=p.world_size-1.0;}
       uint index = (uint)(x_tmp)+(uint)(y_tmp*p.world_size);
-      //if (! (index >=0 && index < p.world_size*p.world_size)){
-        //std::cout<<"index="<<index<<", x="<<positions_obs_from_cuda[i].x<<
-          //", y="<<positions_obs_from_cuda[i].y<<std::endl;
-      //}
-      //std::cout<<"-================="<<index<<"xtmp="<<x_tmp<<"ytmp"
-        //<<y_tmp<<std::endl;
       assert(index >=0 && index < p.world_size*p.world_size);
       positions_obs[index] = positions_obs_from_cuda[i];
     }
   }
 
-  int counter = 0;
-  for (uint i = 0; i < p.world_size*p.world_size; i++) {
-    if (positions_obs[i].z == GRID_EXPLORED_OBS
-        || positions_obs[i].z == GRID_EXPLORING_OBS) {
-      counter ++;
-    }
-  }
- 
-  // Build vector to store the obs for painting
-  /// array = [x (float), y (float), c (4 unsigned byte RGBA), ...]
-  if (counter > 0) {
-    std::vector<float> positions_obs_tmp(counter*3);
-    std::vector<float>::iterator it = positions_obs_tmp.begin();
+  
+  //Shen: if debug, then we draw yellow dots to represent all the obstacles
+  //that the swarm has detected
+  if (p.debug == 1) {
+    int counter = 0;
     for (uint i = 0; i < p.world_size*p.world_size; i++) {
       if (positions_obs[i].z == GRID_EXPLORED_OBS
-        || positions_obs[i].z == GRID_EXPLORING_OBS) {
-        *it = positions_obs[i].x;
-        it ++;
-        *it = positions_obs[i].y;
-        it ++;
-        *it = positions_obs[i].w;
-        it ++;
+          || positions_obs[i].z == GRID_EXPLORING_OBS) {
+        counter ++;
       }
     }
+   
+    // Build vector to store the obs for painting
+    /// array = [x (float), y (float), c (4 unsigned byte RGBA), ...]
+    if (counter > 0) {
+      std::vector<float> positions_obs_tmp(counter*3);
+      std::vector<float>::iterator it = positions_obs_tmp.begin();
+      for (uint i = 0; i < p.world_size*p.world_size; i++) {
+        if (positions_obs[i].z == GRID_EXPLORED_OBS
+          || positions_obs[i].z == GRID_EXPLORING_OBS) {
+          *it = positions_obs[i].x;
+          it ++;
+          *it = positions_obs[i].y;
+          it ++;
+          *it = positions_obs[i].w;
+          it ++;
+        }
+      }
 
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glEnableClientState(GL_COLOR_ARRAY);
-    glPointSize(100);
-    // array = [x (float), y (float), c (4 unsigned byte RGBA), ...]
-    // 3 in a pair for a vertex, so stride = 12 bytes
-    // position starts from 0 bytes while color starts from 12 bytes
-    glVertexPointer(2, GL_FLOAT, 12, &positions_obs_tmp[0]);
-    /// arg1 = the number of components per color (RGBAlpha)
-    /// arg2 = the data type of each color component
-    /// arg3 = stride = the byte offset between consecutive colors in the array.
-    /// arg4 = a pointer to the 1st component of the 1st color in the array
-    glColorPointer(4, GL_UNSIGNED_BYTE, 12, &positions_obs_tmp[0]+2);
-    glDrawArrays(GL_POINTS, 0, counter);
-    glDisableClientState(GL_COLOR_ARRAY);
-    glDisableClientState(GL_VERTEX_ARRAY);
+      glEnableClientState(GL_VERTEX_ARRAY);
+      glEnableClientState(GL_COLOR_ARRAY);
+      //glPointSize(100);
+      // array = [x (float), y (float), c (4 unsigned byte RGBA), ...]
+      // 3 in a pair for a vertex, so stride = 12 bytes
+      // position starts from 0 bytes while color starts from 12 bytes
+      glVertexPointer(2, GL_FLOAT, 12, &positions_obs_tmp[0]);
+      /// arg1 = the number of components per color (RGBAlpha)
+      /// arg2 = the data type of each color component
+      /// arg3 = stride = the byte offset between consecutive colors in the array.
+      /// arg4 = a pointer to the 1st component of the 1st color in the array
+      glColorPointer(4, GL_UNSIGNED_BYTE, 12, &positions_obs_tmp[0]+2);
+      glDrawArrays(GL_POINTS, 0, counter);
+      glDisableClientState(GL_COLOR_ARRAY);
+      glDisableClientState(GL_VERTEX_ARRAY);
+    }
   }
 
   // 2. Draw robot data
@@ -1040,7 +1056,9 @@ void loadParametersFromFile(std::string filename)
 void processParam(std::vector<std::string> tokens)
 {
   // Assign parameters according to the parameter name
-  if (tokens[0] == "align_weight")
+  if (tokens[0] == "debug")
+    p.debug = std::stof(tokens[1]);
+  else if (tokens[0] == "align_weight")
     p.align_weight = std::stof(tokens[1]);
   else if (tokens[0] == "ang_bound")
     p.ang_bound = std::stof(tokens[1]);
@@ -1128,91 +1146,94 @@ void processParam(std::vector<std::string> tokens)
 
 void generateWorld()
 {
-  //// Create the specified number of obstacles in the parameters file
-  //for (uint i = 0; i < p.num_obstacles; i++) {
-    //bool obstacle_accepted = false;
+  // Shen: if not debug, we randomly generate obstacles
+  //       if debug, we create our own obstacle setup as a test case
+  if (p.debug != 1) {
+    // Create the specified number of obstacles in the parameters file
+    for (uint i = 0; i < p.num_obstacles; i++) {
+      bool obstacle_accepted = false;
 
-    //// Generate random obstacles, discarding ones that don't fit the criteria
-    //while (!obstacle_accepted) {
-      //float4 obstacle = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+      // Generate random obstacles, discarding ones that don't fit the criteria
+      while (!obstacle_accepted) {
+        float4 obstacle = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
 
-      //// Create width and height for the obstacle
-      //obstacle.z = (float)(rand() % p.max_obstacle_size);
-      //obstacle.w = (float)(rand() % p.max_obstacle_size);
-      //// Create x, y position for top left corner of rectangular obstacle
-      //obstacle.x = rand() % (p.world_size - (uint)(obstacle.z))
-        //- (p.world_size / 2.0f);
-      //obstacle.y = rand() % (p.world_size - (uint)(obstacle.w))
-        //- (p.world_size / 2.0f);
+        // Create width and height for the obstacle
+        obstacle.z = (float)(rand() % p.max_obstacle_size);
+        obstacle.w = (float)(rand() % p.max_obstacle_size);
+        // Create x, y position for top left corner of rectangular obstacle
+        obstacle.x = rand() % (p.world_size - (uint)(obstacle.z))
+          - (p.world_size / 2.0f);
+        obstacle.y = rand() % (p.world_size - (uint)(obstacle.w))
+          - (p.world_size / 2.0f);
 
-      //// Ensure obstacle does not cover the start or goal areas and that 
-      //// it is not too thin
-      //if ((obstacle.x < -(p.start_size + 1.0f) - obstacle.z || 
-        //obstacle.x > (p.start_size + 1.0f) ||
-        //obstacle.y < -(p.start_size + 1.0f) - obstacle.w || 
-        //obstacle.y > (p.start_size + 1.0f)) &&
-        //(obstacle.z > 3.0f && obstacle.w > 3.0f)) {
-        //// Signal the obstacle fits criteria
-        //obstacle_accepted = true;
-        //// Add this to the list of obstacles
-        //obstacles[i] = obstacle;
-      //}
-    //}
-  //}
+        // Ensure obstacle does not cover the start or goal areas and that 
+        // it is not too thin
+        if ((obstacle.x < -(p.start_size + 1.0f) - obstacle.z || 
+          obstacle.x > (p.start_size + 1.0f) ||
+          obstacle.y < -(p.start_size + 1.0f) - obstacle.w || 
+          obstacle.y > (p.start_size + 1.0f)) &&
+          (obstacle.z > 3.0f && obstacle.w > 3.0f)) {
+          // Signal the obstacle fits criteria
+          obstacle_accepted = true;
+          // Add this to the list of obstacles
+          obstacles[i] = obstacle;
+        }
+      }
+    }
+  }
+  else {
+    // test status F in CCR
+    //float4 obstacle = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+    //obstacle.z = 80;
+    //obstacle.w = 10;
+    //obstacle.x = -20;
+    //obstacle.y = -40;
+    //obstacles[0] = obstacle;
+    //obstacle.z = 20;
+    //obstacle.w = 40;
+    //obstacle.x = 20;
+    //obstacle.y = -30;
+    //obstacles[1] = obstacle;
 
-  // !!!!!!!!!!!!!!!!!!!!!!!!!!
-  // For debugging, we make obstacles
-  // F
-  //float4 obstacle = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
-  //obstacle.z = 80;
-  //obstacle.w = 10;
-  //obstacle.x = -20;
-  //obstacle.y = -40;
-  //obstacles[0] = obstacle;
-  //obstacle.z = 20;
-  //obstacle.w = 40;
-  //obstacle.x = 20;
-  //obstacle.y = -30;
-  //obstacles[1] = obstacle;
+    // test status D in CCR
+    //float4 obstacle = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+    //obstacle.z = 10;
+    //obstacle.w = 10;
+    //obstacle.x = 0;
+    //obstacle.y = -40;
+    //obstacles[0] = obstacle;
+    //obstacle.z = 10;
+    //obstacle.w = 10;
+    //obstacle.x = -70;
+    //obstacle.y = 70;
+    //obstacles[1] = obstacle;
 
-  // D
-  //float4 obstacle = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
-  //obstacle.z = 10;
-  //obstacle.w = 10;
-  //obstacle.x = 0;
-  //obstacle.y = -40;
-  //obstacles[0] = obstacle;
-  //obstacle.z = 10;
-  //obstacle.w = 10;
-  //obstacle.x = -70;
-  //obstacle.y = 70;
-  //obstacles[1] = obstacle;
+    // test status E in CCR
+    //float4 obstacle = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+    //obstacle.z = 90;
+    //obstacle.w = 10;
+    //obstacle.x = -10;
+    //obstacle.y = 20;
+    //obstacles[0] = obstacle;
+    //obstacle.z = 10;
+    //obstacle.w = 10;
+    //obstacle.x = -70;
+    //obstacle.y = 70;
+    //obstacles[1] = obstacle;
 
-  // E
-  //float4 obstacle = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
-  //obstacle.z = 90;
-  //obstacle.w = 10;
-  //obstacle.x = -10;
-  //obstacle.y = 20;
-  //obstacles[0] = obstacle;
-  //obstacle.z = 10;
-  //obstacle.w = 10;
-  //obstacle.x = -70;
-  //obstacle.y = 70;
-  //obstacles[1] = obstacle;
-
-  // B
-  float4 obstacle = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
-  obstacle.z = 5;
-  obstacle.w = 20;
-  obstacle.x = 10;
-  obstacle.y = 20;
-  obstacles[0] = obstacle;
-  obstacle.z = 10;
-  obstacle.w = 10;
-  obstacle.x = -70;
-  obstacle.y = 70;
-  obstacles[1] = obstacle;
+    // test status B in CCR
+    float4 obstacle = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+    obstacle.z = 5;
+    obstacle.w = 20;
+    obstacle.x = 10;
+    obstacle.y = 20;
+    obstacles[0] = obstacle;
+    obstacle.z = 10;
+    obstacle.w = 10;
+    obstacle.x = -70;
+    obstacle.y = 70;
+    obstacles[1] = obstacle;
+  }
 
 
   // Create the specified number of targets in the parameters file
@@ -1371,7 +1392,10 @@ void printDataHeader()
 {
   if (p.log_data) {
     // Step data header
-    std::fprintf(output_f, "step step_num behavior behavior_data align_weight velocity avg_heading heading_var centroid_x centroid_y convex_hull_area connectivity explored_area targets_seen targets_found trust\n");
+    std::fprintf(output_f, "step step_num behavior behavior_data "
+        "align_weight velocity avg_heading heading_var centroid_x "
+        "centroid_y convex_hull_area connectivity explored_area "
+        "targets_seen targets_found trust\n");
     std::fprintf(output_f, "heading direction magnitude\n");
   }
 }
@@ -1421,27 +1445,29 @@ static void step(int value)
       }
       (is_failure) ? p.align_weight = 0.6f : p.align_weight = 1.0f;
     }
-    // Shen
-    //printf("%f\n", p.align_weight);
 
-    // Launch the main kernel to perform one simulation step
-    //flocking needs goal_vector
-    //rendezvous needs goal_point
-    //step_num = the time from beginning
-    //leaders = whether each member is leader or not, used in kernels.cu
-    //ap = Articulation pts (min vertex cut set)
-    //p = parameters
-
-    //std::cout<<"goal_vector = ("<<goal_vector.x<<", "<<goal_vector.y<<", "
-      //<<goal_vector.z<<")"<<std::endl;
-    //std::cout<<"goal_point = ("<<goal_point.x<<", "<<goal_point.y<<")"<<std::endl;
-
+    /// XXX: Shen comment about how to setup different swarm behaviors 
+    //       from here by launching the main kernel 
+    //       to perform one simulation step
+    // (1) flocking needs goal_vector
+    // (2) rendezvous needs goal_point
+    // (3) step_num = the time from beginning
+    // (4) leaders = whether each member is leader or not, used in kernels.cu
+    // (5) ap = articulation pts (min vertex cut set)
+    // (6) p = parameters
+    
+    // 1. Test for behavior = constantly moving towards right
     //goal_vector.x = 10.0f;
     //goal_vector.y = 0.0f;
     //check what is mode and leaders
     //for (int i = 0; i < p.num_robots; i++) {
-      //std::cout<<"ID="<<i<<", leaders=" << leaders[i] << ", mode="<<modes[i]<<std::endl;
+      //std::cout<<"ID="<<i<<", leaders=" << leaders[i] 
+        //<< ", mode="<<modes[i]<<std::endl;
     //}
+    //std::cout<<"goal_vector = ("<<goal_vector.x<<", "<<goal_vector.y<<", "
+      //<<goal_vector.z<<")"<<std::endl;
+    //std::cout<<"goal_point = ("<<goal_point.x<<", "
+      //<<goal_point.y<<")"<<std::endl;
 
     launchMainKernel(goal_vector, goal_point, step_num, leaders, ap, p, 
         &cuda_vbo_resource);
@@ -1450,38 +1476,6 @@ static void step(int value)
     getData(p.num_robots, positions, velocities, modes, 
         positions_obs_from_cuda);
 
-    /// print positions_obs_from_cuda
-    //std::set<int> robots_obs_indices;
-    //for (int i = 0; i < p.num_robots*NUM_ANGLE_RAY_TRACE; i ++) {
-      //int robot_index = floor(i/NUM_ANGLE_RAY_TRACE);
-      ////robots_obs_indices.emplace(robot_index);
-      //if (positions_obs_from_cuda[i].w!=-1.0f) {
-        //std::cout<<"Robot "<<robot_index<<" encounter obstacle at ("
-          //<<positions_obs_from_cuda[i].x<<", "
-          //<<positions_obs_from_cuda[i].y<<")"<<std::endl;
-      //}
-    //}
-
-    //for (std::set<int>::iterator it=robots_obs_indices.begin(); 
-        //it!=robots_obs_indices.end(); ++it) {
-      //std::cout<<"Robot "<<*it<<" has encountered obstacles."<<std::endl;
-    //}
-    
-    ////x = int \in [-75, 74]
-    ////y = int \in [-75, 74]
-    //for (uint i = 0; i < p.world_size * p.world_size; i++) {
-      //float world_x = -world_size_2 + (float)(floor(i / p.world_size));
-      //float world_y = -world_size_2 + (float)(i % p.world_size);
-      ////std::cout<<"("<<world_x<<", "<<world_y<<")"<<std::endl;
-    //}
-    //for (uint i = 0; i < p.num_robots*NUM_ANGLE_RAY_TRACE; i ++) {
-      //if (positions_obs_from_cuda[i].w!=-1.0f) {
-        //obs_x = positions_obs_from_cuda[i].x;
-        //obs_y = positions_obs_from_cuda[i].y;
-        ///// We will assign the 4 grid around the exact obstacle position to be obstacles
-      //}
-    /*}*/
-
     // Update explored grid
     updateExplored();
 
@@ -1489,24 +1483,10 @@ static void step(int value)
     processData(positions, velocities, explored_grid, 
         targets, laplacian, ap, &data, p);
 
-
-    /// Here we can use explored to keep track 
-    //and make the next plan!!!!!!!!!!!!!!!!!
-    //if average robot position is close to obstaacle
-    //then change direction
-
-
-    // shen: compute the next navigational direction
-    // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-    //for (uint i = 0; i < cells.size(); i++) {
-      //std::cout<<"--------------"<<cells[i].ToString()<<std::endl;
-    //}
-
-    // We need to check several things
-    // 1. move 1 step further
-    // 2. touch ceiling = ceiling in cell
-    // 3. touch floor = floor in cell
-
+    // 2. Receive information about all the obstacles detected in the STEP
+    // at this MOMENT. Here we will keep storing the information so
+    // we have an accumulative data array about all the obstacles
+    // that have been detected and we can view it.
     std::vector<float2> obstacle_pos;
     obstacle_pos.clear();
     for (uint i = 0; i < p.world_size*p.world_size; i++) {
@@ -1519,17 +1499,17 @@ static void step(int value)
       }
     }
     int num_obstacle_pos = obstacle_pos.size();
-    //if (num_obstacle_pos>0){
-      //std::cout<<"Num obs = "<< num_obstacle_pos<<std::endl;
-    //}
 
+    // 3. Compute the next navigational direction
+    // We are using CCR algorithm from Contact sensor-based converage
+    // of rectilinearr environments
+    // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
     std::vector<Point> convex_hull = data.ch;
     //std::cout<<"there are "<<convex_hull.size()<<" points in ch."<<std::endl;
     //for (uint i = 0; i < convex_hull.size(); i ++) {
       //std::cout<<"ch=("<<convex_hull[i].x<<", "<<
         //convex_hull[i].y<<")"<<std::endl;
     //}
-    //TODO: whenever hit wall, converge to that position until the variance is low
     auto xExtremes = std::minmax_element
       (convex_hull.begin(), convex_hull.end(), 
        [](const Point& lhs, const Point& rhs) 
@@ -1545,21 +1525,26 @@ static void step(int value)
     float max_y = (*yExtremes.second).y;
     //std::cout<<"max y = "<<max_y<<", min y = "<<min_y<<std::endl;
 
-    // XXX: here front, left, and right mean the position 
-    // relative to the navigation direction
-    // TODO: whenever hit wall, converge to that position until the variance is low
+    //TODO: To make the swarm behavior more precise, 
+    //whenever hit wall, change swarm behavior to rendezvous and
+    //wait for it to converge to that position (i.e. variance is low)
+    
+
+    // 4. Based on the robot current navigation direction,
+    // we need to know whether the swarm encounters obstacles in the front,
+    // on the left, on the right, or on the back
+    // XXX: here front, left, and right mean the position of an obstacle
+    // relative to the navigation direction. 
+    // e.g. when navigating north, 'left' means the west side
     std::vector<float2> obstacle_pos_front;
     std::vector<float2> obstacle_pos_left;
     std::vector<float2> obstacle_pos_right;
-    //float view_reduction = p.point_size/5.0;
     float view_reduction = 0.0;
     for (uint i = 0; i < obstacle_pos.size(); i ++) {
-
       //std::cout<<"obs ("<<obstacle_pos[i].x<<", "<<obstacle_pos[i].y<<
         //"); max_x="<<max_x<<", min_x="<<min_x<<", max_y"<<max_y<<
         //", min_y="<<min_y<<"; goalvec=("<<goal_vector.x<<", "<<
         //goal_vector.y<<")\n";
-
       //XXX: center = (0,0), right up is positive x y
       if ((goal_vector_discrete == GOAL_VECTOR_RIGHT
             && obstacle_pos[i].x > max_x
@@ -1646,23 +1631,27 @@ static void step(int value)
       }
     }
 
+    // 5. state machine of CCR
+    // XXX: PH = placeholder, a term used in the CCR paper
     float cur_avg_x = (min_x+max_x)/2.0;
     float cur_avg_y = (min_y+max_y)/2.0;
     float cur_size_x = max_x-min_x;
     float cur_size_y = max_y-min_y;
-    //TODO: ???
+
+    //TODO: how to predefine these params
     float min_significant_dist_x = -0.0*cur_size_x/4.0;
     float min_significant_dist_y = cur_size_y/2*3;
     const int PH_MIN_IDX = 0;
     const int PH_MAX_IDX = 1;
 
-    //adaptively fix direction so that it is not off too much
     float cur_ph_min_y = std::get<PH_MIN_IDX>
       (CCR_placeholders[CCR_placeholders.size()-1]).y;
     float cur_ph_max_y = std::get<PH_MAX_IDX>
       (CCR_placeholders[CCR_placeholders.size()-1]).y;
     float cell_center = (cur_ph_max_y+cur_ph_min_y)/2.0;
 
+    // (1) state A: zigzag
+    // XXX: here we are implementing figure 6
     // NULL => A-Gamma. Initially, move down
     if (CCR_status == CCR_STATUS_NULL) {
       p.behavior = BEHAVIOR_FLOCKING;
@@ -1733,6 +1722,7 @@ static void step(int value)
       prev_max_x = max_x;
     }
 
+    // (2) state F
     //// A-Alpha -> F. Move right when encounter an obstacle
     //else if (min_x-prev_max_x <= min_significant_dist_x
         //&& CCR_status == CCR_STATUS_A_ALPHA
@@ -1741,6 +1731,8 @@ static void step(int value)
       //CCR_status = CCR_STATUS_F;
       //std::cout<<"-------F"<<std::endl;
     //}
+    
+    // (3) state D
     //// A-Alpha -> D. Move right when loss contact with floor
     //else if (min_x-prev_max_x <= min_significant_dist_x
         //&& CCR_status == CCR_STATUS_A_ALPHA
@@ -1750,6 +1742,7 @@ static void step(int value)
       //std::cout<<"-------D"<<std::endl;
     //}
 
+    // (4) state E
     //// A-Beta => E. Move up when encounter an obstacle
     //else if (obstacle_pos_front.empty()==false
         //&& CCR_status == CCR_STATUS_A_BETA
@@ -1759,78 +1752,81 @@ static void step(int value)
       //std::cout<<"-------E"<<std::endl;
     //}
 
+    // (5) state B
     // A-Beta => B
     // Pre: A-Beta where move up but pass the prevous ceiling
-    else if (obstacle_pos_front.empty()==true
-        && CCR_status == CCR_STATUS_A_BETA
-        && cur_avg_y - cur_ph_max_y > min_significant_dist_y) {
+    /*else if (obstacle_pos_front.empty()==true*/
+        //&& CCR_status == CCR_STATUS_A_BETA
+        //&& cur_avg_y - cur_ph_max_y > min_significant_dist_y) {
 
-      CCR_status = CCR_STATUS_B;
+      //CCR_status = CCR_STATUS_B;
 
-      CCR_placeholders.pop_back();
-      CCR_placeholders.emplace_back(std::make_tuple(
-            make_float2(cur_avg_x, cur_ph_min_y), 
-            make_float2(cur_avg_x, max_y)));
+      //CCR_placeholders.pop_back();
+      //CCR_placeholders.emplace_back(std::make_tuple(
+            //make_float2(cur_avg_x, cur_ph_min_y), 
+            //make_float2(cur_avg_x, max_y)));
 
-      std::cout<<"A-Beta => B"<<std::endl;
-      std::cout<<"[CCR_placeholder]"<<std::endl;
-      for (uint i = 0; i < CCR_placeholders.size(); i++) {
-        std::cout<<"Min Y = ("<<std::get<PH_MIN_IDX>(CCR_placeholders[i]).x
-          <<", "<<std::get<PH_MIN_IDX>(CCR_placeholders[i]).y<<")\nMax Y = ("
-          <<std::get<PH_MAX_IDX>(CCR_placeholders[i]).x<<", "
-          <<std::get<PH_MAX_IDX>(CCR_placeholders[i]).y<<")\n";
-      }
-      std::cout<<"------------------------"<<std::endl;
-    }
-    // B => C
-    else if (CCR_status == CCR_STATUS_B) {
-      CCR_status = CCR_STATUS_C;
-      std::cout<<"B => C"<<std::endl;
-    }
+      //std::cout<<"A-Beta => B"<<std::endl;
+      //std::cout<<"[CCR_placeholder]"<<std::endl;
+      //for (uint i = 0; i < CCR_placeholders.size(); i++) {
+        //std::cout<<"Min Y = ("<<std::get<PH_MIN_IDX>(CCR_placeholders[i]).x
+          //<<", "<<std::get<PH_MIN_IDX>(CCR_placeholders[i]).y<<")\nMax Y = ("
+          //<<std::get<PH_MAX_IDX>(CCR_placeholders[i]).x<<", "
+          //<<std::get<PH_MAX_IDX>(CCR_placeholders[i]).y<<")\n";
+      //}
+      //std::cout<<"------------------------"<<std::endl;
+    //}
+    //// B => C
+    //else if (CCR_status == CCR_STATUS_B) {
+      //CCR_status = CCR_STATUS_C;
+      //std::cout<<"B => C"<<std::endl;
+    //}
 
+    // (6) state C
     // A => C
     // Pre: Move right when loss contact with ceiling 
-    else if (min_x-prev_max_x <= min_significant_dist_x
-        && cur_avg_y >= cell_center
-        && obstacle_pos_left.empty()==true
-        && (CCR_status == CCR_STATUS_A_DELTA) {
-      CCR_status = CCR_STATUS_C;
-      std::cout<<"A-Delta => C"<<std::endl;
-    }
+    //else if (min_x-prev_max_x <= min_significant_dist_x
+        //&& cur_avg_y >= cell_center
+        //&& obstacle_pos_left.empty()==true
+        //&& (CCR_status == CCR_STATUS_A_DELTA)) {
+      //CCR_status = CCR_STATUS_C;
+      //std::cout<<"A-Delta => C"<<std::endl;
+    //}
  
-    // C => A-Beta
-    else if (CCR_status == CCR_STATUS_C) {
-      std::cout<<"C => A-Beta"<<std::endl;
-      CCR_status = CCR_STATUS_A_BETA;
-      goal_point = make_float2(cur_avg_x, cur_ph_max_y+p.world_size);
-      goal_vector_discrete = GOAL_VECTOR_UP;
-      goal_vector = make_float3(goal_point.x-cur_avg_x,
-          goal_point.y-cur_avg_y, 0.0);
-      prev_max_x = max_x;
-      p.behavior = BEHAVIOR_FLOCKING;
+    //// C => A-Beta
+    //else if (CCR_status == CCR_STATUS_C) {
+      //std::cout<<"C => A-Beta"<<std::endl;
+      //CCR_status = CCR_STATUS_A_BETA;
+      //goal_point = make_float2(cur_avg_x, cur_ph_max_y+p.world_size);
+      //goal_vector_discrete = GOAL_VECTOR_UP;
+      //goal_vector = make_float3(goal_point.x-cur_avg_x,
+          //goal_point.y-cur_avg_y, 0.0);
+      //prev_max_x = max_x;
+      //p.behavior = BEHAVIOR_FLOCKING;
 
-      //complete the previous cell and create a new one
-      CCR_placeholders.pop_back();
-      CCR_placeholders.emplace_back(std::make_tuple(
-            make_float2(cur_avg_x, cur_ph_min_y), 
-            make_float2(cur_avg_x, max_y)));
+      ////complete the previous cell and create a new one
+      //CCR_placeholders.pop_back();
+      //CCR_placeholders.emplace_back(std::make_tuple(
+            //make_float2(cur_avg_x, cur_ph_min_y), 
+            //make_float2(cur_avg_x, max_y)));
 
-      std::cout<<"[CCR_placeholder]"<<std::endl;
-      for (uint i = 0; i < CCR_placeholders.size(); i++) {
-        std::cout<<"Min Y = ("<<std::get<PH_MIN_IDX>(CCR_placeholders[i]).x
-          <<", "<<std::get<PH_MIN_IDX>(CCR_placeholders[i]).y<<")\nMax Y = ("
-          <<std::get<PH_MAX_IDX>(CCR_placeholders[i]).x<<", "
-          <<std::get<PH_MAX_IDX>(CCR_placeholders[i]).y<<")\n";
-      }
-      std::cout<<"^^^^^^^^^^^^^^^"<<std::endl;
-    }
+      //std::cout<<"[CCR_placeholder]"<<std::endl;
+      //for (uint i = 0; i < CCR_placeholders.size(); i++) {
+        //std::cout<<"Min Y = ("<<std::get<PH_MIN_IDX>(CCR_placeholders[i]).x
+          //<<", "<<std::get<PH_MIN_IDX>(CCR_placeholders[i]).y<<")\nMax Y = ("
+          //<<std::get<PH_MAX_IDX>(CCR_placeholders[i]).x<<", "
+          //<<std::get<PH_MAX_IDX>(CCR_placeholders[i]).y<<")\n";
+      //}
+      //std::cout<<"^^^^^^^^^^^^^^^"<<std::endl;
+    //}
 
  
     // 5. When moving in the middle between those waypoints, keep adjust
     // direction adaptively
-    else {
-      //XXX: comment out the goal_vector here will allow human control to overwrite
-      //     autonomous control
+    //else {
+      //XXX: comment out the goal_vector here will 
+      //allow human to control the robot behavior in this "else" block
+      
       //goal_vector = make_float3(goal_point.x-cur_avg_x,
           //goal_point.y-cur_avg_y, 0.0);
       //std::cout<<"middle: goal point=("<<goal_point.x<<", "
@@ -1841,58 +1837,7 @@ static void step(int value)
         //std::cout<<cur_avg_y<<", "<<cur_cell_end_y1<<", "<<cur_cell_end_y2
           //<<", "<<min_significant_dist_y;
         //}
-    }
-
-    //if (CCR_status == CCR_STATUS_A_ALPHA
-        //&& obstacle_pos_front.empty()==false
-        //&& not far enough) {
-      //F
     //}
-    //else if (CCR_status == CCR_STATUS_A_ALPHA
-        //&& obstacle_pos_right.empty()==true) {
-      //D
-    //}
-    //else if (CCR_status == CCR_STATUS_A_BETA
-        //&& obstacle_pos_front.empty()==false
-        //&& not ceiling enough) {
-      //E
-    //}
-    //else if (CCR_status == CCR_STATUS_A_BETA
-        //&& obstacle_pos_front.empty()==true
-        //&& pass ceiling) {
-      //B
-    //}
-    //else if (CCR_status == CCR_STATUS_A_DELTA
-        //&& obstacle_pos_front.empty()==true
-        //&& pass ceiling) {
-      //complete prev cell
-      //create new cell
-    //}
-    //else if B {
-      //check left boundary
-      //complete prev cell
-      //create new cell
-      //C
-    //}
-    //else if C {
-      //go up, add new intervals to find ceil
-      //A
-    //}
-    //else if D {
-      //create place holder
-      //F
-    //}
-    //else if E {
-      //go around to complete prev cell
-      //F
-    //}
-    //else if F {
-      //complete
-    /*}*/
-
-
-
-
     // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 

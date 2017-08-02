@@ -1,3 +1,6 @@
+# Shen: if we print debug msg or draw more info on the screen for debugging
+# or not (1=true, 0=false)
+debug 1
 # Weight given to the align vector
 align_weight 1.0
 # Maximum angular velocity of robots (rad/s)
@@ -31,7 +34,7 @@ max_obstacle_size 25
 noise 0.0
 # Number of obstacles present in the environment
 #num_obstacles 20
-num_obstacles 0
+num_obstacles 2
 # Number of robots in simulation (works best as power of 2)
 num_robots 32
 # Size of robots in GUI

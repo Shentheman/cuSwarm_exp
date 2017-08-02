@@ -129,8 +129,6 @@ float prev_min_y;
 int CCR_status;
 
 
-
-
 /**************************************
 ***** FORWARD DECLARED FUNCTIONS ******
 **************************************/

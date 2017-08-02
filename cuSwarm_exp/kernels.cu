@@ -923,9 +923,12 @@ __device__ void setColorSwarm(uchar4* color, int mode, bool is_ap, uint i,
     *color = make_uchar4(0, 0, 0, 0);
   }
 
-  /// draw extra color for obstacle encounted robots
-  if (p.highlight_pioneers == true && is_obs_encountered == true) {
-    *color = make_uchar4(255, 255, 0, 255);
+  /// Shen: if debug, draw extra color for the robots which have encountered 
+  ///       obstacles in yellow
+  if (p.debug==1.0) {
+    if (p.highlight_pioneers == true && is_obs_encountered == true) {
+      *color = make_uchar4(255, 255, 0, 255);
+    }
   }
 }
 

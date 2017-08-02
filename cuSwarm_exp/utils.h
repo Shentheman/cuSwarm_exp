@@ -183,6 +183,7 @@ typedef unsigned long ulong;
 
 struct Parameters
 {
+  int debug;
   float align_weight;
   float ang_bound;
   uint behavior;
